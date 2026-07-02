@@ -1,0 +1,79 @@
+### ARCHIVO DE PRUEBAS REST (VSCode REST Client)
+### Instala la extensión "REST Client" en VSCode y verás un botón "Send Request" encima de cada URL.
+### Asegúrate de tener el servidor corriendo con: npm run dev (o ts-node src/app.ts)
+
+@baseUrl = http://localhost:3005/api/v1
+
+### ========================================
+### 1. MÓDULO MATERIAL
+### ========================================
+
+### Obtener Tipos de Material
+GET {{baseUrl}}/material/tipos-material
+
+### Obtener Precios de Material
+GET {{baseUrl}}/material/precios-material
+
+### Obtener Tarifas Cálculo
+GET {{baseUrl}}/material/tarifas-calculo
+
+### Obtener Minas
+GET {{baseUrl}}/material/mina/minas
+
+### Obtener Mineros
+GET {{baseUrl}}/material/mina/mineros
+
+### Obtener Zonas
+GET {{baseUrl}}/material/mina/zonas
+
+### Obtener Tarifas por Zona
+GET {{baseUrl}}/material/mina/tarifas-zona
+
+### Obtener Dueños de Volqueta
+GET {{baseUrl}}/material/volqueta/duenos
+
+### Obtener Tipos de Análisis
+GET {{baseUrl}}/material/analisis/tipos
+
+### Obtener Proveedores (Material)
+GET {{baseUrl}}/material/proveedores
+
+
+### ========================================
+### 2. MÓDULO NÓMINA
+### ========================================
+
+### Obtener Plantas
+GET {{baseUrl}}/nomina/plantas
+
+### Obtener Empleados
+GET {{baseUrl}}/nomina/empleados
+
+### Obtener Turnos
+GET {{baseUrl}}/nomina/turnos
+
+### Obtener Tipos de Turno
+GET {{baseUrl}}/nomina/tipos-turno
+
+
+### ========================================
+### 3. MÓDULO PAGOS
+### ========================================
+
+### Obtener Cuentas por Pagar (CxP)
+GET {{baseUrl}}/pagos/cxp
+
+### Obtener Categorías de Cuentas por Pagar (CxP)
+GET {{baseUrl}}/pagos/cxp/categorias
+
+### Obtener Categorías de Cuentas por Cobrar (CxC)
+GET {{baseUrl}}/pagos/cxc/categorias
+
+### Obtener Tipos de Gasto Operativo
+GET {{baseUrl}}/pagos/gastos/tipos
+
+### Obtener Tipos de Alquiler
+GET {{baseUrl}}/pagos/alquileres/tipos
+
+### Obtener Categorías de Proveedor
+GET {{baseUrl}}/pagos/proveedores/categorias

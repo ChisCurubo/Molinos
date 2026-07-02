@@ -1,0 +1,48 @@
+{
+  "name": "molinos",
+  "version": "1.0.0",
+  "description": "Este es el repositorio del servidor backend desarrollado en **Go (Golang)** para **Molinos de Colombia S.A.S.** El objetivo principal de este sistema es centralizar y digitalizar todas las operaciones de la compañía, exponiendo una API REST robusta y escalable que se comunicará con una base de datos relacional y una interfaz frontend moderna.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "npx nodemon --watch src --ext ts --exec \"npx ts-node\" src/app.ts",
+    "build": "npx tsc",
+    "start": "node build/app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChisCurubo/Molinos.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ChisCurubo/Molinos/issues"
+  },
+  "homepage": "https://github.com/ChisCurubo/Molinos#readme",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.11.0",
+    "mysql2": "^3.22.5",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^26.0.1",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
+    "nodemon": "^3.1.14",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}

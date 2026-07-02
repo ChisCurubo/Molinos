@@ -1,0 +1,144 @@
+import { IMinaService } from '../../ports/material/service_port/mina.service.interface';
+import { IMinaRepository } from '../../ports/material/repository_port/mina.repository.interface';
+import { MinaRepository } from '../../repositories/material/mina.repository';
+import { MinaSQL } from '../../models/material/sql/mina.sql';
+import { IMineroService } from '../../ports/material/service_port/mina.service.interface';
+import { IMineroRepository } from '../../ports/material/repository_port/mina.repository.interface';
+import { MineroRepository } from '../../repositories/material/mina.repository';
+import { MineroSQL } from '../../models/material/sql/minero.sql';
+import { IZonaService } from '../../ports/material/service_port/mina.service.interface';
+import { IZonaRepository } from '../../ports/material/repository_port/mina.repository.interface';
+import { ZonaRepository } from '../../repositories/material/mina.repository';
+import { ZonaSQL } from '../../models/material/sql/zona.sql';
+import { ITarifaZonaService } from '../../ports/material/service_port/mina.service.interface';
+import { ITarifaZonaRepository } from '../../ports/material/repository_port/mina.repository.interface';
+import { TarifaZonaRepository } from '../../repositories/material/mina.repository';
+import { TarifaZonaSQL } from '../../models/material/sql/tarifa_zona.sql';
+
+// --- Original: mina ---
+export class MinaService implements IMinaService {
+    private repository: IMinaRepository;
+
+    constructor() {
+        this.repository = new MinaRepository();
+    }
+
+    async create(data: any): Promise<MinaSQL> {
+        const id = await this.repository.create(data);
+        const entity = await this.repository.getById(id);
+        return entity!;
+    }
+
+    async getById(id: number): Promise<MinaSQL | null> {
+        return this.repository.getById(id);
+    }
+
+    async update(id: number, data: any): Promise<MinaSQL | null> {
+        await this.repository.update(id, data);
+        return this.repository.getById(id);
+    }
+
+    async delete(id: number): Promise<boolean> {
+        return this.repository.delete(id);
+    }
+
+    async list(): Promise<MinaSQL[]> {
+        return this.repository.list();
+    }
+}
+
+// --- Original: minero ---
+export class MineroService implements IMineroService {
+    private repository: IMineroRepository;
+
+    constructor() {
+        this.repository = new MineroRepository();
+    }
+
+    async create(data: any): Promise<MineroSQL> {
+        const id = await this.repository.create(data);
+        const entity = await this.repository.getById(id);
+        return entity!;
+    }
+
+    async getById(id: number): Promise<MineroSQL | null> {
+        return this.repository.getById(id);
+    }
+
+    async update(id: number, data: any): Promise<MineroSQL | null> {
+        await this.repository.update(id, data);
+        return this.repository.getById(id);
+    }
+
+    async delete(id: number): Promise<boolean> {
+        return this.repository.delete(id);
+    }
+
+    async list(): Promise<MineroSQL[]> {
+        return this.repository.list();
+    }
+}
+
+// --- Original: zona ---
+export class ZonaService implements IZonaService {
+    private repository: IZonaRepository;
+
+    constructor() {
+        this.repository = new ZonaRepository();
+    }
+
+    async create(data: any): Promise<ZonaSQL> {
+        const id = await this.repository.create(data);
+        const entity = await this.repository.getById(id);
+        return entity!;
+    }
+
+    async getById(id: number): Promise<ZonaSQL | null> {
+        return this.repository.getById(id);
+    }
+
+    async update(id: number, data: any): Promise<ZonaSQL | null> {
+        await this.repository.update(id, data);
+        return this.repository.getById(id);
+    }
+
+    async delete(id: number): Promise<boolean> {
+        return this.repository.delete(id);
+    }
+
+    async list(): Promise<ZonaSQL[]> {
+        return this.repository.list();
+    }
+}
+
+// --- Original: tarifa_zona ---
+export class TarifaZonaService implements ITarifaZonaService {
+    private repository: ITarifaZonaRepository;
+
+    constructor() {
+        this.repository = new TarifaZonaRepository();
+    }
+
+    async create(data: any): Promise<TarifaZonaSQL> {
+        const id = await this.repository.create(data);
+        const entity = await this.repository.getById(id);
+        return entity!;
+    }
+
+    async getById(id: number): Promise<TarifaZonaSQL | null> {
+        return this.repository.getById(id);
+    }
+
+    async update(id: number, data: any): Promise<TarifaZonaSQL | null> {
+        await this.repository.update(id, data);
+        return this.repository.getById(id);
+    }
+
+    async delete(id: number): Promise<boolean> {
+        return this.repository.delete(id);
+    }
+
+    async list(): Promise<TarifaZonaSQL[]> {
+        return this.repository.list();
+    }
+}

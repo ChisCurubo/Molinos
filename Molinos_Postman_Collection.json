@@ -1,0 +1,474 @@
+{
+	"info": {
+		"_postman_id": "c1f2b3a4-5678-90ab-cdef-1234567890ab",
+		"name": "Molinos ERP v4 API",
+		"description": "Colección completa de Endpoints del Backend de Molinos de Colombia S.A.S.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Autenticación y Usuarios",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if(jsonData.token) {",
+									"    pm.collectionVariables.set(\"token\", jsonData.token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"correo\": \"admin@molinos.com\",\n    \"contrasena\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						}
+					}
+				},
+				{
+					"name": "Recuperar Contraseña",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"correo\": \"admin@molinos.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/forgot-password",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"forgot-password"
+							]
+						}
+					}
+				},
+				{
+					"name": "Listar Usuarios",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/usuarios",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"usuarios"
+							]
+						}
+					}
+				},
+				{
+					"name": "Crear Usuario",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"nombres\": \"Nuevo Usuario\",\n    \"correo\": \"nuevo@molinos.com\",\n    \"contrasena\": \"segura123\",\n    \"id_rol\": 1\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/usuarios",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"usuarios"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Materiales (Entradas y Volquetas)",
+			"item": [
+				{
+					"name": "Registrar Llegada (Entrada)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id_vehiculo\": 1,\n    \"numero_volqueta\": \"V-001\",\n    \"id_mina\": 1,\n    \"id_tipo_material\": 1,\n    \"peso_llegada_planta\": 12000.5\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/material/entrada",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"material",
+								"entrada"
+							]
+						}
+					}
+				},
+				{
+					"name": "Listar Entradas",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/material/entradas?limit=100&offset=0",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"material",
+								"entradas"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "100"
+								},
+								{
+									"key": "offset",
+									"value": "0"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Listar Pendientes Laboratorio",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/material/pendientes",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"material",
+								"pendientes"
+							]
+						}
+					}
+				},
+				{
+					"name": "Calcular Precio Simulado",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/material/precio/calcular?idMinero=1&metodo=por_gramo&tenorFalso=15.5&fechaEntrada=2026-06-30",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"material",
+								"precio",
+								"calcular"
+							],
+							"query": [
+								{
+									"key": "idMinero",
+									"value": "1"
+								},
+								{
+									"key": "metodo",
+									"value": "por_gramo"
+								},
+								{
+									"key": "tenorFalso",
+									"value": "15.5"
+								},
+								{
+									"key": "fechaEntrada",
+									"value": "2026-06-30"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Análisis de Laboratorio",
+			"item": [
+				{
+					"name": "Registrar Análisis",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id_entrada\": 1,\n    \"id_tipo_analisis\": 1,\n    \"porcentaje_humedad\": 0.15,\n    \"toneladas_secas\": 10.2,\n    \"au_gr_x_ton_falso\": 15.5\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/material/analisis",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"material",
+								"analisis"
+							]
+						}
+					}
+				},
+				{
+					"name": "Obtener Análisis por Entrada",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/material/analisis/entrada/1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"material",
+								"analisis",
+								"entrada",
+								"1"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Agua Planta",
+			"item": [
+				{
+					"name": "Registrar Viaje Agua",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id_dueno_volqueta\": 2,\n    \"placa\": \"XYZ-123\",\n    \"nombre_conductor\": \"Nelson\",\n    \"valor_viaje\": 50000,\n    \"comentarios\": \"Agua para proceso\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/material/agua",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"material",
+								"agua"
+							]
+						}
+					}
+				},
+				{
+					"name": "Listar Viajes Agua",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/material/agua/viajes",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"material",
+								"agua",
+								"viajes"
+							]
+						}
+					}
+				},
+				{
+					"name": "Resumen por Dueño Agua",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/material/agua/resumen",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"material",
+								"agua",
+								"resumen"
+							]
+						}
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000/api/v1",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
