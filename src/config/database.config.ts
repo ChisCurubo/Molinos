@@ -1,5 +1,5 @@
 import mysql from 'mysql2/promise';
-import dotenv from 'dotenv';
+
 
 import { CONFIG } from './config';
 
@@ -19,6 +19,7 @@ class Database {
                 waitForConnections: true,
                 connectionLimit: 25,
                 queueLimit: 0,
+                charset: 'utf8mb4_0900_ai_ci' // Solución final para sincronizar con la BD
             });
             
             // Verificar la conexión inmediatamente

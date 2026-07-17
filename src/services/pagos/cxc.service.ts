@@ -5,11 +5,7 @@ import { CategoriaCxcSQL } from '../../models/pagos/sql/categoria_cxc.sql';
 
 // --- Original: categoria_cxc ---
 export class CategoriaCxCService implements ICategoriaCxCService {
-    private repository: ICategoriaCxCRepository;
-
-    constructor() {
-        this.repository = new CategoriaCxCRepository();
-    }
+    constructor(private repository: ICategoriaCxCRepository) {}
 
     async create(data: any): Promise<CategoriaCxcSQL> {
         const id = await this.repository.create(data);

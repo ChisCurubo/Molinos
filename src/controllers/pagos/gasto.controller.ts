@@ -4,11 +4,7 @@ import { TipoGastoOperativoService } from '../../services/pagos/gasto.service';
 
 // --- Original: tipo_gasto_operativo ---
 export class TipoGastoOperativoController {
-    private service: ITipoGastoOperativoService;
-
-    constructor() {
-        this.service = new TipoGastoOperativoService();
-    }
+    constructor(private service: ITipoGastoOperativoService) {}
 
     create = async (req: Request, res: Response): Promise<void> => {
         try {

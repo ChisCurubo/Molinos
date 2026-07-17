@@ -8,11 +8,7 @@ import { PrestamoEmpleadoServiceInterface } from '../../ports/nomina/service_por
 
 // --- Original: empleado ---
 export class EmpleadoService implements IEmpleadoService {
-    private repository: IEmpleadoRepository;
-
-    constructor() {
-        this.repository = new EmpleadoRepository();
-    }
+    constructor(private repository: IEmpleadoRepository) {}
 
     async create(data: any): Promise<EmpleadoSQL> {
         const id = await this.repository.create(data);
@@ -40,13 +36,10 @@ export class EmpleadoService implements IEmpleadoService {
 
 // --- Original: prestamo_empleado ---
 export class PrestamoEmpleadoService implements PrestamoEmpleadoServiceInterface {
-    private repo: PrestamoEmpleadoRepositoryInterface;
-    private empleadoRepo: IEmpleadoRepository;
-
-    constructor(repo: PrestamoEmpleadoRepositoryInterface, empleadoRepo: IEmpleadoRepository) {
-        this.repo = repo;
-        this.empleadoRepo = empleadoRepo;
-    }
+    constructor(
+        private repo: PrestamoEmpleadoRepositoryInterface, 
+        private empleadoRepo: IEmpleadoRepository
+    ) {}
 
     async registrarPrestamo(req: Partial<PrestamoEmpleadoSQL>): Promise<PrestamoEmpleadoSQL> {
         if (!req.id_empleado || !req.valor || req.valor <= 0) {
@@ -69,5 +62,11 @@ export class PrestamoEmpleadoService implements PrestamoEmpleadoServiceInterface
 
     async listarPrestamosPorEmpleado(id_empleado: number): Promise<PrestamoEmpleadoSQL[]> {
         return await this.repo.listByEmpleadoSQL(id_empleado);
+    }
+
+    async updatePrestamo(id: number, data: Partial<PrestamoEmpleadoSQL>): Promise<PrestamoEmpleadoSQL | null> {
+        const success = await this.repo.update(id, data);
+        if (!success) return null;
+        return await this.repo.getById(id);
     }
 }

@@ -6,11 +6,7 @@ import { TipoTurnoService } from '../../services/nomina/turno.service';
 
 // --- Original: turno ---
 export class TurnoController {
-    private service: ITurnoService;
-
-    constructor() {
-        this.service = new TurnoService();
-    }
+    constructor(private service: ITurnoService) {}
 
     create = async (req: Request, res: Response): Promise<void> => {
         try {
@@ -65,7 +61,19 @@ export class TurnoController {
 
     list = async (req: Request, res: Response): Promise<void> => {
         try {
-            const results = await this.service.list();
+            const { id_empleado, quincena, mes, anio } = req.query;
+            let results;
+            if (id_empleado && quincena && mes && anio) {
+                results = await this.service.listByEmpleadoAndQuincena(Number(id_empleado), Number(quincena), Number(mes), Number(anio));
+            } else if (id_empleado && mes && anio) {
+                results = await this.service.listByEmpleadoAndMonth(Number(id_empleado), Number(mes), Number(anio));
+            } else if (quincena && mes && anio) {
+                results = await this.service.listByQuincena(Number(quincena), Number(mes), Number(anio));
+            } else if (mes && anio) {
+                results = await this.service.listByMonth(Number(mes), Number(anio));
+            } else {
+                results = await this.service.list();
+            }
             res.status(200).json({ success: true, data: results });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
@@ -75,11 +83,7 @@ export class TurnoController {
 
 // --- Original: tipo_turno ---
 export class TipoTurnoController {
-    private service: ITipoTurnoService;
-
-    constructor() {
-        this.service = new TipoTurnoService();
-    }
+    constructor(private service: ITipoTurnoService) {}
 
     create = async (req: Request, res: Response): Promise<void> => {
         try {

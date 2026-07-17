@@ -1,22 +1,32 @@
-import { MaterialPlantaEntradaSQL } from '../../models/material/sql/material_planta_entrada.sql';
-import { TipoMaterialSQL } from '../../models/material/sql/tipo_material.sql';
-import { PrecioMaterialSQL } from '../../models/material/sql/precio_material.sql';
-import { TarifaCalculoSQL } from '../../models/material/sql/tarifa_calculo.sql';
-import { ProveedorSQL } from '../../models/pagos/sql/proveedor.sql';
+import { MaterialPlantaEntradaSQL } from '../../../models/material/sql/material_planta_entrada.sql';
+import { TipoMaterialSQL } from '../../../models/material/sql/tipo_material.sql';
+import { PrecioMaterialSQL } from '../../../models/material/sql/precio_material.sql';
+import { TarifaCalculoSQL } from '../../../models/material/sql/tarifa_calculo.sql';
+import { ProveedorSQL } from '../../../models/pagos/sql/proveedor.sql';
 
 import { PoolConnection } from 'mysql2/promise';
 
+import { CreateMaterialEntradaDTO, UpdateDesdeAnalisisDTO, UpdatePrecioDTO, UpdateCostosDTO, UpdateCompletoDTO, EntradaMaterial, EstadoEntrada, EstadoPagoFlete } from '../../../models/material/sql/material_planta_entrada.sql';
+
 // --- Original: material_planta_entrada ---
-export interface MaterialPlantaEntradaRepositoryInterface {
-    create(entrada: Partial<MaterialPlantaEntradaSQL>): Promise<MaterialPlantaEntradaSQL>;
-    getById(id: number): Promise<MaterialPlantaEntradaSQL | null>;
-    listAll(): Promise<MaterialPlantaEntradaSQL[]>;
-    update(id: number, entrada: Partial<MaterialPlantaEntradaSQL>): Promise<boolean>;
-    
-    // New transactional methods
-    actualizarFases3a5(id_entrada: number, data: any, conn?: PoolConnection): Promise<void>;
-    listar(fechaDesde: string, fechaHasta: string, estado: string, limit: number, offset: number): Promise<any[]>;
-    listarPendientesLaboratorio(): Promise<any[]>;
+export interface IMaterialEntradaRepository {
+    registrarLlegada(data: CreateMaterialEntradaDTO, conn?: PoolConnection): Promise<number>;
+    obtenerPorId(id: number, conn?: PoolConnection): Promise<EntradaMaterial | null>;
+    listar(fechaDesde: string, fechaHasta: string, estado?: string, limit?: number, offset?: number, conn?: PoolConnection): Promise<any[]>;
+    listarPendientesAnalisis(conn?: PoolConnection): Promise<any[]>;
+    actualizarDesdeAnalisis(id: number, data: UpdateDesdeAnalisisDTO, conn?: PoolConnection): Promise<void>;
+    actualizarPrecio(id: number, data: UpdatePrecioDTO, conn?: PoolConnection): Promise<void>;
+    actualizarCostos(id: number, data: UpdateCostosDTO, conn?: PoolConnection): Promise<void>;
+    actualizarCompleto(id: number, data: UpdateCompletoDTO, conn?: PoolConnection): Promise<void>;
+    resetearCalculos(id: number, conn?: PoolConnection): Promise<void>;
+    actualizarEstado(id: number, estado: EstadoEntrada, conn?: PoolConnection): Promise<void>;
+    actualizarEstadoPagoFlete(id: number, estado: EstadoPagoFlete, conn?: PoolConnection): Promise<void>;
+    cancelar(id: number, motivo: string, conn?: PoolConnection): Promise<void>;
+    listarPorMinero(id_minero: number, conn?: PoolConnection): Promise<any[]>;
+    listarPorMina(id_mina: number, conn?: PoolConnection): Promise<any[]>;
+    listarPorVehiculo(id_vehiculo: number, conn?: PoolConnection): Promise<any[]>;
+    listarPorDueno(id_dueno: number, conn?: PoolConnection): Promise<any[]>;
+    listarPorFecha(fecha: string, conn?: PoolConnection): Promise<any[]>;
 }
 
 // --- Original: tipo_material ---
@@ -38,6 +48,9 @@ export interface IPrecioMaterialRepository {
     
     // Query 2.1 Buscar precio aplicable
     buscarPrecioAplicable(idMinero: number | null, idZona: number | null, metodo: string, tenorFalso: number, fechaEntrada: string, conn?: PoolConnection): Promise<any | null>;
+    
+    // Batch insert
+    insertarLote(precios: Omit<PrecioMaterialSQL, 'id'>[], conn?: PoolConnection): Promise<void>;
 }
 
 // --- Original: tarifa_calculo ---

@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { TipoAlquilerController } from '../../controllers/pagos/alquiler.controller';
+import { factory } from '../../config/factory';
 
 const router = Router();
-const tipoAlquilerController = new TipoAlquilerController();
+const tipoAlquilerController = factory.pagos.getTipoAlquilerController();
 
 // Alquiler
 router.get('/tipos', tipoAlquilerController.list);

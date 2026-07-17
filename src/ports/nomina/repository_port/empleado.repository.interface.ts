@@ -1,5 +1,5 @@
-import { EmpleadoSQL } from '../../models/nomina/sql/empleado.sql';
-import { PrestamoEmpleadoSQL } from '../../models/nomina/sql/prestamo_empleado.sql';
+import { EmpleadoSQL } from '../../../models/nomina/sql/empleado.sql';
+import { PrestamoEmpleadoSQL } from '../../../models/nomina/sql/prestamo_empleado.sql';
 
 // --- Original: empleado ---
 export interface IEmpleadoRepository {
@@ -15,4 +15,5 @@ export interface PrestamoEmpleadoRepositoryInterface {
     create(prestamo: Partial<PrestamoEmpleadoSQL>): Promise<number>;
     getById(id: number): Promise<PrestamoEmpleadoSQL | null>;
     listByEmpleadoSQL(id_empleado: number): Promise<PrestamoEmpleadoSQL[]>;
+    update(id: number, data: Partial<PrestamoEmpleadoSQL>): Promise<boolean>;
 }

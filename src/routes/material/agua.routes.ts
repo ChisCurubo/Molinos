@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { AguaPlantaController } from '../../controllers/material/agua.controller';
+import { factory } from '../../config/factory';
 
 const router = Router();
-const controller = new AguaPlantaController();
+const controller = factory.material.getAguaPlantaController();
 
 /**
  * @swagger
@@ -26,24 +27,28 @@ const controller = new AguaPlantaController();
  *           schema:
  *             type: object
  *             properties:
- *               id_dueno_volqueta:
+ *               id_vehiculo:
  *                 type: integer
- *                 example: 2
- *               placa:
+ *                 example: 1
+ *               fecha:
  *                 type: string
- *                 example: "XYZ-123"
- *               nombre_conductor:
- *                 type: string
- *                 example: "Nelson"
+ *                 example: "2026-07-03"
  *               valor_viaje:
  *                 type: number
  *                 example: 50000
- *               comentarios:
+ *               cantidad_viajes:
+ *                 type: number
+ *                 example: 1
+ *               acpm:
+ *                 type: number
+ *                 example: 0
+ *               comprobante_url:
  *                 type: string
- *                 example: "Viaje de agua para proceso"
+ *                 example: "https://ejemplo.com/recibo.png"
  *     responses:
  *       201:
  *         description: Viaje de agua registrado
+ *           
  */
 router.post('/', controller.registrar);
 
@@ -74,5 +79,64 @@ router.get('/viajes', controller.listar);
  *         description: Totales de viajes y dinero adeudado por dueño
  */
 router.get('/resumen', controller.resumenPorDueno);
+
+/**
+ * @swagger
+ * /material/agua/dueno/{id_dueno}:
+ *   get:
+ *     summary: Obtener resumen y viajes de agua por dueño
+ *     tags: [Agua Planta]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id_dueno
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Resumen y lista de viajes del dueño
+ */
+router.get('/dueno/:id_dueno', controller.obtenerPorDueno);
+
+/**
+ * @swagger
+ * /material/agua/{id}:
+ *   put:
+ *     summary: Actualizar un viaje de agua (recalcula valor total)
+ *     tags: [Agua Planta]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               valor_viaje:
+ *                 type: number
+ *                 description: Opcional
+ *               cantidad_viajes:
+ *                 type: number
+ *                 description: Opcional
+ *               acpm:
+ *                 type: number
+ *                 description: Opcional
+ *               comprobante_url:
+ *                 type: string
+ *                 description: Opcional
+ *     responses:
+ *       200:
+ *         description: Viaje de agua actualizado
+ */
+router.put('/:id', controller.actualizar);
 
 export default router;

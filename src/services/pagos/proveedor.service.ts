@@ -5,11 +5,7 @@ import { CategoriaProveedorSQL } from '../../models/pagos/sql/categoria_proveedo
 
 // --- Original: categoria_proveedor ---
 export class CategoriaProveedorService implements ICategoriaProveedorService {
-    private repository: ICategoriaProveedorRepository;
-
-    constructor() {
-        this.repository = new CategoriaProveedorRepository();
-    }
+    constructor(private repository: ICategoriaProveedorRepository) {}
 
     async create(data: any): Promise<CategoriaProveedorSQL> {
         const id = await this.repository.create(data);

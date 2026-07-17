@@ -1,11 +1,11 @@
-import { RowDataPacket } from 'mysql2/promise';
-import Database from '../../config/database.config';
+import { RowDataPacket, Pool } from 'mysql2/promise';
 import { RolSQL } from '../../models/auth/sql/rol.sql';
 
 export class RolRepository {
+    constructor(private db: Pool) {}
+
     async getById(id: number): Promise<RolSQL | null> {
-        const db = Database.getInstance();
-        const [rows] = await db.query<RowDataPacket[]>('SELECT * FROM Roles WHERE id = ?', [id]);
+        const [rows] = await this.db.query<RowDataPacket[]>('SELECT * FROM Roles WHERE id = ?', [id]);
         
         if (rows.length === 0) {
             return null;
@@ -15,8 +15,7 @@ export class RolRepository {
     }
 
     async list(): Promise<RolSQL[]> {
-        const db = Database.getInstance();
-        const [rows] = await db.query<RowDataPacket[]>('SELECT * FROM Roles');
+        const [rows] = await this.db.query<RowDataPacket[]>('SELECT * FROM Roles');
         return rows as RolSQL[];
     }
 }

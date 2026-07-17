@@ -3,11 +3,7 @@ import { IUsuarioService } from '../../ports/auth/service_port/usuario.service.i
 import { UsuarioService } from '../../services/auth/usuario.service';
 
 export class UsuarioController {
-    private usuarioService: IUsuarioService;
-
-    constructor() {
-        this.usuarioService = new UsuarioService();
-    }
+    constructor(private usuarioService: IUsuarioService) {}
 
     create = async (req: Request, res: Response): Promise<void> => {
         try {

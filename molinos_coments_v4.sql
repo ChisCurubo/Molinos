@@ -24,7 +24,7 @@
 
 CREATE DATABASE IF NOT EXISTS molinos_erp_v4
     DEFAULT CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
+    COLLATE utf8mb4_0900_ai_ci; -- Cambio clave para evitar conflictos de collation
 USE molinos_erp_v4;
 
 SET FOREIGN_KEY_CHECKS = 0;
@@ -160,7 +160,6 @@ INSERT INTO Categorias_CxP (nombre, descripcion, color) VALUES
 ('Material',              'Pago al minero por el material entregado',           '#1D9E75'),
 ('Flete volqueta',        'Pago al dueño de volqueta por el acarreo',           '#0F6E56'),
 ('Deuda proveedor',       'Abono a deuda histórica de un tercero',              '#E24B4A'),
-('Maquila',               'Pago a planta externa por procesamiento',            '#378ADD'),
 ('Cargue',                'Pago por servicio de cargue',                        '#7F77DD'),
 ('Báscula',               'Pago por pesaje en báscula',                         '#7F77DD'),
 ('Combustible',           'Pago a la gasolinera (ACPM/gasolina)',               '#D85A30'),
@@ -694,6 +693,7 @@ CREATE TABLE Historial_Descuentos_Anticipos (
 CREATE TABLE Analisis (
     id                 INT           AUTO_INCREMENT PRIMARY KEY  COMMENT 'Identificador único del análisis de laboratorio',
     id_entrada         INT           NULL                        COMMENT 'Entrada de material analizada. NULL si es un análisis de muestra compuesta sin entrada asociada — ver material_planta_entrada',
+    id_material_concentrado INT           NULL                        COMMENT 'Lote de concentrado analizado (tabla de Ginna con tenores del concentrado). NULL si es analisis de materia prima. Mutuamente exclusivo con id_entrada — ver material_concentrado',
     id_tipo_analisis   INT           NOT NULL                    COMMENT 'Tipo de análisis (Cabeza, Concentrado, Colas, etc.) — ver Tipos_Analisis',
     id_mina            INT           NULL                        COMMENT 'Mina de origen. Solo requerida si id_entrada IS NULL (análisis sin entrada directa) — ver Mina',
     id_minero          INT           NULL                        COMMENT 'Minero asociado. Solo requerido si id_entrada IS NULL — ver Minero',
@@ -707,7 +707,7 @@ CREATE TABLE Analisis (
     toneladas_humedas  DECIMAL(10,4)                             COMMENT 'Peso total con humedad en toneladas, certificado por el laboratorio',
     toneladas_secas    DECIMAL(10,4)                             COMMENT 'Peso seco certificado por el laboratorio en toneladas. Dato oficial para el cálculo del pago al minero.',
     au_gr_x_ton        DECIMAL(10,4)                             COMMENT 'Tenor de Au certificado: gramos de Au por tonelada seca (gr Au/ton). Define el precio/gramo a aplicar.',
-    au_gr_x_ton_falso  DECIMAL(10,4) NULL                        COMMENT 'Tenor de Au ajustado para mostrar al minero (generalmente menor al real). Aplica cuando hay acuerdo de no revelar el tenor completo.',
+    au_falso           DECIMAL(10,4) NULL                        COMMENT 'Tenor de Au ajustado para mostrar al minero (generalmente menor al real). Aplica cuando hay acuerdo de no revelar el tenor completo.',
     ag_gr_x_ton        DECIMAL(10,4)                             COMMENT 'Tenor de Ag certificado: gramos de Ag por tonelada seca (gr Ag/ton)',
     valor_analisis     DECIMAL(14,2) NULL                        COMMENT 'Costo cobrado por el laboratorio en pesos. Se paga como CxP categoría Análisis.',
     estado_pago        ENUM('pendiente','parcial','pagado','no_aplica') NOT NULL DEFAULT 'no_aplica'
@@ -725,9 +725,18 @@ CREATE TABLE Analisis (
         id_entrada IS NOT NULL
         OR (id_mina IS NOT NULL AND id_tipo_material IS NOT NULL)
     ),
-    INDEX idx_analisis_entrada (id_entrada)
+    INDEX idx_analisis_entrada (id_entrada),
+    FOREIGN KEY (id_material_concentrado) REFERENCES material_concentrado(id)
 ) COMMENT='Resultados de laboratorio por entrada de material. El tipo Cabeza es el oficial que define tenor y humedad para el pago al minero. Ver v_analisis_completo para datos siempre resueltos con referencias completas.';
+-- 1. Borramos la regla antigua
+ALTER TABLE analisis DROP CHECK chk_analisis_refs;
 
+-- 2. Creamos la regla actualizada incluyendo el nuevo flujo de concentrado
+ALTER TABLE analisis ADD CONSTRAINT chk_analisis_refs CHECK (
+    id_entrada IS NOT NULL
+    OR id_material_concentrado IS NOT NULL
+    OR (id_mina IS NOT NULL AND id_tipo_material IS NOT NULL)
+);
 
 -- ====================================================================
 --  MÓDULO 8 · AGUA Y MULAS
@@ -768,15 +777,126 @@ CREATE TABLE Mulas (
 
 
 -- ====================================================================
---  MÓDULO 9 · VIAJES Y MAQUILA
+--  MÓDULO 9 · VIAJES Y PROCESAMIENTO
 -- ====================================================================
+
+
+-- ====================================================================
+--  MÓDULO 9B · TARIFAS Y PROCESAMIENTO DE CONCENTRADO
+-- ====================================================================
+
+CREATE TABLE tarifas_proceso (
+    id          INT           AUTO_INCREMENT PRIMARY KEY
+                COMMENT 'Identificador único de la tarifa',
+    codigo      VARCHAR(30)   NOT NULL
+                COMMENT 'Código que usan los triggers para leer la tarifa. '
+                        'PROCESO_NORMAL = molienda+flotacion+filtroprensa ($400k/ton). '
+                        'PROCESO_RELAVE = +relave ($560k/ton). '
+                        'SOLO_FILTROPRENSA = solo filtroprensa ($100k/ton). '
+                        'UMBRAL_FILTROPRENSA = % humedad de referencia',
+    descripcion VARCHAR(150)  NULL
+                COMMENT 'Descripción legible para pantalla y reportes',
+    valor       DECIMAL(14,4) NOT NULL
+                COMMENT 'Valor de la tarifa. COP/ton o decimal según unidad',
+    unidad      VARCHAR(20)   NOT NULL DEFAULT 'COP/ton'
+                COMMENT 'Unidad del valor: COP/ton para precios, porcentaje para umbrales',
+    fecha_desde DATE          NOT NULL
+                COMMENT 'Fecha desde que aplica esta tarifa',
+    fecha_hasta DATE          NULL
+                COMMENT 'Fecha hasta que fue válida. NULL = aún vigente',
+    activo      TINYINT(1)    NOT NULL DEFAULT 1
+                COMMENT '1=vigente usada por triggers. 0=histórica. NUNCA borrar filas',
+    created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_tarifa_codigo_activo (codigo, activo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Tarifas de maquila y parámetros del proceso de concentración. Similar a Precio_Material pero para costos de procesamiento. 
+  Para actualizar anualmente: desactivar vigente e insertar nueva. Triggers usan: WHERE codigo=X AND activo=1 ORDER BY fecha_desde DESC LIMIT 1';
+
+INSERT INTO tarifas_proceso (codigo, descripcion, valor, unidad, fecha_desde) VALUES
+('PROCESO_NORMAL',     'Molienda + Flotacion + Filtroprensa',                   400000, 'COP/ton',    CURDATE()),
+('PROCESO_RELAVE',     'Molienda + Flotacion + Relave + Filtroprensa',           560000, 'COP/ton',    CURDATE()),
+('SOLO_FILTROPRENSA',  'Solo Filtroprensa (concentrado comprado o alta humedad)', 100000, 'COP/ton',    CURDATE()),
+('UMBRAL_FILTROPRENSA','Humedad minima de referencia para filtroprensa',             0.15, 'porcentaje', CURDATE());
+
+
+CREATE TABLE material_concentrado (
+    id                     int(11)       NOT NULL AUTO_INCREMENT
+                           COMMENT 'Identificador único del lote de concentrado',
+    codigo                 VARCHAR(30)   NOT NULL
+                           COMMENT 'Código interno del lote (Ej: LC-2026-001)',
+    fecha_inicio           DATE          NULL
+                           COMMENT 'Fecha en que el primer material entró al molino',
+    fecha_fin              DATE          NULL
+                           COMMENT 'Fecha en que salió el concentrado del filtroprensa. NULL si aún en proceso',
+    hizo_molienda          TINYINT(1)    NOT NULL DEFAULT 0,
+    hizo_flotacion         TINYINT(1)    NOT NULL DEFAULT 0,
+    hizo_relave            TINYINT(1)    NOT NULL DEFAULT 0,
+    hizo_filtroprensa      TINYINT(1)    NOT NULL DEFAULT 0,
+    toneladas_humedo       DECIMAL(10,4) NULL
+                           COMMENT 'Toneladas húmedas del concentrado al salir del proceso',
+    porcentaje_humedad     DECIMAL(6,4)  NULL
+                           COMMENT 'Humedad del concentrado (Ej: 0.1300 = 13%)',
+    toneladas_seco         DECIMAL(10,4) NULL
+                           COMMENT 'Toneladas secas = toneladas_humedo × (1 - porcentaje_humedad). '
+                                   'Base para calcular maquila y para la tabla de Ginna',
+	material_seco_procesado DECIMAL(10,4) NULL COMMENT 'Total toneladas secas materia prima. Útil para calcular merma.',
+    merma_seco             DECIMAL(10,4) DEFAULT 0.0000
+                           COMMENT 'Toneladas secas perdidas en el proceso (polvo, derrames, etc.). '
+                                   'Se descuenta del disponible real.',
+    toneladas_disponibles  DECIMAL(10,4) NOT NULL DEFAULT 0
+                           COMMENT 'Concentrado seco disponible en planta DESPUÉS de descontar la merma y los viajes. '
+                                   'Se actualiza manualmente o con un procedimiento, ya que el trigger de viaje fue eliminado.',
+    ubicacion_canoa        VARCHAR(100)  NULL,
+    precio_maquila_por_ton DECIMAL(14,2) NULL,
+    maquila_total          DECIMAL(14,2) NULL,
+    estado                 ENUM('en_proceso','en_canoa','parcialmente_enviado','enviado_completo')
+                           NOT NULL DEFAULT 'en_proceso',
+    comentarios            TEXT          NULL,
+    created_at             TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+    updated_at             TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Lote de concentrado. La disponibilidad física ahora debe calcularse como:
+           toneladas_seco - merma_seco - SUM(viaje_material.concentrado_seco).';
+
+
+CREATE TABLE procesamiento_material (
+    id                       int(11)       NOT NULL AUTO_INCREMENT
+                             COMMENT 'Identificador único del vínculo entrada-concentrado',
+    id_material_concentrado  int(11)       NOT NULL
+                             COMMENT 'Lote al que aportó este material — ver material_concentrado. N filas por lote',
+    id_entrada               int(11)       NOT NULL
+                             COMMENT 'Camión (entrada) que fue al proceso — ver material_planta_entrada',
+    toneladas_aportadas      DECIMAL(10,4) NOT NULL
+                             COMMENT 'Toneladas brutas de esta entrada que entraron al molino',
+    toneladas_seco_aportadas DECIMAL(10,4) NULL
+                             COMMENT 'Toneladas secas = toneladas_aportadas × (1 - pct_humedad). '
+                                     'Base para la distribución proporcional',
+    concentrado_proporcional DECIMAL(10,4) NULL
+                             COMMENT 'Toneladas de concentrado que corresponden a esta entrada. '
+                                     'Calculado por trigger al cerrar el lote: '
+                                     '(ton_seco_aportadas / total_seco_lote) × toneladas_seco',
+    maquila_proporcional     DECIMAL(14,2) NULL
+                             COMMENT 'Costo de maquila de esta entrada en pesos. '
+                                     'Calculado por trigger: (ton_seco_aportadas / total_seco_lote) × maquila_total. '
+                                     'Propagado a material_planta_entrada.costo_maquila',
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_conc_ent (id_material_concentrado, id_entrada),
+    KEY fk_pm_mc_idx  (id_material_concentrado),
+    KEY fk_pm_ent_idx (id_entrada),
+    CONSTRAINT fk_pm_mc      FOREIGN KEY (id_material_concentrado) REFERENCES material_concentrado(id),
+    CONSTRAINT fk_pm_entrada FOREIGN KEY (id_entrada)              REFERENCES material_planta_entrada(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Tabla puente: que entradas (camiones) alimentaron cada lote de concentrado. 
+  Al INSERT un camion: trigger marca inventario en_proceso y kardex SALIDA_PROCESO. Al cerrar el lote: trigger calcula concentrado_proporcional y maquila_proporcional.';
 
 CREATE TABLE Viaje (
     id                   INT           AUTO_INCREMENT PRIMARY KEY  COMMENT 'Identificador único del viaje',
     numero_viaje         VARCHAR(20)   NOT NULL                    COMMENT 'Código del viaje según nomenclatura de Transfigura (Ej: 11-1, 11-2, 12-3). Formato: semana-consecutivo.',
     fecha                DATE          NOT NULL                    COMMENT 'Fecha de salida del material de la planta hacia Barranquilla',
     total_costo_material DECIMAL(14,2)                             COMMENT 'Suma del costo de todo el material incluido en el viaje (sum de precio_total de cada entrada)',
-    maquila              DECIMAL(14,2)                             COMMENT 'Costo total de procesamiento externo (maquila) del viaje en Barranquilla',
+    maquila              DECIMAL(14,2)                             COMMENT 'Costo total de maquila del viaje. Calculado como SUMA de viaje_material.costo_maquila. Actualizado por trg_after_insert_viaje_material al asignar concentrado al viaje. El costo de maquila nace en material_concentrado al cerrar el batch (en_proceso->en_canoa)',
     total_viaje          DECIMAL(14,2)                             COMMENT 'Costo total del viaje: material + maquila + otros gastos asociados',
     au_promedio_compra   DECIMAL(10,4)                             COMMENT 'Precio promedio ponderado de compra de Au en pesos por gramo, calculado sobre todas las entradas del viaje',
     tenor_au_venta       DECIMAL(10,4)                             COMMENT 'Tenor de Au al momento de venta en Barranquilla en gr/ton, certificado por el comprador',
@@ -800,45 +920,45 @@ ALTER TABLE Gasto_Operativo
 
 
 CREATE TABLE viaje_material (
-    id                       INT           AUTO_INCREMENT PRIMARY KEY  COMMENT 'Identificador único del registro de participación de una entrada en un viaje',
-    id_viaje                 INT           NOT NULL                    COMMENT 'Viaje al que pertenece esta entrada — ver Viaje',
-    id_entrada               INT           NOT NULL                    COMMENT 'Entrada de material incluida en este viaje — ver material_planta_entrada',
-    es_remanente             BOOLEAN       NOT NULL DEFAULT FALSE      COMMENT 'Indica si este material fue costeado en un viaje anterior y se incluye aquí como remanente (1=sí, 0=material nuevo)',
-    id_viaje_origen          INT           NULL                        COMMENT 'Viaje en que se costeó originalmente este remanente. NULL si es material nuevo del viaje actual.',
-    concepto                 VARCHAR(150)                              COMMENT 'Descripción del lote incluido (Ej: Omar volq 6 mina80 viaje 11.1, Concentrado Naum MINA 30)',
-    total_material           DECIMAL(10,4)                             COMMENT 'Toneladas del lote de esta entrada incluidas en el viaje',
-    total_concentrado_humedo DECIMAL(10,4)                             COMMENT 'Toneladas de concentrado húmedo que esta entrada aporta al viaje',
-    porcentaje_humedad       DECIMAL(6,4)                              COMMENT 'Porcentaje de humedad del material en el momento del despacho al viaje',
-    peso_humedad             DECIMAL(10,4)                             COMMENT 'Toneladas de agua contenidas en el concentrado húmedo aportado por esta entrada',
-    concentrado_seco         DECIMAL(10,4)                             COMMENT 'Toneladas de concentrado seco efectivo. Base para distribución proporcional del costo de maquila.',
-    costo_maquila            DECIMAL(14,2) NULL                        COMMENT 'Costo de maquila asignado a esta entrada = (concentrado_seco / total_viaje) × Maquila.valor_total. Actualizado por trigger.',
-    valor_total_con_gastos   DECIMAL(14,2)                             COMMENT 'Valor total de esta entrada en el viaje, incluyendo todos sus costos operativos',
+    id                       INT           AUTO_INCREMENT PRIMARY KEY  COMMENT 'Identificador único del registro de participación de un lote de concentrado en un viaje',
+    id_viaje                 INT           NOT NULL                    COMMENT 'Viaje al que pertenece esta línea — ver Viaje',
+    id_material_concentrado  INT           NULL                        COMMENT 'Lote de concentrado incluido en este viaje — ver material_concentrado. '
+                                                                               'Al INSERT, el trigger decrementa toneladas_disponibles del lote y actualiza kardex e inventario',
+    es_remanente             BOOLEAN       NOT NULL DEFAULT FALSE      COMMENT 'Indica si este concentrado fue costeado (maquila) en un viaje anterior. '
+                                                                               '1=remanente (costo_maquila=0 aquí). 0=material nuevo de este viaje',
+    id_viaje_origen          INT           NULL                        COMMENT 'Viaje en que se costeó originalmente este remanente. NULL si es material nuevo del viaje actual',
+    concepto                 VARCHAR(150)                              COMMENT 'Descripción del lote (Ej: LC-2026-001 Omar Mina80, Concentrado Naum nv=3,4)',
+    total_material           DECIMAL(10,4)                             COMMENT 'Toneladas brutas del lote incluidas en el viaje',
+    total_concentrado_humedo DECIMAL(10,4)                             COMMENT 'Toneladas de concentrado húmedo que este lote aporta al viaje',
+    porcentaje_humedad       DECIMAL(6,4)                              COMMENT 'Porcentaje de humedad del concentrado al momento del despacho (Ej: 0.13 = 13%)',
+    peso_humedad             DECIMAL(10,4)                             COMMENT 'Toneladas de agua en el concentrado húmedo aportado por este lote',
+    concentrado_seco         DECIMAL(10,4)                             COMMENT 'Toneladas de concentrado seco efectivo de este lote en el viaje. '
+                                                                               'Base para el cálculo proporcional de la maquila',
+    -- Costos
+    costo_maquila            DECIMAL(14,2) NULL                        COMMENT 'Costo de maquila de este lote = (concentrado_seco / mc.toneladas_seco) × mc.maquila_total. '
+                                                                               'Calculado por trigger al insertar. '
+                                                                               'Es 0 si es_remanente=1 (ya se costeó en el viaje de origen). '
+                                                                               'Es 0 si es concentrado comprado sin proceso (a menos que hizo_filtroprensa=1)',
+    valor_total_con_gastos   DECIMAL(14,2)                             COMMENT 'Valor total de este lote en el viaje incluyendo todos sus costos operativos',
+    -- Detalle de Au y Ag por lote (para reportes y liquidación)
+    au_promedio_compra       DECIMAL(10,4) NULL                        COMMENT 'Precio promedio ponderado de compra de Au en pesos por gramo para este lote. '
+                                                                               'Calculado por el backend desde procesamiento_material → material_planta_entrada',
+    tenor_au_venta           DECIMAL(10,4) NULL                        COMMENT 'Tenor de Au del concentrado en gr/ton (del analisis de Ginna vinculado al material_concentrado). '
+                                                                               'El que Transfigura usa para liquidar',
+    total_grs_au_venta       DECIMAL(10,4) NULL                        COMMENT 'Total gramos de Au de este lote = concentrado_seco × tenor_au_venta. '
+                                                                               'Gramos que Transfigura reconoce de este lote',
+    tenor_ag                 DECIMAL(10,4) NULL                        COMMENT 'Tenor de Ag del concentrado en gr/ton (del analisis de Ginna)',
+    total_grs_ag_venta       DECIMAL(10,4) NULL                        COMMENT 'Total gramos de Ag de este lote = concentrado_seco × tenor_ag',
     created_at               TIMESTAMP     DEFAULT CURRENT_TIMESTAMP  COMMENT 'Fecha y hora de creación del registro',
-    UNIQUE KEY uq_viaje_material (id_viaje, id_entrada),
-    FOREIGN KEY (id_viaje)        REFERENCES Viaje(id),
-    FOREIGN KEY (id_entrada)      REFERENCES material_planta_entrada(id),
-    FOREIGN KEY (id_viaje_origen) REFERENCES Viaje(id),
-    INDEX idx_vm_entrada (id_entrada),
-    INDEX idx_vm_viaje   (id_viaje)
-) COMMENT='Entradas de material que componen cada viaje. costo_maquila se distribuye proporcionalmente por concentrado_seco al cerrar la Maquila del viaje (trigger trg_after_close_maquila).';
+    FOREIGN KEY (id_viaje)               REFERENCES Viaje(id),
+    FOREIGN KEY (id_material_concentrado) REFERENCES material_concentrado(id),
+    FOREIGN KEY (id_viaje_origen)        REFERENCES Viaje(id),
+    INDEX idx_vm_viaje (id_viaje),
+    INDEX idx_vm_mc    (id_material_concentrado)
+) COMMENT='Lotes de concentrado que componen cada viaje. Cada fila es un lote de material_concentrado asignado al viaje. 
+Flujo: el trigger BEFORE INSERT calcula costo_maquila; el trigger AFTER INSERT actualiza inventario, kardex y viaje.maquila.El Au/Ag detail (tenor_au_venta, etc.) lo llena el backend desde el analisis de Ginna.';
 
 
-CREATE TABLE Maquila (
-    id                  INT           AUTO_INCREMENT PRIMARY KEY  COMMENT 'Identificador único del registro de maquila',
-    id_viaje            INT           NOT NULL                    COMMENT 'Viaje al que corresponde este costo de procesamiento — ver Viaje',
-    descripcion         VARCHAR(255)  NULL                        COMMENT 'Tipo de procesamiento o nombre de la planta externa (Ej: Procesamiento Barranquilla, Planta Transfigura)',
-    total_material      DECIMAL(10,4) NOT NULL                    COMMENT 'Toneladas secas del viaje usadas como base para calcular el costo de maquila',
-    precio_por_tonelada DECIMAL(14,2) NOT NULL DEFAULT 300000     COMMENT 'Tarifa pactada en pesos por tonelada seca para el procesamiento externo (por defecto $300.000/ton)',
-    peso_humedad        DECIMAL(10,4)                             COMMENT 'Toneladas de humedad descontadas del peso bruto del viaje para llegar al material seco base',
-    valor_total_maquila DECIMAL(14,2)                             COMMENT 'Costo total de procesamiento = total_material × precio_por_tonelada. Se distribuye en viaje_material.costo_maquila.',
-    estado              ENUM('pendiente','pagado','anulado') NOT NULL DEFAULT 'pendiente'
-                        COMMENT 'Estado del pago de la maquila: pendiente=sin pagar, pagado=cancelado completamente, anulado=maquila cancelada',
-    created_at          TIMESTAMP     DEFAULT CURRENT_TIMESTAMP  COMMENT 'Fecha y hora de creación del registro',
-    updated_at          TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                        COMMENT 'Fecha y hora de la última actualización del registro',
-    FOREIGN KEY (id_viaje) REFERENCES Viaje(id),
-    INDEX idx_maquila_estado (estado)
-) COMMENT='Costo operativo de procesamiento externo por viaje. El valor total se distribuye proporcionalmente en viaje_material.costo_maquila al cerrar la maquila (trigger trg_after_close_maquila).';
 
 
 CREATE TABLE Peso_Final_Transfigura (
@@ -867,9 +987,10 @@ CREATE TABLE Peso_Final_Transfigura (
 
 CREATE TABLE Inventario_Lotes (
     id                    INT           AUTO_INCREMENT PRIMARY KEY  COMMENT 'Identificador único del lote de inventario en planta',
-    id_entrada            INT           NOT NULL                    COMMENT 'Entrada de material que origina este lote — ver material_planta_entrada',
-    id_mina               INT           NOT NULL                    COMMENT 'Mina de origen del lote (desnormalizado para consultas rápidas sin JOIN adicional) — ver Mina',
-    id_tipo_material      INT           NOT NULL                    COMMENT 'Tipo de material del lote (Concentrado, Roca, etc.) — ver Tipos_Material',
+    id_entrada            INT           NULL                    COMMENT 'Entrada de material que origina este lote de materia prima. NULL para lotes de concentrado — ver material_planta_entrada',
+    id_material_concentrado INT           NULL                        COMMENT 'Lote de concentrado que origina este registro. NULL para lotes de materia prima. Mutuamente exclusivo con id_entrada — ver material_concentrado',
+    id_mina               INT           NULL                    COMMENT 'Mina de origen del lote. NULL para lotes de concentrado (pueden ser mezcla de minas) — ver Mina',
+    id_tipo_material      INT           NULL                    COMMENT 'Tipo de material del lote. NULL para lotes de concentrado — ver Tipos_Material',
     condicion_material    ENUM('Humedo','Seco') NOT NULL            COMMENT 'Condición física del material al momento de su ingreso al inventario de planta',
     porcentaje_humedad    DECIMAL(5,4)  DEFAULT 0.0000              COMMENT 'Porcentaje de humedad del lote al ingresar al inventario (Ej: 0.1500 = 15.00%)',
     toneladas_iniciales   DECIMAL(10,4) NOT NULL                    COMMENT 'Toneladas con las que ingresó el lote. Este campo no cambia; es el registro histórico de la cantidad inicial.',
@@ -879,6 +1000,7 @@ CREATE TABLE Inventario_Lotes (
     ubicacion             VARCHAR(100)  NULL                        COMMENT 'Ubicación física dentro de la planta donde está almacenado el lote (Ej: Patio norte, Bodega 2, Canoa 3)',
     fecha_ingreso         DATETIME      DEFAULT CURRENT_TIMESTAMP  COMMENT 'Fecha y hora en que el lote ingresó formalmente al inventario de planta',
     FOREIGN KEY (id_entrada)       REFERENCES material_planta_entrada(id),
+    FOREIGN KEY (id_material_concentrado) REFERENCES material_concentrado(id),
     FOREIGN KEY (id_mina)          REFERENCES Mina(id),
     FOREIGN KEY (id_tipo_material) REFERENCES Tipos_Material(id),
     INDEX idx_inv_entrada    (id_entrada),
@@ -890,7 +1012,7 @@ CREATE TABLE Kardex_Movimientos (
     id                 INT           AUTO_INCREMENT PRIMARY KEY  COMMENT 'Identificador único e inmutable del movimiento de inventario',
     id_lote            INT           NOT NULL                    COMMENT 'Lote de inventario afectado por este movimiento — ver Inventario_Lotes',
     fecha              DATETIME      DEFAULT CURRENT_TIMESTAMP  COMMENT 'Fecha y hora exacta del movimiento de material',
-    tipo_movimiento    ENUM('ENTRADA_PLANTA','SALIDA_PROCESO','SALIDA_VIAJE','AJUSTE_MERMA') NOT NULL
+    tipo_movimiento    ENUM('ENTRADA_PLANTA','SALIDA_PROCESO','ENTRADA_CONCENTRADO','SALIDA_VIAJE','AJUSTE_MERMA') NOT NULL
                        COMMENT 'Tipo: ENTRADA_PLANTA=llegada de material a planta, SALIDA_PROCESO=ingresa a molienda, SALIDA_VIAJE=despacho a Barranquilla, AJUSTE_MERMA=corrección por diferencia física',
     toneladas_movidas  DECIMAL(10,4) NOT NULL                    COMMENT 'Toneladas involucradas en el movimiento (siempre positivo). La dirección la define tipo_movimiento.',
     destino_referencia VARCHAR(100)                              COMMENT 'A dónde fue el material o por qué se movió (Ej: Viaje 11-1, Molienda Turno Mañana, Ajuste secado)',
@@ -973,7 +1095,6 @@ CREATE TABLE Cuentas_Por_Pagar_Relacion (
     id_combustible      INT           NULL                        COMMENT 'Registro de combustible asociado (pago a la gasolinera) — ver Combustible',
     id_prestamo_emp     INT           NULL                        COMMENT 'Préstamo a empleado asociado (desembolso) — ver Prestamos_Empleados',
     id_prestamo_fin     INT           NULL                        COMMENT 'Préstamo financiero asociado (abono a banco o fondo de inversión) — ver Prestamos_Financieros',
-    id_maquila          INT           NULL                        COMMENT 'Maquila asociada (pago por procesamiento externo del viaje) — ver Maquila',
     id_deposito         INT           NULL                        COMMENT 'Depósito asociado (fondeo de la caja menor de planta) — ver Deposito',
     id_anticipo         INT           NULL                        COMMENT 'Anticipo a tercero asociado (desembolso del anticipo) — ver Anticipos_Terceros',
     id_agua             INT           NULL                        COMMENT 'Suministro de agua asociado (pago al transportador de agua) — ver Agua_Planta',
@@ -995,7 +1116,6 @@ CREATE TABLE Cuentas_Por_Pagar_Relacion (
     FOREIGN KEY (id_combustible)  REFERENCES Combustible(id),
     FOREIGN KEY (id_prestamo_emp) REFERENCES Prestamos_Empleados(id),
     FOREIGN KEY (id_prestamo_fin) REFERENCES Prestamos_Financieros(id),
-    FOREIGN KEY (id_maquila)      REFERENCES Maquila(id),
     FOREIGN KEY (id_deposito)     REFERENCES Deposito(id),
     FOREIGN KEY (id_anticipo)     REFERENCES Anticipos_Terceros(id),
     FOREIGN KEY (id_agua)         REFERENCES Agua_Planta(id),
@@ -1006,8 +1126,7 @@ CREATE TABLE Cuentas_Por_Pagar_Relacion (
     CONSTRAINT chk_cxpr_exactamente_uno CHECK (
         (id_entrada      IS NOT NULL) + (id_viaje        IS NOT NULL) +
         (id_alquiler     IS NOT NULL) + (id_combustible   IS NOT NULL) +
-        (id_prestamo_emp IS NOT NULL) + (id_prestamo_fin  IS NOT NULL) +
-        (id_maquila      IS NOT NULL) + (id_deposito      IS NOT NULL) +
+        (id_prestamo_emp IS NOT NULL) + (id_prestamo_fin  IS NOT NULL) + (id_deposito      IS NOT NULL) +
         (id_anticipo     IS NOT NULL) + (id_agua          IS NOT NULL) +
         (id_mula         IS NOT NULL) + (id_analisis      IS NOT NULL) +
         (id_excedente    IS NOT NULL) = 1
@@ -1017,8 +1136,7 @@ CREATE TABLE Cuentas_Por_Pagar_Relacion (
     ),
     INDEX idx_cxpr_cuenta    (id_cuenta_pagar),
     INDEX idx_cxpr_entrada   (id_entrada),
-    INDEX idx_cxpr_excedente (id_excedente),
-    INDEX idx_cxpr_maquila   (id_maquila)
+    INDEX idx_cxpr_excedente (id_excedente)
 ) COMMENT='Enlace CxP ↔ dominio con FK explícita por cada tabla. Reemplaza el diseño polimórfico de v3. El CHECK garantiza exactamente 1 FK activa por fila. subtipo diferencia si el pago de una entrada es por material (al minero) o por flete (al volquetero).';
 
 
@@ -1361,16 +1479,43 @@ LEFT JOIN Abonos_CxP ab ON ab.id_cuenta_pagar = cp.id
 GROUP BY pe.id, pe.id_empleado, pe.valor;
 
 
-CREATE VIEW v_analisis_completo AS
+-- 1. Vista de Análisis (Corregida la lógica del JOIN de la Mina)
+CREATE OR REPLACE VIEW v_analisis_completo AS
 SELECT
     a.*,
     COALESCE(a.id_mina,          mpe.id_mina)          AS id_mina_resuelto,
-    COALESCE(a.id_minero,        mi.id_minero)          AS id_minero_resuelto,
-    COALESCE(a.id_tipo_material, mpe.id_tipo_material)  AS tipo_mat_resuelto
+    COALESCE(a.id_minero,        mi.id_minero)         AS id_minero_resuelto,
+    COALESCE(a.id_tipo_material, mpe.id_tipo_material) AS tipo_mat_resuelto
 FROM      Analisis a
 LEFT JOIN material_planta_entrada mpe ON mpe.id = a.id_entrada
-LEFT JOIN Mina                    mi  ON mi.id  = mpe.id_mina;
+-- CORRECCIÓN: La unión a Mina se debe hacer usando la función COALESCE para que atrape
+-- el id_mina directo del análisis si no hay entrada.
+LEFT JOIN Mina                    mi  ON mi.id = COALESCE(a.id_mina, mpe.id_mina);
 
+
+-- 2. Ejemplo de corrección de Collation en las vistas de estado (Aplica a todas)
+CREATE OR REPLACE VIEW v_estado_pago_material AS
+SELECT
+    mpe.id                                                         AS id_entrada,
+    mn.nombre                                                      AS minero,
+    mpe.precio_total                                               AS valor_total,
+    COALESCE(SUM(ab.valor), 0)                                     AS total_pagado,
+    GREATEST(mpe.precio_total - COALESCE(SUM(ab.valor), 0), 0)     AS saldo_pendiente,
+    CASE
+        WHEN COALESCE(SUM(ab.valor), 0) <= 0                THEN 'pendiente'
+        WHEN COALESCE(SUM(ab.valor), 0) >= mpe.precio_total THEN 'pagado'
+        ELSE 'parcial'
+    END AS estado_pago
+FROM      material_planta_entrada mpe
+JOIN      Mina    mi ON mi.id  = mpe.id_mina
+LEFT JOIN Minero  mn ON mn.id  = mi.id_minero
+-- Forzamos el COLLATE en las cadenas de texto para evitar el choque con el servidor
+LEFT JOIN Cuentas_Por_Pagar_Relacion cpr
+       ON cpr.id_entrada = mpe.id AND cpr.subtipo = 'material' COLLATE utf8mb4_unicode_ci
+LEFT JOIN Cuentas_Por_Pagar cp  
+       ON cp.id = cpr.id_cuenta_pagar AND cp.estado != 'anulado' COLLATE utf8mb4_unicode_ci
+LEFT JOIN Abonos_CxP         ab ON ab.id_cuenta_pagar = cp.id
+GROUP BY  mpe.id, mn.nombre, mpe.precio_total;
 
 SET FOREIGN_KEY_CHECKS = 1;
 SET SQL_SAFE_UPDATES   = 1;
@@ -1400,3 +1545,433 @@ SET SQL_SAFE_UPDATES   = 1;
 --   3b. Descontar: próximo Abono_CxP con metodo='saldo_a_favor', id_saldo_favor = SAF.id
 --       → trigger actualiza SAF.monto_aplicado y estado automáticamente
 -- ====================================================================
+
+-- ====================================================================
+--  TRIGGERS (estado final v5)
+-- ====================================================================
+--
+--  MAPA COMPLETO:
+--  material_planta_entrada   INSERT         trg_after_insert_mpe                    OK sin cambios
+--  material_planta_entrada   UPDATE         trg_after_update_mpe                    OK sin cambios
+--  procesamiento_material    INSERT         trg_after_insert_procesamiento_material NUEVO
+--  material_concentrado      BEFORE UPDATE  trg_before_update_material_concentrado  NUEVO
+--  material_concentrado      AFTER UPDATE   trg_after_update_material_concentrado   NUEVO
+--  viaje_material            BEFORE INSERT  trg_before_insert_viaje_material        NUEVO (calcula costo_maquila)
+--  viaje_material            AFTER INSERT   trg_after_insert_viaje_material         MODIFICADO
+--  viaje_material            DELETE         trg_after_delete_viaje_material         MODIFICADO
+--  abonos_cxp                INSERT         trg_after_abono_cxp                     Pendiente
+--  abonos_cxc                INSERT         trg_after_abono_cxc                     Pendiente
+--
+-- ====================================================================
+DELIMITER $$
+
+DROP TRIGGER IF EXISTS trg_after_insert_mpe$$
+CREATE TRIGGER trg_after_insert_mpe
+AFTER INSERT ON material_planta_entrada
+FOR EACH ROW
+BEGIN
+    DECLARE v_id_lote   INT           DEFAULT NULL;
+    DECLARE v_toneladas DECIMAL(10,4) DEFAULT 0;
+    DECLARE v_condicion VARCHAR(10)   DEFAULT 'Humedo';
+
+    SET v_toneladas = COALESCE(NEW.total_material_seco, NEW.peso_llegada_planta, 0);
+    SET v_condicion = CASE WHEN NEW.porcentaje_humedad > 0 THEN 'Humedo' ELSE 'Seco' END;
+
+    -- ── 1. Crear lote de inventario ──────────────────────────────
+    IF NEW.id_mina IS NOT NULL AND NEW.id_tipo_material IS NOT NULL AND v_toneladas > 0 THEN
+
+        INSERT INTO Inventario_Lotes (
+            id_entrada, id_mina, id_tipo_material,
+            condicion_material, porcentaje_humedad,
+            toneladas_iniciales, toneladas_disponibles,
+            estado, fecha_ingreso
+        ) VALUES (
+            NEW.id, NEW.id_mina, NEW.id_tipo_material,
+            v_condicion, NEW.porcentaje_humedad,
+            v_toneladas, v_toneladas,
+            'almacenado', NOW()
+        );
+
+        SET v_id_lote = LAST_INSERT_ID();
+
+        -- ── 2. Kardex: movimiento de entrada ─────────────────────
+        INSERT INTO Kardex_Movimientos (
+            id_lote, fecha, tipo_movimiento,
+            toneladas_movidas, destino_referencia
+        ) VALUES (
+            v_id_lote, NOW(), 'ENTRADA_PLANTA',
+            v_toneladas,
+            CONCAT('Entrada MPE #', NEW.id, ' | Vol:', NEW.numero_volqueta,
+                   ' | ', NEW.fecha_llegada)
+        );
+
+    END IF;
+
+    -- ── 3. Crear Excedente si hay ganancia calculada ─────────────
+    IF NEW.excedente_calculado IS NOT NULL AND NEW.excedente_calculado > 0 THEN
+        INSERT INTO Excedente (
+            id_entrada, valor_excedente, monto_distribuido,
+            fecha_calculo, concepto, estado_distribucion
+        ) VALUES (
+            NEW.id, NEW.excedente_calculado, 0,
+            NEW.fecha_llegada,
+            CONCAT('Auto-generado — MPE #', NEW.id),
+            'pendiente'
+        );
+    END IF;
+END$$
+
+-- ====================================================================
+--  TRIGGER 1 de 2 — trg_after_update_mpe
+-- ====================================================================
+--  Dispara : AFTER UPDATE ON material_planta_entrada
+--  Cuándo  : Solo cuando total_material_seco cambia de 0/NULL a un
+--             valor real (FASE 3: backend vincula el análisis)
+--  Qué hace:
+--    1. Busca el lote de inventario_lotes de esa entrada
+--    2a. Si el lote NO ha tenido salidas todavía (toneladas_disponibles
+--        == toneladas_iniciales): corrige ambas al peso seco real
+--    2b. Si ya hubo salidas parciales: solo actualiza la condición y
+--        el porcentaje de humedad (las toneladas salidas ya son reales)
+--    3. Escribe un Kardex de AJUSTE_MERMA explicando la corrección
+--       (peso bruto → peso seco)
+--
+--  Ejemplo:
+--    MPE id=5, peso_llegada=12.0 ton, humedad=13%
+--    FASE 1 → inventario crea lote con 12.0 ton
+--    FASE 3 → total_material_seco = 10.44 ton (12 × 0.87)
+--    Este trigger → lote se corrige a 10.44 ton, kardex registra -1.56 ton
+-- ====================================================================
+
+DROP TRIGGER IF EXISTS trg_after_update_mpe$$
+CREATE TRIGGER trg_after_update_mpe
+AFTER UPDATE ON material_planta_entrada
+FOR EACH ROW
+BEGIN
+    DECLARE v_id_lote     INT           DEFAULT NULL;
+    DECLARE v_ton_ini     DECIMAL(10,4) DEFAULT 0;
+    DECLARE v_ton_disp    DECIMAL(10,4) DEFAULT 0;
+    DECLARE v_ton_nuevo   DECIMAL(10,4) DEFAULT 0;
+    DECLARE v_condicion   VARCHAR(10)   DEFAULT 'Seco';
+    DECLARE v_diferencia  DECIMAL(10,4) DEFAULT 0;
+
+    -- Solo dispara cuando total_material_seco pasa de 0/NULL a un valor real
+    -- (es decir, cuando FASE 3 actualiza con el dato del análisis)
+    IF ( OLD.total_material_seco IS NULL OR OLD.total_material_seco = 0 )
+       AND NEW.total_material_seco IS NOT NULL
+       AND NEW.total_material_seco > 0
+    THEN
+
+        SET v_ton_nuevo = NEW.total_material_seco;
+        SET v_condicion = CASE
+            WHEN NEW.porcentaje_humedad > 0 THEN 'Humedo'
+            ELSE 'Seco'
+        END;
+
+        -- Buscar el lote activo de esta entrada
+        SELECT id, toneladas_iniciales, toneladas_disponibles
+        INTO   v_id_lote, v_ton_ini, v_ton_disp
+        FROM   inventario_lotes
+        WHERE  id_entrada = NEW.id
+        ORDER BY id DESC
+        LIMIT  1;
+
+        IF v_id_lote IS NOT NULL THEN
+
+            -- ── Caso A: Sin salidas todavía → corregir todo ──────
+            IF v_ton_disp = v_ton_ini THEN
+
+                SET v_diferencia = v_ton_ini - v_ton_nuevo;  -- cuánto se "pierde" de bruto a seco
+
+                UPDATE inventario_lotes
+                SET
+                    toneladas_iniciales   = v_ton_nuevo,
+                    toneladas_disponibles = v_ton_nuevo,
+                    condicion_material    = v_condicion,
+                    porcentaje_humedad    = NEW.porcentaje_humedad
+                WHERE id = v_id_lote;
+
+                -- Kardex: corrección de peso bruto a seco
+                INSERT INTO kardex_movimientos (
+                    id_lote, fecha, tipo_movimiento,
+                    toneladas_movidas, destino_referencia, comentarios
+                ) VALUES (
+                    v_id_lote, NOW(), 'AJUSTE_MERMA',
+                    ABS(v_diferencia),
+                    CONCAT('Corrección bruto→seco tras análisis. MPE #', NEW.id),
+                    CONCAT('Anterior (bruto): ', v_ton_ini,
+                           ' t  →  Nuevo (seco): ', v_ton_nuevo,
+                           ' t  |  Humedad: ', ROUND(NEW.porcentaje_humedad * 100, 2), '%')
+                );
+
+            -- ── Caso B: Ya hubo salidas → solo actualizar metadata ─
+            ELSE
+                -- Las toneladas ya salieron proporcional al bruto;
+                -- solo corregimos la condición y humedad, no el saldo
+                UPDATE inventario_lotes
+                SET
+                    condicion_material = v_condicion,
+                    porcentaje_humedad = NEW.porcentaje_humedad
+                WHERE id = v_id_lote;
+
+                -- Kardex informativo: análisis llegó tardío
+                INSERT INTO kardex_movimientos (
+                    id_lote, fecha, tipo_movimiento,
+                    toneladas_movidas, destino_referencia, comentarios
+                ) VALUES (
+                    v_id_lote, NOW(), 'AJUSTE_MERMA',
+                    0,
+                    CONCAT('Análisis tardío MPE #', NEW.id, ' — lote ya tiene salidas'),
+                    CONCAT('Análisis registrado con salidas previas. ',
+                           'Saldo disponible se mantiene en ', v_ton_disp, ' t. ',
+                           'Revisar manualmente si hay discrepancia.')
+                );
+
+            END IF;
+
+        END IF;
+
+    END IF;
+END$$
+
+-- ────────────────────────────────────────────────────────────────────
+-- trg_after_insert_procesamiento_material
+-- Cuando un camion entra al batch de proceso:
+--   inventario raw -> en_proceso + kardex SALIDA_PROCESO + MPE.estado='en_proceso'
+-- ────────────────────────────────────────────────────────────────────
+DROP TRIGGER IF EXISTS trg_after_insert_procesamiento_material$$
+CREATE TRIGGER trg_after_insert_procesamiento_material
+AFTER INSERT ON procesamiento_material
+FOR EACH ROW
+BEGIN
+    DECLARE v_id_lote INT DEFAULT NULL;
+    SELECT id INTO v_id_lote FROM Inventario_Lotes
+    WHERE id_entrada=NEW.id_entrada AND estado IN ('almacenado','en_proceso')
+    ORDER BY id DESC LIMIT 1;
+    IF v_id_lote IS NOT NULL THEN
+        UPDATE Inventario_Lotes SET estado='en_proceso' WHERE id=v_id_lote;
+        INSERT INTO Kardex_Movimientos (id_lote,fecha,tipo_movimiento,toneladas_movidas,destino_referencia)
+        VALUES (v_id_lote,NOW(),'SALIDA_PROCESO',NEW.toneladas_aportadas,
+                CONCAT('Concentrado #',NEW.id_material_concentrado));
+    END IF;
+    UPDATE material_planta_entrada SET estado='en_proceso'
+    WHERE id=NEW.id_entrada AND estado NOT IN ('cancelada','incluida_viaje');
+END$$
+
+
+-- ────────────────────────────────────────────────────────────────────
+-- trg_before_update_material_concentrado
+-- Al cerrar el batch (en_proceso -> en_canoa):
+--   Calcula precio_maquila_por_ton y maquila_total leyendo tarifas_proceso
+--   (NO puede hacer UPDATE a su propia tabla, por eso es BEFORE)
+-- Logica:
+--   molienda + filtroprensa           -> PROCESO_NORMAL  ($400k/ton)
+--   molienda + relave + filtroprensa  -> PROCESO_RELAVE  ($560k/ton)
+--   solo filtroprensa                 -> SOLO_FILTROPRENSA ($100k/ton)
+--   ninguno                           -> $0/ton
+-- ────────────────────────────────────────────────────────────────────
+DROP TRIGGER IF EXISTS trg_before_update_material_concentrado$$
+CREATE TRIGGER trg_before_update_material_concentrado
+BEFORE UPDATE ON material_concentrado
+FOR EACH ROW
+BEGIN
+    DECLARE v_pn     DECIMAL(14,2) DEFAULT 400000;
+    DECLARE v_pr     DECIMAL(14,2) DEFAULT 560000;
+    DECLARE v_ps     DECIMAL(14,2) DEFAULT 100000;
+    DECLARE v_precio DECIMAL(14,2) DEFAULT 0;
+    IF OLD.estado='en_proceso' AND NEW.estado='en_canoa'
+       AND NEW.toneladas_seco IS NOT NULL AND NEW.toneladas_seco > 0
+    THEN
+        SELECT valor INTO v_pn FROM tarifas_proceso
+        WHERE codigo='PROCESO_NORMAL'    AND activo=1 ORDER BY fecha_desde DESC LIMIT 1;
+        SELECT valor INTO v_pr FROM tarifas_proceso
+        WHERE codigo='PROCESO_RELAVE'    AND activo=1 ORDER BY fecha_desde DESC LIMIT 1;
+        SELECT valor INTO v_ps FROM tarifas_proceso
+        WHERE codigo='SOLO_FILTROPRENSA' AND activo=1 ORDER BY fecha_desde DESC LIMIT 1;
+        SET v_precio = CASE
+            WHEN NEW.hizo_molienda=1 AND NEW.hizo_filtroprensa=1 AND NEW.hizo_relave=1 THEN v_pr
+            WHEN NEW.hizo_molienda=1 AND NEW.hizo_filtroprensa=1                       THEN v_pn
+            WHEN NEW.hizo_filtroprensa=1                                               THEN v_ps
+            ELSE 0
+        END;
+        SET NEW.precio_maquila_por_ton = v_precio;
+        SET NEW.maquila_total          = v_precio * NEW.toneladas_seco;
+    END IF;
+END$$
+
+
+-- ────────────────────────────────────────────────────────────────────
+-- trg_after_update_material_concentrado
+-- Al cerrar el batch (en_proceso -> en_canoa):
+--   1. Crea inventario_lotes para el concentrado
+--   2. kardex ENTRADA_CONCENTRADO
+--   3. Inventario raw -> agotado
+--   4. Distribuye maquila a procesamiento_material y MPE.costo_maquila
+-- ────────────────────────────────────────────────────────────────────
+DROP TRIGGER IF EXISTS trg_after_update_material_concentrado$$
+CREATE TRIGGER trg_after_update_material_concentrado
+AFTER UPDATE ON material_concentrado
+FOR EACH ROW
+BEGIN
+    DECLARE v_id_lote_conc INT DEFAULT NULL;
+    DECLARE v_total_seco   DECIMAL(10,4) DEFAULT 0;
+    IF OLD.estado='en_proceso' AND NEW.estado='en_canoa'
+       AND NEW.toneladas_seco IS NOT NULL AND NEW.toneladas_seco > 0
+    THEN
+        INSERT INTO Inventario_Lotes (
+            id_entrada, id_material_concentrado, id_mina, id_tipo_material,
+            condicion_material, porcentaje_humedad,
+            toneladas_iniciales, toneladas_disponibles, estado, ubicacion, fecha_ingreso
+        ) VALUES (
+            NULL, NEW.id, NULL, 1,
+            CASE WHEN COALESCE(NEW.porcentaje_humedad,0)>0 THEN 'Humedo' ELSE 'Seco' END,
+            COALESCE(NEW.porcentaje_humedad,0),
+            NEW.toneladas_seco, NEW.toneladas_seco,
+            'almacenado', COALESCE(NEW.ubicacion_canoa,'Canoa principal'), NOW()
+        );
+        SET v_id_lote_conc = LAST_INSERT_ID();
+        INSERT INTO Kardex_Movimientos (id_lote,fecha,tipo_movimiento,toneladas_movidas,destino_referencia)
+        VALUES (v_id_lote_conc,NOW(),'ENTRADA_CONCENTRADO',NEW.toneladas_seco,CONCAT('Lote ',NEW.codigo));
+        UPDATE Inventario_Lotes il
+        INNER JOIN procesamiento_material pm ON pm.id_entrada=il.id_entrada
+        SET il.estado='agotado'
+        WHERE pm.id_material_concentrado=NEW.id AND il.id_entrada IS NOT NULL;
+        IF COALESCE(NEW.maquila_total,0) > 0 THEN
+            SELECT COALESCE(SUM(toneladas_seco_aportadas),0) INTO v_total_seco
+            FROM procesamiento_material WHERE id_material_concentrado=NEW.id;
+            IF v_total_seco > 0 THEN
+                UPDATE procesamiento_material
+                SET concentrado_proporcional=ROUND((toneladas_seco_aportadas/v_total_seco)*NEW.toneladas_seco,4),
+                    maquila_proporcional=ROUND((toneladas_seco_aportadas/v_total_seco)*NEW.maquila_total,2)
+                WHERE id_material_concentrado=NEW.id;
+                UPDATE material_planta_entrada mpe
+                INNER JOIN procesamiento_material pm ON pm.id_entrada=mpe.id
+                SET mpe.costo_maquila=pm.maquila_proporcional
+                WHERE pm.id_material_concentrado=NEW.id;
+            END IF;
+        END IF;
+    END IF;
+END$$
+
+
+-- ────────────────────────────────────────────────────────────────────
+-- trg_before_insert_viaje_material
+-- Calcula costo_maquila de la linea antes de insertar:
+--   es_remanente=1        -> costo_maquila=0 (ya se pago en el viaje de origen)
+--   id_material_concentrado -> proporcional a concentrado_seco / mc.toneladas_seco
+--   sin concentrado       -> costo_maquila=0
+-- ────────────────────────────────────────────────────────────────────
+DROP TRIGGER IF EXISTS trg_before_insert_viaje_material$$
+CREATE TRIGGER trg_before_insert_viaje_material
+BEFORE INSERT ON viaje_material
+FOR EACH ROW
+BEGIN
+    DECLARE v_maquila_total DECIMAL(14,2) DEFAULT 0;
+    DECLARE v_ton_seco      DECIMAL(10,4) DEFAULT 0;
+
+    IF NEW.es_remanente = 1 THEN
+        SET NEW.costo_maquila = 0;
+    ELSEIF NEW.id_material_concentrado IS NOT NULL THEN
+        SELECT maquila_total, toneladas_seco
+        INTO   v_maquila_total, v_ton_seco
+        FROM   material_concentrado WHERE id=NEW.id_material_concentrado;
+        IF v_ton_seco > 0 AND v_maquila_total > 0 THEN
+            SET NEW.costo_maquila = ROUND(
+                (COALESCE(NEW.concentrado_seco,0) / v_ton_seco) * v_maquila_total, 2
+            );
+        ELSE
+            SET NEW.costo_maquila = 0;
+        END IF;
+    END IF;
+END$$
+
+
+-- ────────────────────────────────────────────────────────────────────
+-- trg_after_insert_viaje_material
+-- Despues de insertar la linea del viaje:
+--   1. Decrementa material_concentrado.toneladas_disponibles
+--   2. Actualiza inventario_lotes del concentrado
+--   3. kardex SALIDA_VIAJE
+--   4. Si el lote se agoto -> MPEs a 'incluida_viaje'
+--   5. Actualiza viaje.maquila = SUM(costo_maquila) de todas las lineas
+-- ────────────────────────────────────────────────────────────────────
+DROP TRIGGER IF EXISTS trg_after_insert_viaje_material$$
+CREATE TRIGGER trg_after_insert_viaje_material
+AFTER INSERT ON viaje_material
+FOR EACH ROW
+BEGIN
+    DECLARE v_id_lote_conc INT           DEFAULT NULL;
+    DECLARE v_disp         DECIMAL(10,4) DEFAULT 0;
+    DECLARE v_seco         DECIMAL(10,4) DEFAULT 0;
+
+    SET v_seco=COALESCE(NEW.concentrado_seco,0);
+
+    IF NEW.id_material_concentrado IS NOT NULL AND v_seco>0 AND NEW.es_remanente=0 THEN
+        SELECT GREATEST(toneladas_disponibles-v_seco,0) INTO v_disp
+        FROM material_concentrado WHERE id=NEW.id_material_concentrado;
+        UPDATE material_concentrado SET toneladas_disponibles=v_disp,
+            estado=CASE WHEN v_disp<=0 THEN 'enviado_completo' ELSE 'parcialmente_enviado' END
+        WHERE id=NEW.id_material_concentrado;
+        SELECT id INTO v_id_lote_conc FROM Inventario_Lotes
+        WHERE id_material_concentrado=NEW.id_material_concentrado AND estado!='agotado'
+        ORDER BY id DESC LIMIT 1;
+        IF v_id_lote_conc IS NOT NULL THEN
+            UPDATE Inventario_Lotes SET toneladas_disponibles=v_disp,
+                estado=CASE WHEN v_disp<=0 THEN 'agotado' ELSE estado END WHERE id=v_id_lote_conc;
+            INSERT INTO Kardex_Movimientos (id_lote,fecha,tipo_movimiento,toneladas_movidas,destino_referencia)
+            VALUES (v_id_lote_conc,NOW(),'SALIDA_VIAJE',v_seco,CONCAT('Viaje #',NEW.id_viaje));
+        END IF;
+        IF v_disp<=0 THEN
+            UPDATE material_planta_entrada mpe
+            INNER JOIN procesamiento_material pm ON pm.id_entrada=mpe.id
+            SET mpe.estado='incluida_viaje'
+            WHERE pm.id_material_concentrado=NEW.id_material_concentrado AND mpe.estado NOT IN ('cancelada');
+        END IF;
+    END IF;
+
+    -- Actualizar totales del viaje
+    UPDATE Viaje SET
+        maquila = (SELECT COALESCE(SUM(vm2.costo_maquila),0) FROM viaje_material vm2 WHERE vm2.id_viaje=NEW.id_viaje),
+        total_costo_material = (SELECT COALESCE(SUM(vm2.valor_total_con_gastos),0) FROM viaje_material vm2 WHERE vm2.id_viaje=NEW.id_viaje)
+    WHERE id=NEW.id_viaje;
+END$$
+
+
+-- ────────────────────────────────────────────────────────────────────
+-- trg_after_delete_viaje_material
+-- Reversa: devuelve concentrado al lote y actualiza totales del viaje
+-- ────────────────────────────────────────────────────────────────────
+DROP TRIGGER IF EXISTS trg_after_delete_viaje_material$$
+CREATE TRIGGER trg_after_delete_viaje_material
+AFTER DELETE ON viaje_material
+FOR EACH ROW
+BEGIN
+    DECLARE v_id_lote_conc INT           DEFAULT NULL;
+    DECLARE v_ton_ini      DECIMAL(10,4) DEFAULT 0;
+    DECLARE v_seco         DECIMAL(10,4) DEFAULT 0;
+    DECLARE v_en_otro      INT           DEFAULT 0;
+    SET v_seco=COALESCE(OLD.concentrado_seco,0);
+    IF OLD.id_material_concentrado IS NOT NULL AND v_seco>0 THEN
+        SELECT id,toneladas_iniciales INTO v_id_lote_conc,v_ton_ini
+        FROM Inventario_Lotes WHERE id_material_concentrado=OLD.id_material_concentrado
+        ORDER BY id DESC LIMIT 1;
+        IF v_id_lote_conc IS NOT NULL THEN
+            UPDATE Inventario_Lotes
+            SET toneladas_disponibles=LEAST(toneladas_disponibles+v_seco,v_ton_ini), estado='almacenado'
+            WHERE id=v_id_lote_conc;
+            INSERT INTO Kardex_Movimientos (id_lote,fecha,tipo_movimiento,toneladas_movidas,destino_referencia)
+            VALUES (v_id_lote_conc,NOW(),'AJUSTE_MERMA',v_seco,CONCAT('Devolucion Viaje #',OLD.id_viaje));
+        END IF;
+        UPDATE material_concentrado SET toneladas_disponibles=toneladas_disponibles+v_seco,
+            estado='parcialmente_enviado' WHERE id=OLD.id_material_concentrado;
+        SELECT COUNT(*) INTO v_en_otro FROM viaje_material WHERE id_material_concentrado=OLD.id_material_concentrado;
+        IF v_en_otro=0 THEN UPDATE material_concentrado SET estado='en_canoa' WHERE id=OLD.id_material_concentrado; END IF;
+    END IF;
+    -- Recalcular totales del viaje
+    UPDATE Viaje SET
+        maquila = (SELECT COALESCE(SUM(vm2.costo_maquila),0) FROM viaje_material vm2 WHERE vm2.id_viaje=OLD.id_viaje),
+        total_costo_material = (SELECT COALESCE(SUM(vm2.valor_total_con_gastos),0) FROM viaje_material vm2 WHERE vm2.id_viaje=OLD.id_viaje)
+    WHERE id=OLD.id_viaje;
+END$$
+
+DELIMITER ;

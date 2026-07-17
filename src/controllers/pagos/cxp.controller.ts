@@ -43,11 +43,7 @@ export class CuentasPorPagarController {
 
 // --- Original: categoria_cxp ---
 export class CategoriaCxPController {
-    private service: ICategoriaCxPService;
-
-    constructor() {
-        this.service = new CategoriaCxPService();
-    }
+    constructor(private service: ICategoriaCxPService) {}
 
     create = async (req: Request, res: Response): Promise<void> => {
         try {

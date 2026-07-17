@@ -6,18 +6,14 @@ import { UsuarioRepository } from '../../repositories/auth/usuario.repository';
 import { RolRepository } from '../../repositories/auth/rol.repository';
 import { UsuarioApp } from '../../models/auth/app/usuario.app';
 import { UsuarioSQL } from '../../models/auth/sql/usuario.sql';
-import dotenv from 'dotenv';
+import {CONFIG} from '../../config/config';
 
-dotenv.config();
 
 export class UsuarioService implements IUsuarioService {
-    private usuarioRepository: IUsuarioRepository;
-    private rolRepository: RolRepository;
-
-    constructor() {
-        this.usuarioRepository = new UsuarioRepository();
-        this.rolRepository = new RolRepository();
-    }
+    constructor(
+        private usuarioRepository: IUsuarioRepository,
+        private rolRepository: RolRepository
+    ) {}
 
     private async buildUsuarioApp(sql: UsuarioSQL): Promise<UsuarioApp> {
         const app: UsuarioApp = { ...sql };
@@ -33,13 +29,14 @@ export class UsuarioService implements IUsuarioService {
         if (!userSQL) throw new Error('Usuario no encontrado');
         if (!userSQL.activo) throw new Error('Usuario inactivo');
 
-        const validPassword = await bcrypt.compare(clave, userSQL.password_hash);
-        if (!validPassword) throw new Error('Contraseña incorrecta');
+        // const validPassword = await bcrypt.compare(clave, userSQL.password_hash);
+        // if (!validPassword) throw new Error('Contraseña incorrecta');
+        if(clave != userSQL.password_hash) throw new Error('Contraseña incorrecta');
 
         const userApp = await this.buildUsuarioApp(userSQL);
         const token = jwt.sign(
             { id: userApp.id, username: userApp.username, id_rol: userApp.rol?.id },
-            process.env.JWT_SECRET || 'secret123',
+           CONFIG.jwtSecret || 'secret123',
             { expiresIn: '8h' }
         );
 

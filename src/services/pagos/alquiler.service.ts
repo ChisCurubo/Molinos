@@ -5,11 +5,7 @@ import { TipoAlquilerSQL } from '../../models/pagos/sql/tipo_alquiler.sql';
 
 // --- Original: tipo_alquiler ---
 export class TipoAlquilerService implements ITipoAlquilerService {
-    private repository: ITipoAlquilerRepository;
-
-    constructor() {
-        this.repository = new TipoAlquilerRepository();
-    }
+    constructor(private repository: ITipoAlquilerRepository) {}
 
     async create(data: any): Promise<TipoAlquilerSQL> {
         const id = await this.repository.create(data);

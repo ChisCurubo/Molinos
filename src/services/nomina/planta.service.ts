@@ -5,11 +5,7 @@ import { PlantaSQL } from '../../models/nomina/sql/planta.sql';
 
 // --- Original: planta ---
 export class PlantaService implements IPlantaService {
-    private repository: IPlantaRepository;
-
-    constructor() {
-        this.repository = new PlantaRepository();
-    }
+    constructor(private repository: IPlantaRepository) {}
 
     async create(data: any): Promise<PlantaSQL> {
         const id = await this.repository.create(data);

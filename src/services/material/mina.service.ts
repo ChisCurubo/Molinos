@@ -17,10 +17,10 @@ import { TarifaZonaSQL } from '../../models/material/sql/tarifa_zona.sql';
 
 // --- Original: mina ---
 export class MinaService implements IMinaService {
-    private repository: IMinaRepository;
+    private repository: MinaRepository;
 
-    constructor() {
-        this.repository = new MinaRepository();
+    constructor(repository: MinaRepository) {
+        this.repository = repository;
     }
 
     async create(data: any): Promise<MinaSQL> {
@@ -49,10 +49,10 @@ export class MinaService implements IMinaService {
 
 // --- Original: minero ---
 export class MineroService implements IMineroService {
-    private repository: IMineroRepository;
+    private repository: MineroRepository;
 
-    constructor() {
-        this.repository = new MineroRepository();
+    constructor(repository: MineroRepository) {
+        this.repository = repository;
     }
 
     async create(data: any): Promise<MineroSQL> {
@@ -81,10 +81,10 @@ export class MineroService implements IMineroService {
 
 // --- Original: zona ---
 export class ZonaService implements IZonaService {
-    private repository: IZonaRepository;
+    private repository: ZonaRepository;
 
-    constructor() {
-        this.repository = new ZonaRepository();
+    constructor(repository: ZonaRepository) {
+        this.repository = repository;
     }
 
     async create(data: any): Promise<ZonaSQL> {
@@ -113,10 +113,10 @@ export class ZonaService implements IZonaService {
 
 // --- Original: tarifa_zona ---
 export class TarifaZonaService implements ITarifaZonaService {
-    private repository: ITarifaZonaRepository;
+    private repository: TarifaZonaRepository;
 
-    constructor() {
-        this.repository = new TarifaZonaRepository();
+    constructor(repository: TarifaZonaRepository) {
+        this.repository = repository;
     }
 
     async create(data: any): Promise<TarifaZonaSQL> {

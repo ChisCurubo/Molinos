@@ -9,11 +9,7 @@ import { TipoTurnoSQL } from '../../models/nomina/sql/tipo_turno.sql';
 
 // --- Original: turno ---
 export class TurnoService implements ITurnoService {
-    private repository: ITurnoRepository;
-
-    constructor() {
-        this.repository = new TurnoRepository();
-    }
+    constructor(private repository: ITurnoRepository) {}
 
     async create(data: any): Promise<TurnoSQL> {
         const id = await this.repository.create(data);
@@ -37,15 +33,27 @@ export class TurnoService implements ITurnoService {
     async list(): Promise<TurnoSQL[]> {
         return this.repository.list();
     }
+
+    async listByEmpleadoAndMonth(id_empleado: number, mes: number, anio: number): Promise<TurnoSQL[]> {
+        return this.repository.listByEmpleadoAndMonth(id_empleado, mes, anio);
+    }
+
+    async listByEmpleadoAndQuincena(id_empleado: number, quincena: number, mes: number, anio: number): Promise<TurnoSQL[]> {
+        return this.repository.listByEmpleadoAndQuincena(id_empleado, quincena, mes, anio);
+    }
+
+    async listByMonth(mes: number, anio: number): Promise<TurnoSQL[]> {
+        return this.repository.listByMonth(mes, anio);
+    }
+
+    async listByQuincena(quincena: number, mes: number, anio: number): Promise<TurnoSQL[]> {
+        return this.repository.listByQuincena(quincena, mes, anio);
+    }
 }
 
 // --- Original: tipo_turno ---
 export class TipoTurnoService implements ITipoTurnoService {
-    private repository: ITipoTurnoRepository;
-
-    constructor() {
-        this.repository = new TipoTurnoRepository();
-    }
+    constructor(private repository: ITipoTurnoRepository) {}
 
     async create(data: any): Promise<TipoTurnoSQL> {
         const id = await this.repository.create(data);

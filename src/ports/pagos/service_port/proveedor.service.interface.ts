@@ -1,4 +1,4 @@
-import { CategoriaProveedorSQL } from '../../models/pagos/sql/categoria_proveedor.sql';
+import { CategoriaProveedorSQL } from '../../../models/pagos/sql/categoria_proveedor.sql';
 
 // --- Original: categoria_proveedor ---
 export interface ICategoriaProveedorService {

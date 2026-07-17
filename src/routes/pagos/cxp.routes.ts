@@ -1,15 +1,11 @@
 import { Router } from 'express';
-import { CuentasPorPagarController, CategoriaCxPController } from '../../controllers/pagos/cxp.controller';
-import { MySQLCuentasPorPagarRepo } from '../../repositories/pagos/cxp.repository';
-import { CuentasPorPagarService } from '../../services/pagos/cxp.service';
+import { factory } from '../../config/factory';
 
 const router = Router();
 
 // Init CxP
-const repo = new MySQLCuentasPorPagarRepo();
-const service = new CuentasPorPagarService(repo);
-const cxpController = new CuentasPorPagarController(service);
-const categoriaCxpController = new CategoriaCxPController();
+const cxpController = factory.pagos.getCuentasPorPagarController();
+const categoriaCxpController = factory.pagos.getCategoriaCxPController();
 
 // Rutas CxP Custom
 router.post('/', cxpController.registrar.bind(cxpController));

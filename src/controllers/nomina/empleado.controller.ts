@@ -5,11 +5,7 @@ import { PrestamoEmpleadoServiceInterface } from '../../ports/nomina/service_por
 
 // --- Original: empleado ---
 export class EmpleadoController {
-    private service: IEmpleadoService;
-
-    constructor() {
-        this.service = new EmpleadoService();
-    }
+    constructor(private service: IEmpleadoService) {}
 
     create = async (req: Request, res: Response): Promise<void> => {
         try {
@@ -74,11 +70,7 @@ export class EmpleadoController {
 
 // --- Original: prestamo_empleado ---
 export class PrestamoEmpleadoController {
-    private service: PrestamoEmpleadoServiceInterface;
-
-    constructor(service: PrestamoEmpleadoServiceInterface) {
-        this.service = service;
-    }
+    constructor(private service: PrestamoEmpleadoServiceInterface) {}
 
     async registrar(req: Request, res: Response) {
         try {
@@ -94,6 +86,20 @@ export class PrestamoEmpleadoController {
             const { idEmpleado } = req.params;
             const prestamos = await this.service.listarPrestamosPorEmpleado(Number(idEmpleado));
             res.status(200).json({ success: true, data: prestamos });
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async update(req: Request, res: Response) {
+        try {
+            const id = Number(req.params.id);
+            const prestamo = await this.service.updatePrestamo(id, req.body);
+            if (!prestamo) {
+                res.status(404).json({ success: false, message: "Préstamo no encontrado o no actualizado" });
+                return;
+            }
+            res.status(200).json({ success: true, data: prestamo });
         } catch (error: any) {
             res.status(500).json({ success: false, message: error.message });
         }

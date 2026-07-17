@@ -1,4 +1,4 @@
-import { CategoriaCxcSQL } from '../../models/pagos/sql/categoria_cxc.sql';
+import { CategoriaCxcSQL } from '../../../models/pagos/sql/categoria_cxc.sql';
 
 // --- Original: categoria_cxc ---
 export interface ICategoriaCxCService {

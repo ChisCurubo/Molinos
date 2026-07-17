@@ -35,10 +35,19 @@ Para asegurar la separación de responsabilidades, un alto acoplamiento lógico 
 
 ```mermaid
 graph TD
-    SubGraph1[Controladores / Rutas (Express)] --> SubGraph2[Puertos (Interfaces)]
+    SubGraph1[Controladores / Rutas (Express)] --> SubGraph2[Puertos (Interfaces de Inyección)]
     SubGraph2 --> SubGraph3[Servicios (Casos de Uso / Lógica de Negocio)]
     SubGraph3 --> SubGraph4[Repositorios (Consultas SQL MySQL)]
+    
+    style SubGraph2 fill:#f9f,stroke:#333,stroke-width:2px
 ```
+
+### Inyección de Dependencias y Factories
+
+Hemos adoptado un modelo estricto de **Inyección de Dependencias (DI)**. 
+- Los **Controladores** solo reciben **Servicios** a través de su constructor.
+- Los **Servicios** solo reciben **Repositorios** u otros servicios a través de su constructor.
+- La instanciación de todas las clases y la inyección de dependencias está centralizada en los archivos `src/config/factories/` y `src/config/factory.ts`.
 
 ### Estructura de Directorios
 

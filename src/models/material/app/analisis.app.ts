@@ -23,7 +23,7 @@ export interface AnalisisApp {
     toneladas_humedas: number;
     toneladas_secas: number;
     au_gr_x_ton: number;
-    au_gr_x_ton_falso?: number;
+    au_falso?: number;
     ag_gr_x_ton: number;
     valor_analisis?: number;
     estado_pago: string;

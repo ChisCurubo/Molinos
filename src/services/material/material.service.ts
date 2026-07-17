@@ -1,5 +1,7 @@
-import { MaterialPlantaEntradaSQL } from '../../models/material/sql/material_planta_entrada.sql';
-import { MaterialPlantaEntradaRepositoryInterface } from '../../ports/material/repository_port/material.repository.interface';
+import { Pool } from 'mysql2/promise';
+import { MaterialPlantaEntradaSQL, EstadoEntrada } from '../../models/material/sql/material_planta_entrada.sql';
+import { TriggerLogicRepository } from '../../ports/db_triggers/trigger_logic.repository.interface';
+import { IMaterialEntradaRepository } from '../../ports/material/repository_port/material.repository.interface';
 import { IMaterialEntradaService } from '../../ports/material/service_port/material.service.interface';
 import { ITipoMaterialService } from '../../ports/material/service_port/material.service.interface';
 import { ITipoMaterialRepository } from '../../ports/material/repository_port/material.repository.interface';
@@ -20,46 +22,80 @@ import { ProveedorSQL } from '../../models/pagos/sql/proveedor.sql';
 
 // --- Original: material_planta_entrada ---
 export class MaterialPlantaEntradaService implements IMaterialEntradaService {
-    private repo: MaterialPlantaEntradaRepositoryInterface;
+    private repo: IMaterialEntradaRepository;
+    private db: Pool;
+    private triggerLogicRepo: TriggerLogicRepository;
 
-    constructor(repo: MaterialPlantaEntradaRepositoryInterface) {
+    constructor(repo: IMaterialEntradaRepository, db: Pool, triggerLogicRepo: TriggerLogicRepository) {
         this.repo = repo;
+        this.db = db;
+        this.triggerLogicRepo = triggerLogicRepo;
     }
 
-    async registrarEntrada(entrada: Partial<MaterialPlantaEntradaSQL>): Promise<MaterialPlantaEntradaSQL> {
-        return await this.repo.create(entrada);
+    async registrarLlegada(data: any): Promise<number> {
+        const conn = await this.db.getConnection();
+        await conn.beginTransaction();
+        try {
+            const id = await this.repo.registrarLlegada(data, conn);
+            const newRow = await this.repo.obtenerPorId(id, conn);
+
+            // TODO: [MIGRACIÓN TRIGGERS] Descomentar la siguiente línea el día que se elimine el trigger 'trg_after_insert_mpe' de la BD.
+            // await this.triggerLogicRepo.afterInsertMPE(conn, newRow);
+
+            await conn.commit();
+            return id;
+        } catch (error) {
+            await conn.rollback();
+            throw error;
+        } finally {
+            conn.release();
+        }
     }
 
-    async obtenerEntrada(id: number): Promise<MaterialPlantaEntradaSQL> {
-        const entrada = await this.repo.getById(id);
+    async obtenerEntrada(id: number): Promise<any> {
+        const entrada = await this.repo.obtenerPorId(id);
         if (!entrada) throw new Error('Entrada de material no encontrada');
         return entrada;
     }
 
-    async listarEntradas(): Promise<MaterialPlantaEntradaSQL[]> {
-        return await this.repo.listAll();
-    }
-
-    async actualizarEntrada(id: number, entrada: Partial<MaterialPlantaEntradaSQL>): Promise<boolean> {
-        return await this.repo.update(id, entrada);
-    }
-
-    async vincularAnalisis(analisisData: any): Promise<void> {
-        // Dummy implementation since this is handled by AnalisisService now
-        throw new Error("vincularAnalisis was moved to AnalisisService.vincularAnalisisAEntrada");
-    }
-
-    async registrarLlegada(data: any): Promise<number> {
-        const result = await this.repo.create(data);
-        return result.id;
-    }
-
-    async listar(fechaDesde: string, fechaHasta: string, estado: string, limit: number, offset: number): Promise<any[]> {
+    async listarEntradas(fechaDesde: string, fechaHasta: string, estado: string, limit: number, offset: number): Promise<any[]> {
         return await this.repo.listar(fechaDesde, fechaHasta, estado, limit, offset);
     }
 
     async listarPendientesLaboratorio(): Promise<any[]> {
-        return await this.repo.listarPendientesLaboratorio();
+        return await this.repo.listarPendientesAnalisis();
+    }
+
+    async vincularAnalisis(analisisData: any): Promise<void> {
+        throw new Error("vincularAnalisis was moved to AnalisisService.vincularAnalisisAEntrada");
+    }
+
+    async listarPorMinero(idMinero: number): Promise<any[]> {
+        return await this.repo.listarPorMinero(idMinero);
+    }
+
+    async listarPorMina(idMina: number): Promise<any[]> {
+        return await this.repo.listarPorMina(idMina);
+    }
+
+    async listarPorVehiculo(idVehiculo: number): Promise<any[]> {
+        return await this.repo.listarPorVehiculo(idVehiculo);
+    }
+
+    async listarPorDueno(idDueno: number): Promise<any[]> {
+        return await this.repo.listarPorDueno(idDueno);
+    }
+
+    async listarPorFecha(fecha: string): Promise<any[]> {
+        return await this.repo.listarPorFecha(fecha);
+    }
+
+    async actualizarEstado(id: number, estado: string): Promise<void> {
+        return await this.repo.actualizarEstado(id, estado as EstadoEntrada);
+    }
+
+    async cancelar(id: number, motivo: string): Promise<void> {
+        return await this.repo.cancelar(id, motivo);
     }
 }
 
@@ -67,8 +103,8 @@ export class MaterialPlantaEntradaService implements IMaterialEntradaService {
 export class TipoMaterialService implements ITipoMaterialService {
     private repository: ITipoMaterialRepository;
 
-    constructor() {
-        this.repository = new TipoMaterialRepository();
+    constructor(repository: ITipoMaterialRepository) {
+        this.repository = repository;
     }
 
     async create(data: any): Promise<TipoMaterialSQL> {
@@ -99,8 +135,8 @@ export class TipoMaterialService implements ITipoMaterialService {
 export class PrecioMaterialService implements IPrecioMaterialService {
     private repository: IPrecioMaterialRepository;
 
-    constructor() {
-        this.repository = new PrecioMaterialRepository();
+    constructor(repository: IPrecioMaterialRepository) {
+        this.repository = repository;
     }
 
     async create(data: any): Promise<PrecioMaterialSQL> {
@@ -133,14 +169,37 @@ export class PrecioMaterialService implements IPrecioMaterialService {
     async buscarTarifaZona(idZona: number | null, conn?: any): Promise<number> {
         throw new Error("buscarTarifaZona is handled by TarifaCalculoService");
     }
+
+    async insertarLote(data: any): Promise<void> {
+        const { id_minero, id_zona, metodo, fecha_inicio, fecha_fin, intervalos } = data;
+        if (!intervalos || !Array.isArray(intervalos) || intervalos.length === 0) {
+            throw new Error("El arreglo de intervalos es inválido o está vacío");
+        }
+
+        const precios: Omit<PrecioMaterialSQL, 'id'>[] = intervalos.map((int: any) => ({
+            id_minero: id_minero || null,
+            id_zona: id_zona || null,
+            metodo: metodo || 'por_gramo',
+            precio_por_gramo: int.precio_por_gramo || 0,
+            precio_por_tonelada: int.precio_por_tonelada || 0,
+            intervalo_tenor_min: int.min,
+            intervalo_tenor_max: int.max,
+            fecha_inicio: fecha_inicio ? new Date(fecha_inicio) : new Date(),
+            fecha_fin: (fecha_fin ? new Date(fecha_fin) : null) as any,
+            activo: true,
+            created_at: new Date()
+        }));
+
+        await this.repository.insertarLote(precios);
+    }
 }
 
 // --- Original: tarifa_calculo ---
 export class TarifaCalculoService implements ITarifaCalculoService {
     private repository: ITarifaCalculoRepository;
 
-    constructor() {
-        this.repository = new TarifaCalculoRepository();
+    constructor(repository: ITarifaCalculoRepository) {
+        this.repository = repository;
     }
 
     async create(data: any): Promise<TarifaCalculoSQL> {
@@ -171,8 +230,8 @@ export class TarifaCalculoService implements ITarifaCalculoService {
 export class ProveedorService implements IProveedorService {
     private repository: IProveedorRepository;
 
-    constructor() {
-        this.repository = new ProveedorRepository();
+    constructor(repository: IProveedorRepository) {
+        this.repository = repository;
     }
 
     async create(data: any): Promise<ProveedorSQL> {

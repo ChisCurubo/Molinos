@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { AuthController } from '../../controllers/auth/auth.controller';
-import { UsuarioController } from '../../controllers/auth/usuario.controller';
+import { factory } from '../../config/factory';
+import { authMiddleware } from '../../helpers/auth.middleware';
 
 const router = Router();
-const authController = new AuthController();
-const usuarioController = new UsuarioController();
+const authController = factory.auth.getAuthController();
+const usuarioController = factory.auth.getUsuarioController();
 
 /**
  * @swagger
@@ -27,22 +27,82 @@ const usuarioController = new UsuarioController();
  *           schema:
  *             type: object
  *             required:
- *               - correo
- *               - contrasena
+ *               - username
+ *               - password
  *             properties:
- *               correo:
+ *               username:
  *                 type: string
- *                 example: admin@molinos.com
- *               contrasena:
+ *                 example: david
+ *               password:
  *                 type: string
- *                 example: 123456
+ *                 example: 123
  *     responses:
  *       200:
  *         description: Login exitoso. Retorna el token.
  *       401:
  *         description: Credenciales inválidas.
+ *       400:
+ *         description: Username y password son requeridos.
  */
 router.post('/login', authController.login);
+/**
+ * @swagger
+ * /auth/forgot-password:
+ *   post:
+ *     summary: Solicitar recuperación de contraseña
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Se envió la contraseña temporal
+ */
+router.post('/forgot-password', authController.forgotPassword);
+
+/**
+ * @swagger
+ * /auth/verify:
+ *   get:
+ *     summary: Verificar token JWT
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: Token válido
+ */
+router.get('/verify', authMiddleware, authController.verify);
+
+/**
+ * @swagger
+ * /auth/reset-password:
+ *   post:
+ *     summary: Cambiar contraseña con token temporal
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               tempPassword:
+ *                 type: string
+ *               nuevaPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Contraseña actualizada
+ */
+router.post('/reset-password', authController.resetPassword);
 
 /**
  * @swagger

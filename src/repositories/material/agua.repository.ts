@@ -1,13 +1,8 @@
 import { Pool, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
-import Database from '../../../config/database.config';
-import { IAguaPlantaRepository, CreateAguaPlantaDTO, AguaPlantaSQL } from '../../../ports/material/repository_port/agua.repository.interface';
+import { IAguaPlantaRepository, CreateAguaPlantaDTO, AguaPlantaSQL } from '../../ports/material/repository_port/agua.repository.interface';
 
 export class AguaPlantaRepository implements IAguaPlantaRepository {
-    private pool: Pool;
-
-    constructor() {
-        this.pool = Database.getInstance();
-    }
+    constructor(private pool: Pool) {}
 
     // 5.1 INSERT agua_planta
     async registrar(data: CreateAguaPlantaDTO): Promise<number> {
@@ -16,7 +11,7 @@ export class AguaPlantaRepository implements IAguaPlantaRepository {
             VALUES (?, ?, ?, ?, ?, ?)
         `;
         const values = [
-            data.id_dueno_volqueta,
+            data.id_dueno_volqueta || null,
             data.fecha,
             data.valor_viaje,
             data.cantidad_viajes,
@@ -26,6 +21,29 @@ export class AguaPlantaRepository implements IAguaPlantaRepository {
         
         const [result] = await this.pool.execute<ResultSetHeader>(query, values);
         return result.insertId;
+    }
+
+    // 5.1.1 ACTUALIZAR agua_planta
+    async actualizar(id: number, data: import('../../ports/material/repository_port/agua.repository.interface').UpdateAguaPlantaDTO): Promise<boolean> {
+        const fields: string[] = [];
+        const values: any[] = [];
+
+        if (data.valor_viaje !== undefined) { fields.push('valor_viaje = ?'); values.push(data.valor_viaje); }
+        if (data.cantidad_viajes !== undefined) { fields.push('cantidad_viajes = ?'); values.push(data.cantidad_viajes); }
+        if (data.acpm !== undefined) { fields.push('acpm = ?'); values.push(data.acpm); }
+        
+        // El campo valor_total no se actualiza manualmente porque es una columna STORED generada automáticamente
+        // si data.valor_total llegara, se ignora.
+        
+        if (data.comprobante_url !== undefined) { fields.push('comprobante_url = ?'); values.push(data.comprobante_url); }
+
+        if (fields.length === 0) return true;
+
+        values.push(id);
+        const query = `UPDATE agua_planta SET ${fields.join(', ')} WHERE id = ?`;
+        
+        const [result] = await this.pool.execute<ResultSetHeader>(query, values);
+        return result.affectedRows > 0;
     }
 
     // 5.2 Listar viajes de agua con dueño
@@ -51,6 +69,22 @@ export class AguaPlantaRepository implements IAguaPlantaRepository {
         return rows as AguaPlantaSQL[];
     }
 
+    // 5.2.1 Listar viajes de agua filtrando por un dueño
+    async listarPorDueno(id_dueno: number): Promise<AguaPlantaSQL[]> {
+        const query = `
+            SELECT
+                ap.id, ap.fecha, dv.nombre AS dueno, dv.alias,
+                ap.valor_viaje, ap.cantidad_viajes, ap.acpm,
+                ap.valor_total, ap.comprobante_url, ap.created_at
+            FROM agua_planta ap
+            JOIN dueno_volqueta dv ON dv.id = ap.id_dueno_volqueta
+            WHERE dv.id = ?
+            ORDER BY ap.fecha DESC
+        `;
+        const [rows] = await this.pool.execute<RowDataPacket[]>(query, [id_dueno]);
+        return rows as AguaPlantaSQL[];
+    }
+
     // 5.3 Total de agua por dueño en un rango de fechas (para liquidación)
     async resumenPorDueno(fechaDesde: string, fechaHasta: string): Promise<any[]> {
         const query = `
@@ -68,5 +102,23 @@ export class AguaPlantaRepository implements IAguaPlantaRepository {
         `;
         const [rows] = await this.pool.execute<RowDataPacket[]>(query, [fechaDesde, fechaHasta]);
         return rows as any[];
+    }
+
+    // 5.3.1 Resumen total por ID de dueño
+    async resumenPorIdDueno(id_dueno: number): Promise<any> {
+        const query = `
+            SELECT
+                dv.id,
+                dv.nombre,
+                COUNT(ap.id)            AS num_viajes,
+                SUM(ap.cantidad_viajes) AS total_viajes,
+                SUM(ap.valor_total)     AS total_a_pagar
+            FROM agua_planta ap
+            JOIN dueno_volqueta dv ON dv.id = ap.id_dueno_volqueta
+            WHERE dv.id = ?
+            GROUP BY dv.id, dv.nombre
+        `;
+        const [rows] = await this.pool.execute<RowDataPacket[]>(query, [id_dueno]);
+        return rows.length > 0 ? rows[0] : null;
     }
 }

@@ -1,12 +1,12 @@
 import { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise';
-import Database from '../../config/database.config';
-const db = Database.getInstance();
 import { PrecioMaterialLookup } from '../../models/material/sql/precio_material.sql';
 import { TarifaZonaLookup } from '../../models/material/sql/tarifa_zona.sql';
 
 export class PrecioRepository {
+  constructor(private db: Pool) {}
+  
   private getConn(conn?: PoolConnection | Pool): PoolConnection | Pool {
-    return conn || db;
+    return conn || this.db;
   }
 
   // 2.1 Buscar precio aplicable

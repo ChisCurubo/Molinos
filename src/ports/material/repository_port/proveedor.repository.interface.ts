@@ -1,4 +1,4 @@
-import { ProveedorSQL } from '../../models/pagos/sql/proveedor.sql';
+import { ProveedorSQL } from '../../../models/pagos/sql/proveedor.sql';
 
 export interface IProveedorRepository {
     create(data: Omit<ProveedorSQL, 'id'>): Promise<number>;

@@ -1,5 +1,5 @@
-import { EmpleadoSQL } from '../../models/nomina/sql/empleado.sql';
-import { PrestamoEmpleadoSQL } from '../../models/nomina/sql/prestamo_empleado.sql';
+import { EmpleadoSQL } from '../../../models/nomina/sql/empleado.sql';
+import { PrestamoEmpleadoSQL } from '../../../models/nomina/sql/prestamo_empleado.sql';
 
 // --- Original: empleado ---
 export interface IEmpleadoService {
@@ -14,4 +14,5 @@ export interface IEmpleadoService {
 export interface PrestamoEmpleadoServiceInterface {
     registrarPrestamo(prestamo: Partial<PrestamoEmpleadoSQL>): Promise<PrestamoEmpleadoSQL>;
     listarPrestamosPorEmpleado(id_empleado: number): Promise<PrestamoEmpleadoSQL[]>;
+    updatePrestamo(id: number, data: Partial<PrestamoEmpleadoSQL>): Promise<PrestamoEmpleadoSQL | null>;
 }

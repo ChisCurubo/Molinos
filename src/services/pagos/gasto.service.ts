@@ -5,11 +5,7 @@ import { TipoGastoOperativoSQL } from '../../models/pagos/sql/tipo_gasto_operati
 
 // --- Original: tipo_gasto_operativo ---
 export class TipoGastoOperativoService implements ITipoGastoOperativoService {
-    private repository: ITipoGastoOperativoRepository;
-
-    constructor() {
-        this.repository = new TipoGastoOperativoRepository();
-    }
+    constructor(private repository: ITipoGastoOperativoRepository) {}
 
     async create(data: any): Promise<TipoGastoOperativoSQL> {
         const id = await this.repository.create(data);

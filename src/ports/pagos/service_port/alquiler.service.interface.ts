@@ -1,4 +1,4 @@
-import { TipoAlquilerSQL } from '../../models/pagos/sql/tipo_alquiler.sql';
+import { TipoAlquilerSQL } from '../../../models/pagos/sql/tipo_alquiler.sql';
 
 // --- Original: tipo_alquiler ---
 export interface ITipoAlquilerService {

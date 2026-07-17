@@ -5,10 +5,10 @@ import { DuenoVolquetaSQL } from '../../models/material/sql/dueno_volqueta.sql';
 
 // --- Original: dueno_volqueta ---
 export class DuenoVolquetaService implements IDuenoVolquetaService {
-    private repository: IDuenoVolquetaRepository;
+    private repository: DuenoVolquetaRepository;
 
-    constructor() {
-        this.repository = new DuenoVolquetaRepository();
+    constructor(repository: DuenoVolquetaRepository) {
+        this.repository = repository;
     }
 
     async create(data: any): Promise<DuenoVolquetaSQL> {

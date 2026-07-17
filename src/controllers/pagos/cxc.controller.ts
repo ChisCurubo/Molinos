@@ -4,11 +4,7 @@ import { CategoriaCxCService } from '../../services/pagos/cxc.service';
 
 // --- Original: categoria_cxc ---
 export class CategoriaCxCController {
-    private service: ICategoriaCxCService;
-
-    constructor() {
-        this.service = new CategoriaCxCService();
-    }
+    constructor(private service: ICategoriaCxCService) {}
 
     create = async (req: Request, res: Response): Promise<void> => {
         try {

@@ -3,6 +3,7 @@
 export interface AnalisisSQL {
     id: number;
     id_entrada?: number;
+    id_material_concentrado?: number;
     id_tipo_analisis: number;
     id_mina?: number;
     id_minero?: number;
@@ -16,7 +17,7 @@ export interface AnalisisSQL {
     toneladas_humedas: number;
     toneladas_secas: number;
     au_gr_x_ton: number;
-    au_gr_x_ton_falso?: number;
+    au_falso?: number;
     ag_gr_x_ton: number;
     valor_analisis?: number;
     estado_pago: string;
@@ -35,35 +36,52 @@ export enum EstadoPagoAnalisis {
 }
 
 export interface CreateAnalisisDTO {
-  id_entrada: number;
+  id_entrada?: number;
+  id_material_concentrado?: number;
   id_tipo_analisis: number;
   id_laboratorio?: number;
-  numero_analisis?: string;
-  au_concentrado?: number;
-  ton?: number;
+  id_tipo_material?: number;
+  numero_analisis: string;
+  toneladas: number;
   porcentaje_humedad: number;
-  toneladas_humedas?: number;
-  toneladas_secas: number;
-  au_gr_x_ton: number; 
-  au_gr_x_ton_falso: number; 
-  ag_gr_x_ton?: number;
-  valor_analisis?: number;
+  au_concentrado: number;
+  ag_concentrado: number;
+  au_falso: number;
   comentarios?: string;
+  // Calculated fields populated by service
+  toneladas_humedas?: number;
+  toneladas_secas?: number;
+  au_gr_x_ton?: number;
+  ag_gr_x_ton?: number;
 }
 
 export interface UpdateAnalisisDTO {
-  porcentaje_humedad: number;
-  toneladas_humedas?: number;
-  toneladas_secas: number;
-  au_gr_x_ton: number;
-  au_gr_x_ton_falso: number;
-  ag_gr_x_ton?: number;
+  id_entrada?: number;
+  id_material_concentrado?: number;
+  numero_analisis?: string;
+  id_laboratorio?: number;
+  id_tipo_material?: number;
+  toneladas?: number;
+  porcentaje_humedad?: number;
   au_concentrado?: number;
+  ag_concentrado?: number;
+  au_falso?: number;
+  comentarios?: string;
+  // Calculated fields populated by service
+  toneladas_humedas?: number;
+  toneladas_secas?: number;
+  au_gr_x_ton?: number;
+  ag_gr_x_ton?: number;
+}
+
+export interface UpdateValorAnalisisDTO {
+  valor_analisis: number;
 }
 
 export interface Analisis extends RowDataPacket {
   id: number;
-  id_entrada: number;
+  id_entrada?: number;
+  id_material_concentrado?: number;
   tipo_analisis: string;
   numero_analisis: string | null;
   porcentaje_humedad: number;
@@ -72,7 +90,10 @@ export interface Analisis extends RowDataPacket {
   tenor_real: number;
   tenor_falso: number;
   au_concentrado: number | null;
+  ag_concentrado: number | null;
+  au_gr_x_ton: number | null;
   ag_gr_x_ton: number | null;
+  au_falso: number | null;
   valor_analisis: number | null;
   estado_pago: EstadoPagoAnalisis;
   fecha_salida: Date | null;

@@ -1,4 +1,4 @@
-import { UsuarioApp } from '../../models/auth/app/usuario.app';
+import { UsuarioApp } from '../../../models/auth/app/usuario.app';
 
 export interface IUsuarioService {
     login(username: string, clave: string): Promise<{ token: string; usuario: UsuarioApp }>;

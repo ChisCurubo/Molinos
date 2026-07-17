@@ -1,8 +1,12 @@
-import { CreateAguaPlantaDTO, AguaPlanta } from '../models/material/sql/agua_planta.sql';
-import { AguaPlantaRepository } from '../repositories/material/agua_planta.repository';
+import { CreateAguaPlantaDTO, AguaPlantaSQL } from '../ports/material/repository_port/agua.repository.interface';
+import { AguaPlantaRepository } from '../repositories/material/agua.repository';
 
 export class AguaPlantaService {
-  private aguaPlantaRepo = new AguaPlantaRepository();
+  private aguaPlantaRepo: AguaPlantaRepository;
+
+  constructor(aguaPlantaRepo: AguaPlantaRepository) {
+    this.aguaPlantaRepo = aguaPlantaRepo;
+  }
 
   // 5.1 INSERT agua_planta
   async registrar(data: CreateAguaPlantaDTO): Promise<number> {
@@ -10,7 +14,7 @@ export class AguaPlantaService {
   }
 
   // 5.2 Listar viajes de agua con dueño
-  async listar(fechaDesde: string, fechaHasta: string): Promise<AguaPlanta[]> {
+  async listar(fechaDesde: string, fechaHasta: string): Promise<AguaPlantaSQL[]> {
     return await this.aguaPlantaRepo.listar(fechaDesde, fechaHasta);
   }
 

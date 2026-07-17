@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { CategoriaCxCController } from '../../controllers/pagos/cxc.controller';
+import { factory } from '../../config/factory';
 
 const router = Router();
-const categoriaCxcController = new CategoriaCxCController();
+const categoriaCxcController = factory.pagos.getCategoriaCxCController();
 
 // CxC Categorias
 router.get('/categorias', categoriaCxcController.list);

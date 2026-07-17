@@ -1,4 +1,4 @@
-import { TipoGastoOperativoSQL } from '../../models/pagos/sql/tipo_gasto_operativo.sql';
+import { TipoGastoOperativoSQL } from '../../../models/pagos/sql/tipo_gasto_operativo.sql';
 
 // --- Original: tipo_gasto_operativo ---
 export interface ITipoGastoOperativoService {

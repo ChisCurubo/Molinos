@@ -100,6 +100,7 @@ export interface EntradaMaterial extends RowDataPacket {
   estado_pago_flete: EstadoPagoFlete;
   mina_id: number;
   mina: string;
+  zona_id: number | null;
   minero_id: number | null;
   minero: string | null;
   minero_alias: string | null;

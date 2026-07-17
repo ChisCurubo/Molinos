@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { PlantaController } from '../../controllers/nomina/planta.controller';
+import { factory } from '../../config/factory';
 
 const router = Router();
-const plantaController = new PlantaController();
+const plantaController = factory.nomina.getPlantaController();
 
 // Rutas Plantas
 router.get('/', plantaController.list);

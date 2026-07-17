@@ -1,4 +1,4 @@
-import { DuenoVolquetaSQL } from '../../models/material/sql/dueno_volqueta.sql';
+import { DuenoVolquetaSQL } from '../../../models/material/sql/dueno_volqueta.sql';
 
 // --- Original: dueno_volqueta ---
 export interface IDuenoVolquetaService {

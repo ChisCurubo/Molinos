@@ -1,5 +1,5 @@
-import { CuentaPorPagarSQL } from '../../models/pagos/sql/cuenta_por_pagar.sql';
-import { CategoriaCxpSQL } from '../../models/pagos/sql/categoria_cxp.sql';
+import { CuentaPorPagarSQL } from '../../../models/pagos/sql/cuenta_por_pagar.sql';
+import { CategoriaCxpSQL } from '../../../models/pagos/sql/categoria_cxp.sql';
 
 // --- Original: cuentas_por_pagar ---
 export interface CuentasPorPagarServiceInterface {

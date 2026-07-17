@@ -1,10 +1,10 @@
-import { MaterialPlantaEntradaSQL, CreateMaterialEntradaDTO } from '../../models/material/sql/material_planta_entrada.sql';
-import { CreateAnalisisDTO } from '../../models/material/sql/analisis.sql';
-import { TipoMaterialSQL } from '../../models/material/sql/tipo_material.sql';
-import { PrecioMaterialSQL, PrecioMaterialLookup } from '../../models/material/sql/precio_material.sql';
-import { TarifaCalculoSQL } from '../../models/material/sql/tarifa_calculo.sql';
-import { ProveedorSQL } from '../../models/pagos/sql/proveedor.sql';
-import { MinaSQL } from '../../models/material/sql/mina.sql';
+import { MaterialPlantaEntradaSQL, CreateMaterialEntradaDTO } from '../../../models/material/sql/material_planta_entrada.sql';
+import { CreateAnalisisDTO } from '../../../models/material/sql/analisis.sql';
+import { TipoMaterialSQL } from '../../../models/material/sql/tipo_material.sql';
+import { PrecioMaterialSQL, PrecioMaterialLookup } from '../../../models/material/sql/precio_material.sql';
+import { TarifaCalculoSQL } from '../../../models/material/sql/tarifa_calculo.sql';
+import { ProveedorSQL } from '../../../models/pagos/sql/proveedor.sql';
+import { MinaSQL } from '../../../models/material/sql/mina.sql';
 
 export interface IMaterialEntradaService {
     registrarLlegada(data: CreateMaterialEntradaDTO): Promise<number>;
@@ -12,6 +12,13 @@ export interface IMaterialEntradaService {
     obtenerEntrada(id: number): Promise<any>;
     listarEntradas(fechaDesde: string, fechaHasta: string, estado: string, limit: number, offset: number): Promise<any[]>;
     listarPendientesLaboratorio(): Promise<any[]>;
+    listarPorMinero(idMinero: number): Promise<any[]>;
+    listarPorMina(idMina: number): Promise<any[]>;
+    listarPorVehiculo(idVehiculo: number): Promise<any[]>;
+    listarPorDueno(idDueno: number): Promise<any[]>;
+    listarPorFecha(fecha: string): Promise<any[]>;
+    actualizarEstado(id: number, estado: string): Promise<void>;
+    cancelar(id: number, motivo: string): Promise<void>;
 }
 
 export interface IPrecioMaterialService {
@@ -22,6 +29,7 @@ export interface IPrecioMaterialService {
     list(): Promise<PrecioMaterialSQL[]>;
     buscarPrecio(idMinero: number | null, idZona: number | null, metodo: string, tenorFalso: number, fechaEntrada: string | Date, conn?: any): Promise<PrecioMaterialLookup | null>;
     buscarTarifaZona(idZona: number | null, conn?: any): Promise<number>;
+    insertarLote(data: any): Promise<void>;
 }
 
 export interface ITipoMaterialService {

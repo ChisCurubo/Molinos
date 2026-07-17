@@ -4,11 +4,7 @@ import { TipoAlquilerService } from '../../services/pagos/alquiler.service';
 
 // --- Original: tipo_alquiler ---
 export class TipoAlquilerController {
-    private service: ITipoAlquilerService;
-
-    constructor() {
-        this.service = new TipoAlquilerService();
-    }
+    constructor(private service: ITipoAlquilerService) {}
 
     create = async (req: Request, res: Response): Promise<void> => {
         try {

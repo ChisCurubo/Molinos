@@ -8,11 +8,7 @@ import { CategoriaCxpSQL } from '../../models/pagos/sql/categoria_cxp.sql';
 
 // --- Original: cuentas_por_pagar ---
 export class CuentasPorPagarService implements CuentasPorPagarServiceInterface {
-    private repo: CuentasPorPagarRepositoryInterface;
-
-    constructor(repo: CuentasPorPagarRepositoryInterface) {
-        this.repo = repo;
-    }
+    constructor(private repo: CuentasPorPagarRepositoryInterface) {}
 
     async registrarCuenta(cuenta: Partial<CuentaPorPagarSQL>): Promise<CuentaPorPagarSQL> {
         return await this.repo.create(cuenta);
@@ -52,11 +48,7 @@ export class CuentasPorPagarService implements CuentasPorPagarServiceInterface {
 
 // --- Original: categoria_cxp ---
 export class CategoriaCxPService implements ICategoriaCxPService {
-    private repository: ICategoriaCxPRepository;
-
-    constructor() {
-        this.repository = new CategoriaCxPRepository();
-    }
+    constructor(private repository: ICategoriaCxPRepository) {}
 
     async create(data: any): Promise<CategoriaCxpSQL> {
         const id = await this.repository.create(data);

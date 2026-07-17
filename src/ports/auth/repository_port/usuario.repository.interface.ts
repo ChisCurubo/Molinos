@@ -1,4 +1,4 @@
-import { UsuarioSQL } from '../../models/auth/sql/usuario.sql';
+import { UsuarioSQL } from '../../../models/auth/sql/usuario.sql';
 
 export interface IUsuarioRepository {
     create(usuario: Omit<UsuarioSQL, 'id' | 'created_at'>): Promise<number>;

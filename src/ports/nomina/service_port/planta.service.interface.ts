@@ -1,4 +1,4 @@
-import { PlantaSQL } from '../../models/nomina/sql/planta.sql';
+import { PlantaSQL } from '../../../models/nomina/sql/planta.sql';
 
 // --- Original: planta ---
 export interface IPlantaService {

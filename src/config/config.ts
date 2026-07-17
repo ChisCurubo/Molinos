@@ -8,4 +8,5 @@ export const CONFIG = {
     dbUser: process.env.DB_USER || 'root',
     dbPassword: process.env.DB_PASSWORD || '',
     dbName: process.env.DB_NAME || 'molinos_erp_v4',
+    jwtSecret: process.env.JWT_SECRET || 'molinos_123',
 };

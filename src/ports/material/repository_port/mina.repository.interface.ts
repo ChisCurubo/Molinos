@@ -1,11 +1,11 @@
-import { MinaSQL } from '../../models/material/sql/mina.sql';
-import { MineroSQL } from '../../models/material/sql/minero.sql';
-import { ZonaSQL } from '../../models/material/sql/zona.sql';
-import { TarifaZonaSQL } from '../../models/material/sql/tarifa_zona.sql';
+import { MinaSQL } from '../../../models/material/sql/mina.sql';
+import { MineroSQL } from '../../../models/material/sql/minero.sql';
+import { ZonaSQL } from '../../../models/material/sql/zona.sql';
+import { TarifaZonaSQL } from '../../../models/material/sql/tarifa_zona.sql';
 
 // --- Original: mina ---
 export interface IMinaRepository {
-    create(data: Omit<MinaSQL, 'id'>): Promise<number>;
+    create(data: Omit<MinaSQL, 'id' | 'created_at' | 'updated_at'>): Promise<number>;
     getById(id: number): Promise<MinaSQL | null>;
     update(id: number, data: Partial<MinaSQL>): Promise<boolean>;
     delete(id: number): Promise<boolean>;
@@ -14,7 +14,7 @@ export interface IMinaRepository {
 
 // --- Original: minero ---
 export interface IMineroRepository {
-    create(data: Omit<MineroSQL, 'id'>): Promise<number>;
+    create(data: Omit<MineroSQL, 'id' | 'created_at' | 'updated_at'>): Promise<number>;
     getById(id: number): Promise<MineroSQL | null>;
     update(id: number, data: Partial<MineroSQL>): Promise<boolean>;
     delete(id: number): Promise<boolean>;
@@ -23,7 +23,7 @@ export interface IMineroRepository {
 
 // --- Original: zona ---
 export interface IZonaRepository {
-    create(data: Omit<ZonaSQL, 'id'>): Promise<number>;
+    create(data: Omit<ZonaSQL, 'id' | 'created_at'>): Promise<number>;
     getById(id: number): Promise<ZonaSQL | null>;
     update(id: number, data: Partial<ZonaSQL>): Promise<boolean>;
     delete(id: number): Promise<boolean>;

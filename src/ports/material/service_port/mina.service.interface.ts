@@ -1,7 +1,7 @@
-import { MinaSQL } from '../../models/material/sql/mina.sql';
-import { MineroSQL } from '../../models/material/sql/minero.sql';
-import { ZonaSQL } from '../../models/material/sql/zona.sql';
-import { TarifaZonaSQL } from '../../models/material/sql/tarifa_zona.sql';
+import { MinaSQL } from '../../../models/material/sql/mina.sql';
+import { MineroSQL } from '../../../models/material/sql/minero.sql';
+import { ZonaSQL } from '../../../models/material/sql/zona.sql';
+import { TarifaZonaSQL } from '../../../models/material/sql/tarifa_zona.sql';
 
 // --- Original: mina ---
 export interface IMinaService {

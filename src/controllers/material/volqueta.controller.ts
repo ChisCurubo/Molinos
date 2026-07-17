@@ -6,8 +6,8 @@ import { DuenoVolquetaService } from '../../services/material/volqueta.service';
 export class DuenoVolquetaController {
     private service: IDuenoVolquetaService;
 
-    constructor() {
-        this.service = new DuenoVolquetaService();
+    constructor(service: IDuenoVolquetaService) {
+        this.service = service;
     }
 
     create = async (req: Request, res: Response): Promise<void> => {

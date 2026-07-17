@@ -2,7 +2,11 @@ import { PrecioRepository } from '../repositories/material/precio.repository';
 import { PrecioMaterialLookup } from '../models/material/sql/precio_material.sql';
 
 export class PrecioService {
-  private precioRepo = new PrecioRepository();
+  private precioRepo: PrecioRepository;
+
+  constructor(precioRepo: PrecioRepository) {
+    this.precioRepo = precioRepo;
+  }
 
   // 2.1 Buscar precio aplicable
   async buscarPrecio(

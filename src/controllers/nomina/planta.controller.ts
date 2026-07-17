@@ -4,11 +4,7 @@ import { PlantaService } from '../../services/nomina/planta.service';
 
 // --- Original: planta ---
 export class PlantaController {
-    private service: IPlantaService;
-
-    constructor() {
-        this.service = new PlantaService();
-    }
+    constructor(private service: IPlantaService) {}
 
     create = async (req: Request, res: Response): Promise<void> => {
         try {

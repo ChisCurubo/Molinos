@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { TipoGastoOperativoController } from '../../controllers/pagos/gasto.controller';
+import { factory } from '../../config/factory';
 
 const router = Router();
-const tipoGastoController = new TipoGastoOperativoController();
+const tipoGastoController = factory.pagos.getTipoGastoOperativoController();
 
 // Gastos Operativos
 router.get('/tipos', tipoGastoController.list);

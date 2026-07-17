@@ -1,9 +1,176 @@
 import { Router } from 'express';
 import { MaterialEntradaController, PrecioMaterialController } from '../../controllers/material/material.controller';
+import { factory } from '../../config/factory';
 
 const router = Router();
-const materialController = new MaterialEntradaController();
-const precioController = new PrecioMaterialController();
+const materialController = factory.material.getMaterialEntradaController();
+const precioController = factory.material.getPrecioMaterialController();
+
+// === Rutas específicas (deben ir antes de /:id) ===
+/**
+ * @swagger
+ * /material/entradas/pendientes-analisis:
+ *   get:
+ *     summary: Entradas sin análisis completado
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: Lista de entradas
+ */
+router.get('/entradas/pendientes-analisis',     materialController.pendientesLaboratorio);
+
+/**
+ * @swagger
+ * /material/entradas/minero/{id_minero}:
+ *   get:
+ *     summary: Entradas de un minero
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id_minero
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de entradas
+ */
+router.get('/entradas/minero/:id_minero',       materialController.listarPorMinero);
+
+/**
+ * @swagger
+ * /material/entradas/mina/{id_mina}:
+ *   get:
+ *     summary: Entradas de una mina
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id_mina
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de entradas
+ */
+router.get('/entradas/mina/:id_mina',           materialController.listarPorMina);
+
+/**
+ * @swagger
+ * /material/entradas/vehiculo/{id_vehiculo}:
+ *   get:
+ *     summary: Entradas de un vehículo
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id_vehiculo
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de entradas
+ */
+router.get('/entradas/vehiculo/:id_vehiculo',   materialController.listarPorVehiculo);
+
+/**
+ * @swagger
+ * /material/entradas/dueno/{id_dueno}:
+ *   get:
+ *     summary: Entradas del dueño de vehículo
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id_dueno
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de entradas
+ */
+router.get('/entradas/dueno/:id_dueno',         materialController.listarPorDueno);
+
+/**
+ * @swagger
+ * /material/entradas/fecha/{fecha}:
+ *   get:
+ *     summary: Entradas en una fecha
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: fecha
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Lista de entradas
+ */
+router.get('/entradas/fecha/:fecha',            materialController.listarPorFecha);
+
+/**
+ * @swagger
+ * /material/entradas/{id}:
+ *   get:
+ *     summary: Obtener entrada por ID
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Detalle de entrada
+ */
+router.get('/entradas/:id',                     materialController.getById);
+
+/**
+ * @swagger
+ * /material/entradas/{id}/estado:
+ *   patch:
+ *     summary: Cambiar estado
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Estado actualizado
+ */
+router.patch('/entradas/:id/estado',            materialController.cambiarEstado);
+
+/**
+ * @swagger
+ * /material/entradas/{id}/cancelar:
+ *   patch:
+ *     summary: Cancelar entrada
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Entrada cancelada
+ */
+router.patch('/entradas/:id/cancelar',          materialController.cancelar);
 
 /**
  * @swagger
@@ -133,5 +300,45 @@ router.get('/pendientes', materialController.pendientesLaboratorio);
  *         description: Detalles de la regla de precio aplicada
  */
 router.get('/precio/calcular', precioController.buscarPrecio);
+
+/**
+ * @swagger
+ * /material/precios/lote:
+ *   post:
+ *     summary: Registrar tarifas por lotes (intervalos de precios)
+ *     tags: [Material]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id_minero:
+ *                 type: integer
+ *               metodo:
+ *                 type: string
+ *               fecha_inicio:
+ *                 type: string
+ *               intervalos:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     min:
+ *                       type: number
+ *                     max:
+ *                       type: number
+ *                     precio_por_gramo:
+ *                       type: number
+ *                     precio_por_tonelada:
+ *                       type: number
+ *     responses:
+ *       201:
+ *         description: Tarifas registradas
+ */
+router.post('/precios/lote', precioController.insertarLote);
 
 export default router;

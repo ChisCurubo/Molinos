@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { CategoriaProveedorController } from '../../controllers/pagos/proveedor.controller';
+import { factory } from '../../config/factory';
 
 const router = Router();
-const categoriaProveedorController = new CategoriaProveedorController();
+const categoriaProveedorController = factory.pagos.getCategoriaProveedorController();
 
 // Proveedor
 router.get('/categorias', categoriaProveedorController.list);
