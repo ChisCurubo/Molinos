@@ -19,6 +19,9 @@ export interface IMaterialEntradaService {
     listarPorFecha(fecha: string): Promise<any[]>;
     actualizarEstado(id: number, estado: string): Promise<void>;
     cancelar(id: number, motivo: string): Promise<void>;
+    estadisticas(): Promise<any>;
+    actualizarEntrada(id: number, data: CreateMaterialEntradaDTO): Promise<any>;
+    eliminarEntrada(id: number): Promise<void>;
 }
 
 export interface IPrecioMaterialService {
@@ -30,6 +33,8 @@ export interface IPrecioMaterialService {
     buscarPrecio(idMinero: number | null, idZona: number | null, metodo: string, tenorFalso: number, fechaEntrada: string | Date, conn?: any): Promise<PrecioMaterialLookup | null>;
     buscarTarifaZona(idZona: number | null, conn?: any): Promise<number>;
     insertarLote(data: any): Promise<void>;
+    reemplazarIntervalo(id: number, data: any): Promise<number>;
+    listarPrecios(filtros?: { id_minero?: number | null; id_zona?: number | null; alcance?: string; activo?: boolean }): Promise<any[]>;
 }
 
 export interface ITipoMaterialService {

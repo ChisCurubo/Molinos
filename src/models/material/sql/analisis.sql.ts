@@ -42,7 +42,8 @@ export interface CreateAnalisisDTO {
   id_laboratorio?: number;
   id_tipo_material?: number;
   numero_analisis: string;
-  toneladas: number;
+  // Opcional: si se omite en un análisis de cabeza, el Service usa el peso_llegada_planta de la entrada.
+  toneladas?: number;
   porcentaje_humedad: number;
   au_concentrado: number;
   ag_concentrado: number;
@@ -82,6 +83,7 @@ export interface Analisis extends RowDataPacket {
   id: number;
   id_entrada?: number;
   id_material_concentrado?: number;
+  id_tipo_analisis?: number;
   tipo_analisis: string;
   numero_analisis: string | null;
   porcentaje_humedad: number;

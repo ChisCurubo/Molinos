@@ -33,10 +33,64 @@ export class AnalisisController {
     }
   };
 
+  // POST /material/analisis/cabeza — alias de conveniencia para el análisis de Cabeza (tipo 1).
+  // Reutiliza la lógica transaccional de vincularAnalisisAEntrada; numero_analisis se
+  // autogenera como "AN-{numero_volqueta}" si se envía vacío.
+  public registrarCabeza = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const b = req.body;
+      if (!b.id_entrada || b.porcentaje_humedad === undefined || b.au_concentrado === undefined) {
+        res.status(400).json({ success: false, message: 'Faltan campos obligatorios: id_entrada, porcentaje_humedad, au_concentrado' });
+        return;
+      }
+      const data: CreateAnalisisDTO = {
+        id_entrada: Number(b.id_entrada),
+        id_tipo_analisis: 1,
+        numero_analisis: b.numero_analisis ?? '',
+        id_laboratorio: b.id_laboratorio ?? undefined,
+        toneladas: b.toneladas,
+        porcentaje_humedad: Number(b.porcentaje_humedad),
+        au_concentrado: Number(b.au_concentrado),
+        ag_concentrado: b.ag_concentrado !== undefined ? Number(b.ag_concentrado) : 0,
+        au_falso: b.au_falso !== undefined ? Number(b.au_falso) : 0,
+        comentarios: b.comentarios ?? undefined
+      };
+      await this.analisisService.vincularAnalisisAEntrada(data);
+      res.status(201).json({ success: true, message: 'Análisis de cabeza registrado y cálculos de material actualizados.' });
+    } catch (e: any) {
+      res.status(e?.status || 500).json({ success: false, error: e.message || String(e), ...(e?.code && { code: e.code }) });
+    }
+  };
+
+  // DELETE /material/analisis/:id — bloquea con 409 si la entrada está en_proceso/incluida_viaje.
+  public eliminar = async (req: Request, res: Response): Promise<void> => {
+    try {
+      await this.analisisService.eliminarAnalisis(Number(req.params.id));
+      res.status(200).json({ success: true, message: 'Análisis eliminado' });
+    } catch (e: any) {
+      res.status(e?.status || 500).json({ success: false, error: e.message || String(e), ...(e?.code && { code: e.code }) });
+    }
+  };
+
   public obtenerAnalisis = async (req: Request, res: Response): Promise<void> => {
       try {
           const { id_entrada } = req.params;
           const data = await this.analisisService.obtenerTodosPorEntrada(Number(id_entrada));
+          res.status(200).json({ success: true, data });
+      } catch (error: any) {
+          res.status(500).json({ success: false, message: 'Error interno.', error: error.message });
+      }
+  };
+
+  // GET /material/analisis?id_entrada=X — variante por query string.
+  public obtenerPorQuery = async (req: Request, res: Response): Promise<void> => {
+      try {
+          const idEntrada = req.query.id_entrada;
+          if (!idEntrada) {
+              res.status(400).json({ success: false, message: 'id_entrada es requerido' });
+              return;
+          }
+          const data = await this.analisisService.obtenerTodosPorEntrada(Number(idEntrada));
           res.status(200).json({ success: true, data });
       } catch (error: any) {
           res.status(500).json({ success: false, message: 'Error interno.', error: error.message });

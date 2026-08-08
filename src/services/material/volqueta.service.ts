@@ -1,5 +1,5 @@
-import { IDuenoVolquetaService } from '../../ports/material/service_port/volqueta.service.interface';
-import { IDuenoVolquetaRepository } from '../../ports/material/repository_port/volqueta.repository.interface';
+import { IDuenoVolquetaService, IVehiculoService } from '../../ports/material/service_port/volqueta.service.interface';
+import { IDuenoVolquetaRepository, IVehiculoRepository } from '../../ports/material/repository_port/volqueta.repository.interface';
 import { DuenoVolquetaRepository } from '../../repositories/material/volqueta.repository';
 import { DuenoVolquetaSQL } from '../../models/material/sql/dueno_volqueta.sql';
 
@@ -32,5 +32,46 @@ export class DuenoVolquetaService implements IDuenoVolquetaService {
 
     async list(): Promise<DuenoVolquetaSQL[]> {
         return this.repository.list();
+    }
+}
+
+// --- Original: volqueta_vehiculo (vehículo vive dentro del módulo volqueta) ---
+export class VehiculoService implements IVehiculoService {
+    private repository: IVehiculoRepository;
+
+    constructor(repository: IVehiculoRepository) {
+        this.repository = repository;
+    }
+
+    async list(todas?: boolean): Promise<any[]> {
+        return this.repository.list(todas);
+    }
+
+    async getById(id: number): Promise<any | null> {
+        return this.repository.getById(id);
+    }
+
+    async create(data: any): Promise<number> {
+        return this.repository.create(data);
+    }
+
+    async update(id: number, data: any): Promise<boolean> {
+        return this.repository.update(id, data);
+    }
+
+    async delete(id: number): Promise<boolean> {
+        return this.repository.delete(id);
+    }
+
+    async listarPorDueno(id_dueno: number): Promise<any[]> {
+        return this.repository.listarPorDueno(id_dueno);
+    }
+
+    async listarEntradas(id_vehiculo: number): Promise<any[]> {
+        return this.repository.listarEntradas(id_vehiculo);
+    }
+
+    async entradasPendientes(id_vehiculo: number): Promise<any[]> {
+        return this.repository.listarEntradasPendientesFlete(id_vehiculo);
     }
 }

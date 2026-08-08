@@ -8,6 +8,7 @@ import { TarifaCalculoSQL } from '../../models/material/sql/tarifa_calculo.sql';
 import { ITarifaCalculoRepository } from '../../ports/material/repository_port/material.repository.interface';
 import { ProveedorSQL } from '../../models/pagos/sql/proveedor.sql';
 import { IProveedorRepository, IMaterialEntradaRepository } from '../../ports/material/repository_port/material.repository.interface';
+import { HttpError } from '../../helpers/http_error';
 
 // --- Original: material_planta_entrada ---
 export class MaterialEntradaRepository implements IMaterialEntradaRepository {
@@ -395,6 +396,93 @@ export class MaterialEntradaRepository implements IMaterialEntradaRepository {
     const [rows] = await connection.execute<any[]>(query, [fecha]);
     return rows;
   }
+
+  // 3.17 KPIs para el tablero de entradas
+  async estadisticas(conn?: PoolConnection): Promise<any> {
+    const connection = this.getConn(conn);
+    const query = `
+      SELECT
+        COUNT(*) AS total_registros,
+        SUM(CASE WHEN mpe.tenor IS NULL OR mpe.tenor = 0 THEN 1 ELSE 0 END) AS sin_procesar,
+        SUM(CASE WHEN (mpe.tenor IS NULL OR mpe.tenor = 0) THEN mpe.peso_llegada_planta ELSE 0 END) AS ton_humedo_pendiente,
+        (SELECT COUNT(*) FROM volqueta_vehiculo WHERE activo = 1) AS volquetas_activas
+      FROM material_planta_entrada mpe
+      WHERE mpe.estado != 'cancelada'
+    `;
+    const [rows] = await connection.execute<any[]>(query);
+    return rows[0];
+  }
+
+  // 3.18 Actualizar campos base de la entrada (sin tocar cálculos de análisis)
+  async actualizarBase(id: number, data: Partial<CreateMaterialEntradaDTO>, conn?: PoolConnection): Promise<boolean> {
+    const connection = this.getConn(conn);
+    const campos: Record<string, any> = {
+      numero_volqueta: data.numero_volqueta,
+      id_mina: data.id_mina,
+      id_vehiculo: data.id_vehiculo,
+      id_tipo_material: data.id_tipo_material,
+      fecha_llegada: data.fecha_llegada,
+      peso_llegada_planta: data.peso_llegada_planta,
+      comentarios: data.comentarios
+    };
+    const fields: string[] = [];
+    const values: any[] = [];
+    for (const [key, value] of Object.entries(campos)) {
+      if (value !== undefined) {
+        fields.push(`${key} = ?`);
+        values.push(value);
+      }
+    }
+    if (fields.length === 0) return false;
+    values.push(id);
+    const [result] = await connection.execute<ResultSetHeader>(
+      `UPDATE material_planta_entrada SET ${fields.join(', ')} WHERE id = ?`, values
+    );
+    return result.affectedRows > 0;
+  }
+
+  // 3.19 Contar análisis vinculados a una entrada
+  async contarAnalisis(id: number, conn?: PoolConnection): Promise<number> {
+    const connection = this.getConn(conn);
+    const [rows] = await connection.execute<any[]>(
+      'SELECT COUNT(*) AS n FROM analisis WHERE id_entrada = ?', [id]
+    );
+    return Number(rows[0]?.n ?? 0);
+  }
+
+  // 3.20 DELETE físico de la entrada (la validación de reglas va en el Service)
+  async eliminar(id: number, conn?: PoolConnection): Promise<boolean> {
+    const connection = this.getConn(conn);
+    const [result] = await connection.execute<ResultSetHeader>(
+      'DELETE FROM material_planta_entrada WHERE id = ?', [id]
+    );
+    return result.affectedRows > 0;
+  }
+
+  // 3.21 Limpia el inventario que el trigger creó al registrar la entrada:
+  // primero el kardex de esos lotes y luego los lotes (para poder borrar la entrada).
+  async eliminarInventarioDeEntrada(id: number, conn?: PoolConnection): Promise<void> {
+    const connection = this.getConn(conn);
+    await connection.execute(
+      `DELETE km FROM kardex_movimientos km
+         JOIN inventario_lotes il ON il.id = km.id_lote
+        WHERE il.id_entrada = ?`, [id]
+    );
+    await connection.execute('DELETE FROM inventario_lotes WHERE id_entrada = ?', [id]);
+  }
+
+  // 3.22 Cuenta lotes de inventario con salidas ya registradas (no se debe borrar la entrada).
+  async contarSalidasInventario(id: number, conn?: PoolConnection): Promise<number> {
+    const connection = this.getConn(conn);
+    const [rows] = await connection.execute<any[]>(
+      `SELECT COUNT(*) AS n
+         FROM kardex_movimientos km
+         JOIN inventario_lotes il ON il.id = km.id_lote
+        WHERE il.id_entrada = ?
+          AND km.tipo_movimiento NOT IN ('ENTRADA_PLANTA', 'ENTRADA_CONCENTRADO')`, [id]
+    );
+    return Number(rows[0]?.n ?? 0);
+  }
 }
 
 
@@ -546,6 +634,112 @@ export class PrecioMaterialRepository implements IPrecioMaterialRepository {
         `;
 
         await connection.query(query, values);
+    }
+
+    // Desactiva (no borra) los precios activos del MISMO alcance, para conservar trazabilidad:
+    //  - con id_minero → los precios específicos de ese minero
+    //  - solo id_zona  → los específicos de esa zona (sin minero)
+    //  - sin ninguno   → los generales (sin minero ni zona)
+    async desactivarPreciosVigentes(idMinero: number | null, idZona: number | null, metodo: string, conn?: PoolConnection): Promise<void> {
+        const connection = this.getConn(conn);
+        let where = 'activo = 1 AND metodo = ?';
+        const params: any[] = [metodo];
+        if (idMinero) {
+            where += ' AND id_minero = ?';
+            params.push(idMinero);
+        } else if (idZona) {
+            where += ' AND id_zona = ? AND id_minero IS NULL';
+            params.push(idZona);
+        } else {
+            where += ' AND id_minero IS NULL AND id_zona IS NULL';
+        }
+        await connection.execute(`UPDATE precio_material SET activo = 0, fecha_fin = CURRENT_DATE WHERE ${where}`, params);
+    }
+
+    // Crea el lote nuevo tras desactivar los vigentes del mismo alcance, todo en una transacción.
+    async reemplazarLoteVigente(idMinero: number | null, idZona: number | null, metodo: string, precios: Omit<PrecioMaterialSQL, 'id'>[]): Promise<void> {
+        const conn = await this.db.getConnection();
+        try {
+            await conn.beginTransaction();
+            await this.desactivarPreciosVigentes(idMinero, idZona, metodo, conn);
+            await this.insertarLote(precios, conn);
+            await conn.commit();
+        } catch (error) {
+            await conn.rollback();
+            throw error;
+        } finally {
+            conn.release();
+        }
+    }
+
+    // Edita un intervalo: desactiva el actual e inserta un reemplazo activo (versionado).
+    async reemplazarIntervalo(id: number, data: any): Promise<number> {
+        const conn = await this.db.getConnection();
+        try {
+            await conn.beginTransaction();
+            const [rows] = await conn.execute<RowDataPacket[]>('SELECT * FROM precio_material WHERE id = ?', [id]);
+            if (rows.length === 0) throw new HttpError(404, 'Precio no encontrado', 'PRECIO_NO_ENCONTRADO');
+            const old: any = rows[0];
+
+            await conn.execute('UPDATE precio_material SET activo = 0, fecha_fin = CURRENT_DATE WHERE id = ?', [id]);
+
+            const nuevo: Omit<PrecioMaterialSQL, 'id'> = {
+                id_minero: (data.id_minero ?? old.id_minero) || null,
+                id_zona: (data.id_zona ?? old.id_zona) || null,
+                metodo: data.metodo ?? old.metodo,
+                precio_por_gramo: data.precio_por_gramo ?? old.precio_por_gramo,
+                precio_por_tonelada: data.precio_por_tonelada ?? old.precio_por_tonelada,
+                intervalo_tenor_min: data.min ?? data.intervalo_tenor_min ?? old.intervalo_tenor_min,
+                intervalo_tenor_max: data.max ?? data.intervalo_tenor_max ?? old.intervalo_tenor_max,
+                fecha_inicio: data.fecha_inicio ? new Date(data.fecha_inicio) : new Date(),
+                fecha_fin: null as any,
+                activo: true,
+                created_at: new Date()
+            };
+            await this.insertarLote([nuevo], conn);
+            const [r2] = await conn.execute<RowDataPacket[]>('SELECT LAST_INSERT_ID() AS id');
+
+            await conn.commit();
+            return Number(r2[0].id);
+        } catch (error) {
+            await conn.rollback();
+            throw error;
+        } finally {
+            conn.release();
+        }
+    }
+
+    // Lista precios con filtros opcionales. `alcance='general'` = sin minero ni zona.
+    async listar(filtros: { id_minero?: number | null; id_zona?: number | null; alcance?: string; activo?: boolean } = {}): Promise<any[]> {
+        let where = '1 = 1';
+        const params: any[] = [];
+        if (filtros.alcance === 'general') {
+            where += ' AND pm.id_minero IS NULL AND pm.id_zona IS NULL';
+        } else {
+            if (filtros.id_minero) { where += ' AND pm.id_minero = ?'; params.push(filtros.id_minero); }
+            if (filtros.id_zona) { where += ' AND pm.id_zona = ?'; params.push(filtros.id_zona); }
+        }
+        if (filtros.activo !== undefined) { where += ' AND pm.activo = ?'; params.push(filtros.activo ? 1 : 0); }
+
+        const query = `
+            SELECT pm.id, pm.id_minero, pm.id_zona, pm.metodo,
+                pm.precio_por_gramo, pm.precio_por_tonelada,
+                pm.intervalo_tenor_min, pm.intervalo_tenor_max,
+                pm.fecha_inicio, pm.fecha_fin, pm.activo,
+                mn.nombre AS minero, z.nombre AS zona,
+                CASE
+                    WHEN pm.id_minero IS NOT NULL THEN 'minero'
+                    WHEN pm.id_zona   IS NOT NULL THEN 'zona'
+                    ELSE 'general'
+                END AS alcance
+            FROM precio_material pm
+            LEFT JOIN minero mn ON mn.id = pm.id_minero
+            LEFT JOIN zona z ON z.id = pm.id_zona
+            WHERE ${where}
+            ORDER BY alcance, mn.nombre, z.nombre, pm.metodo, pm.intervalo_tenor_min, pm.activo DESC
+        `;
+        const [rows] = await this.db.execute<RowDataPacket[]>(query, params);
+        return rows;
     }
 
     async buscarPrecioAplicable(idMinero: number | null, idZona: number | null, metodo: string, tenorFalso: number, fechaEntrada: string, conn?: import('mysql2/promise').PoolConnection): Promise<any | null> {

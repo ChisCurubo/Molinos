@@ -20,6 +20,7 @@ export interface IAnalisisRepository {
     actualizarEstadoPago(id: number, estado: EstadoPagoAnalisis, conn?: PoolConnection): Promise<void>;
     obtenerPorId(id: number, conn?: PoolConnection): Promise<Analisis | null>;
     obtenerPorIdentificador(identificador: string | number, conn?: PoolConnection): Promise<Analisis | null>;
+    eliminar(id: number, conn?: PoolConnection): Promise<boolean>;
     listarPorMinero(id_minero: number, conn?: PoolConnection): Promise<any[]>;
     listarPorMina(id_mina: number, conn?: PoolConnection): Promise<any[]>;
     listarPorFecha(fecha: string, conn?: PoolConnection): Promise<any[]>;

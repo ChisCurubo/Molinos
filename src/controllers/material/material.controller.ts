@@ -7,7 +7,7 @@ import { CreateAnalisisDTO } from '../../models/material/sql/analisis.sql';
 
 // Global repository removed to use DI
 const ok = (res: Response, data: any, meta?: any) => res.status(200).json({ success: true, data, ...(meta && { meta }) });
-const err = (res: Response, e: any, status = 500) => res.status(status).json({ success: false, error: e.message || String(e) });
+const err = (res: Response, e: any) => res.status(e?.status || 500).json({ success: false, error: e.message || String(e), ...(e?.code && { code: e.code }) });
 
 export class MaterialEntradaController {
     private service: IMaterialEntradaService;
@@ -98,6 +98,24 @@ export class MaterialEntradaController {
             ok(res, { cancelled: true });
         } catch (e) { err(res, e); }
     };
+
+    public stats = async (_req: Request, res: Response): Promise<void> => {
+        try { ok(res, await this.service.estadisticas()); } catch (e) { err(res, e); }
+    };
+
+    public actualizar = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const updated = await this.service.actualizarEntrada(Number(req.params.id), req.body);
+            ok(res, updated);
+        } catch (e) { err(res, e); }
+    };
+
+    public eliminar = async (req: Request, res: Response): Promise<void> => {
+        try {
+            await this.service.eliminarEntrada(Number(req.params.id));
+            ok(res, { deleted: true });
+        } catch (e) { err(res, e); }
+    };
 }
 
 export class TipoMaterialController {
@@ -135,7 +153,33 @@ export class PrecioMaterialController {
             await this.service.insertarLote(req.body);
             res.status(201).json({ success: true, message: 'Tarifas registradas correctamente' });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+            res.status(error?.status || 500).json({ success: false, message: 'Error interno', error: error.message, ...(error?.code && { code: error.code }) });
+        }
+    };
+
+    // GET /material/precios — lista con filtros: ?id_minero= ?id_zona= ?alcance=general ?activo=1
+    public listar = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { id_minero, id_zona, alcance, activo } = req.query;
+            const data = await this.service.listarPrecios({
+                id_minero: id_minero ? Number(id_minero) : undefined,
+                id_zona: id_zona ? Number(id_zona) : undefined,
+                alcance: alcance as string | undefined,
+                activo: activo === undefined ? undefined : (activo === 'true' || activo === '1')
+            });
+            res.status(200).json({ success: true, data });
+        } catch (error: any) {
+            res.status(error?.status || 500).json({ success: false, message: 'Error interno', error: error.message });
+        }
+    };
+
+    // PUT /material/precios/:id — edita un intervalo: desactiva el actual e inserta el reemplazo activo.
+    public reemplazarIntervalo = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const nuevoId = await this.service.reemplazarIntervalo(Number(req.params.id), req.body);
+            res.status(200).json({ success: true, message: 'Intervalo reemplazado', id: nuevoId });
+        } catch (error: any) {
+            res.status(error?.status || 500).json({ success: false, message: 'Error interno', error: error.message, ...(error?.code && { code: error.code }) });
         }
     };
 }

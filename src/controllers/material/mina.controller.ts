@@ -5,8 +5,8 @@ import { MinaService, MineroService, ZonaService } from '../../services/material
 
 const ok = (res: Response, data: any, meta?: any) =>
     res.status(200).json({ success: true, data, ...(meta && { meta }) });
-const err = (res: Response, error: any, status = 500) =>
-    res.status(status).json({ success: false, error: error.message || String(error) });
+const err = (res: Response, error: any) =>
+    res.status(error?.status || 500).json({ success: false, error: error.message || String(error), ...(error?.code && { code: error.code }) });
 
 export class MinaController {
     constructor(
@@ -38,6 +38,10 @@ export class MinaController {
 
     mineros = async (_req: Request, res: Response) => {
         try { ok(res, await this.mineroService.list()); } catch (e) { err(res, e); }
+    };
+
+    minerosConMinas = async (_req: Request, res: Response) => {
+        try { ok(res, await this.mineroService.listarConMinas()); } catch (e) { err(res, e); }
     };
 
     zonas = async (_req: Request, res: Response) => {

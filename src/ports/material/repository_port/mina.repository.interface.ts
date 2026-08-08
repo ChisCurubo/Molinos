@@ -1,3 +1,4 @@
+import { PoolConnection } from 'mysql2/promise';
 import { MinaSQL } from '../../../models/material/sql/mina.sql';
 import { MineroSQL } from '../../../models/material/sql/minero.sql';
 import { ZonaSQL } from '../../../models/material/sql/zona.sql';
@@ -10,6 +11,7 @@ export interface IMinaRepository {
     update(id: number, data: Partial<MinaSQL>): Promise<boolean>;
     delete(id: number): Promise<boolean>;
     list(): Promise<MinaSQL[]>;
+    obtenerZonaDeMina(idMina: number, conn?: PoolConnection): Promise<number | null>;
 }
 
 // --- Original: minero ---

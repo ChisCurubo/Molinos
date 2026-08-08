@@ -56,6 +56,10 @@ export class MineroService implements IMineroService {
     }
 
     async create(data: any): Promise<MineroSQL> {
+        // Regla de negocio: el nombre del minero se guarda siempre en MAYÚSCULAS.
+        if (typeof data?.nombre === 'string') {
+            data.nombre = data.nombre.trim().toUpperCase();
+        }
         const id = await this.repository.create(data);
         const entity = await this.repository.getById(id);
         return entity!;
@@ -66,6 +70,10 @@ export class MineroService implements IMineroService {
     }
 
     async update(id: number, data: any): Promise<MineroSQL | null> {
+        // Regla de negocio: el nombre del minero se guarda siempre en MAYÚSCULAS.
+        if (typeof data?.nombre === 'string') {
+            data.nombre = data.nombre.trim().toUpperCase();
+        }
         await this.repository.update(id, data);
         return this.repository.getById(id);
     }
@@ -76,6 +84,10 @@ export class MineroService implements IMineroService {
 
     async list(): Promise<MineroSQL[]> {
         return this.repository.list();
+    }
+
+    async listarConMinas(): Promise<any[]> {
+        return this.repository.listarConMinas();
     }
 }
 

@@ -37,6 +37,8 @@ export class TipoAnalisisService implements ITipoAnalisisService {
 
 import { IAnalisisService } from '../../ports/material/service_port/analisis.service.interface';
 import { CreateAnalisisDTO } from '../../models/material/sql/analisis.sql';
+import { EstadoEntrada } from '../../models/material/sql/material_planta_entrada.sql';
+import { HttpError } from '../../helpers/http_error';
 import Database from '../../config/database.config';
 import { TriggerLogicRepository } from '../../ports/db_triggers/trigger_logic.repository.interface';
 import { IAnalisisRepository } from '../../ports/material/repository_port/analisis.repository.interface';
@@ -83,16 +85,28 @@ export class AnalisisService implements IAnalisisService {
                 const entrada = await this.materialRepo.obtenerPorId(data.id_entrada, conn);
                 if (!entrada) throw new Error("Entrada no encontrada");
 
+                // Si no viene numero_analisis, se autogenera como "AN-{mina}-{numero_volqueta}".
+                if (!data.numero_analisis) {
+                    const minaSlug = (entrada.mina ?? 'SINMINA').toString().trim().toUpperCase();
+                    data.numero_analisis = `AN-${minaSlug}-${entrada.numero_volqueta}`;
+                }
+
                 data.id_tipo_material = entrada.id_tipo_material;
 
-                const toneladas_brutas = data.toneladas;
+                // Si no se envían toneladas, se usa el peso de llegada de la entrada como base.
+                const toneladas_brutas = (data.toneladas === undefined || data.toneladas === null)
+                    ? Number(entrada.peso_llegada_planta)
+                    : Number(data.toneladas);
                 const toneladas_humedas = toneladas_brutas * porcentaje_decimal;
                 const toneladas_secas = toneladas_brutas - toneladas_humedas;
-                
+
+                // Persistimos la tonelada bruta base (columna `ton`) para poder recalcular en ediciones.
+                data.toneladas = toneladas_brutas;
                 data.toneladas_humedas = toneladas_humedas;
                 data.toneladas_secas = toneladas_secas;
-                data.au_gr_x_ton = data.au_concentrado * toneladas_secas;
-                data.ag_gr_x_ton = data.ag_concentrado * toneladas_secas;
+                // au_concentrado es el TOTAL de gramos; el tenor (gr/ton) = total / material seco.
+                data.au_gr_x_ton = toneladas_secas > 0 ? data.au_concentrado / toneladas_secas : 0;
+                data.ag_gr_x_ton = toneladas_secas > 0 ? data.ag_concentrado / toneladas_secas : 0;
 
                 await this.analisisRepo.insertar(data, conn);
                 
@@ -164,8 +178,9 @@ export class AnalisisService implements IAnalisisService {
                 
                 data.toneladas_humedas = toneladas_humedas;
                 data.toneladas_secas = toneladas_secas;
-                data.au_gr_x_ton = data.au_concentrado * toneladas_secas;
-                data.ag_gr_x_ton = data.ag_concentrado * toneladas_secas;
+                // au_concentrado es el TOTAL de gramos; el tenor (gr/ton) = total / material seco.
+                data.au_gr_x_ton = toneladas_secas > 0 ? data.au_concentrado / toneladas_secas : 0;
+                data.ag_gr_x_ton = toneladas_secas > 0 ? data.ag_concentrado / toneladas_secas : 0;
 
                 await this.analisisRepo.insertar(data, conn);
             } else {
@@ -215,19 +230,23 @@ export class AnalisisService implements IAnalisisService {
                 const entrada = await this.materialRepo.obtenerPorId(idEntradaActual, conn);
                 if (!entrada) throw new Error("Entrada no encontrada");
 
-                const baseToneladasHumedas = analisisExistente.toneladas_humedas || analisisExistente.ton;
-                const toneladas_brutas = data.toneladas !== undefined ? data.toneladas : analisisExistente.ton;
+                // Base bruta: lo enviado > `ton` guardado > peso de llegada de la entrada (fallback).
+                const toneladas_brutas = data.toneladas !== undefined
+                    ? Number(data.toneladas)
+                    : (Number(analisisExistente.ton) || Number(entrada.peso_llegada_planta));
                 const toneladas_humedas = toneladas_brutas * porcentaje_decimal;
                 const toneladas_secas = toneladas_brutas - toneladas_humedas;
-                
+
+                // Reafirmamos la base para que quede persistida en la columna `ton`.
+                data.toneladas = toneladas_brutas;
                 data.toneladas_humedas = toneladas_humedas;
                 data.toneladas_secas = toneladas_secas;
 
                 const au_concentrado = data.au_concentrado !== undefined ? data.au_concentrado : analisisExistente.au_concentrado;
-                data.au_gr_x_ton = au_concentrado * toneladas_secas;
+                data.au_gr_x_ton = toneladas_secas > 0 ? au_concentrado / toneladas_secas : 0;
 
                 const ag_concentrado = data.ag_concentrado !== undefined ? data.ag_concentrado : analisisExistente.ag_concentrado;
-                data.ag_gr_x_ton = ag_concentrado * toneladas_secas;
+                data.ag_gr_x_ton = toneladas_secas > 0 ? ag_concentrado / toneladas_secas : 0;
 
                 const success = await this.analisisRepo.actualizar(identificador, data, conn);
                 if (!success) {
@@ -308,10 +327,10 @@ export class AnalisisService implements IAnalisisService {
                 data.toneladas_secas = toneladas_secas;
 
                 const au_concentrado = data.au_concentrado !== undefined ? data.au_concentrado : analisisExistente.au_concentrado;
-                data.au_gr_x_ton = au_concentrado * toneladas_secas;
+                data.au_gr_x_ton = toneladas_secas > 0 ? au_concentrado / toneladas_secas : 0;
 
                 const ag_concentrado = data.ag_concentrado !== undefined ? data.ag_concentrado : analisisExistente.ag_concentrado;
-                data.ag_gr_x_ton = ag_concentrado * toneladas_secas;
+                data.ag_gr_x_ton = toneladas_secas > 0 ? ag_concentrado / toneladas_secas : 0;
 
                 const success = await this.analisisRepo.actualizar(identificador, data, conn);
                 if (!success) {
@@ -337,6 +356,41 @@ export class AnalisisService implements IAnalisisService {
         const success = await this.analisisRepo.actualizarValor(identificador, valor_analisis);
         if (!success) {
             throw new Error('No se pudo actualizar el valor del análisis o no se encontró.');
+        }
+    }
+
+    async eliminarAnalisis(id: number): Promise<void> {
+        const pool = Database.getInstance();
+        const conn = await pool.getConnection();
+        try {
+            await conn.beginTransaction();
+
+            const analisis = await this.analisisRepo.obtenerPorId(id, conn);
+            if (!analisis) throw new HttpError(404, 'Análisis no encontrado');
+
+            // Regla: solo se bloquea si la entrada ya salió en un viaje o está pagada.
+            // El estado 'en_proceso' lo produce el propio análisis de cabeza, así que borrarlo
+            // es válido: más abajo se revierte la entrada a 'pendiente' con resetearCalculos.
+            if (analisis.id_entrada) {
+                const entrada = await this.materialRepo.obtenerPorId(analisis.id_entrada, conn);
+                if (entrada && (entrada.estado === EstadoEntrada.INCLUIDA_VIAJE || entrada.estado === EstadoEntrada.PAGADA)) {
+                    throw new HttpError(409, `No se puede eliminar el análisis: la entrada está en estado '${entrada.estado}'.`, 'ANALISIS_NO_ELIMINABLE');
+                }
+            }
+
+            await this.analisisRepo.eliminar(id, conn);
+
+            // Si era análisis de Cabeza (tipo 1), se revierten los cálculos derivados en la entrada.
+            if (analisis.id_tipo_analisis === 1 && analisis.id_entrada) {
+                await this.materialRepo.resetearCalculos(analisis.id_entrada, conn);
+            }
+
+            await conn.commit();
+        } catch (error) {
+            await conn.rollback();
+            throw error;
+        } finally {
+            conn.release();
         }
     }
 }

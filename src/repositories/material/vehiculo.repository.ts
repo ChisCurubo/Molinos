@@ -1,34 +1,38 @@
 import { Pool, PoolConnection } from 'mysql2/promise';
+import { IVehiculoRepository } from '../../ports/material/repository_port/volqueta.repository.interface';
 
-export class VehiculoRepository {
+export class VehiculoRepository implements IVehiculoRepository {
   constructor(private db: Pool) {}
   
   private getConn(conn?: PoolConnection | Pool): PoolConnection | Pool {
     return conn || this.db;
   }
 
-  async list(): Promise<any[]> {
+  async list(todas: boolean = false): Promise<any[]> {
+    // Por defecto solo se devuelven vehículos activos; con ?todas=true se incluyen los dados de baja.
     const query = `
       SELECT vv.id, vv.placa, vv.tipo_vehiculo, vv.conductor, vv.capacidad_ton,
         vv.estado_pago, vv.activo,
-        dv.id AS dueno_id, dv.nombre AS dueno, dv.alias AS dueno_alias
+        dv.id AS dueno_id, dv.nombre AS dueno, dv.nombre AS dueno_nombre, dv.alias AS dueno_alias
       FROM volqueta_vehiculo vv
       JOIN dueno_volqueta dv ON dv.id = vv.id_dueno_volqueta
+      WHERE (vv.activo = 1 OR ? = 1)
       ORDER BY vv.placa
     `;
-    const [rows] = await this.db.execute<any[]>(query);
+    const [rows] = await this.db.execute<any[]>(query, [todas ? 1 : 0]);
     return rows;
   }
 
-  async create(data: any): Promise<number> {
+  async create(data: any, conn?: PoolConnection): Promise<number> {
+    const connection = this.getConn(conn);
     const query = `
       INSERT INTO volqueta_vehiculo (id_dueno_volqueta, placa, tipo_vehiculo, conductor, conductor_cc, capacidad_ton, activo)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
     const params = [
-      data.id_dueno_volqueta, data.placa, data.tipo_vehiculo, data.conductor, data.conductor_cc, data.capacidad_ton, data.activo ?? 1
+      data.id_dueno_volqueta ?? null, data.placa, data.tipo_vehiculo ?? null, data.conductor ?? null, data.conductor_cc ?? null, data.capacidad_ton ?? null, data.activo ?? 1
     ];
-    const [result] = await this.db.execute<any>(query, params);
+    const [result] = await connection.execute<any>(query, params);
     return result.insertId;
   }
 

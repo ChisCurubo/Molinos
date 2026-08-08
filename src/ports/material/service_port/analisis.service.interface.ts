@@ -15,4 +15,5 @@ export interface IAnalisisService {
     agregarValorAnalisis(identificador: string | number, valor_analisis: number): Promise<void>;
     obtenerCabezaPorEntrada(id_entrada: number): Promise<any | null>;
     obtenerTodosPorEntrada(id_entrada: number): Promise<any[]>;
+    eliminarAnalisis(id: number): Promise<void>;
 }

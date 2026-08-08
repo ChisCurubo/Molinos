@@ -22,6 +22,19 @@ router.get('/entradas/pendientes-analisis',     materialController.pendientesLab
 
 /**
  * @swagger
+ * /material/entradas/stats:
+ *   get:
+ *     summary: KPIs del tablero de entradas
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: total_registros, sin_procesar, ton_humedo_pendiente, volquetas_activas
+ */
+router.get('/entradas/stats',                   materialController.stats);
+
+/**
+ * @swagger
  * /material/entradas/minero/{id_minero}:
  *   get:
  *     summary: Entradas de un minero
@@ -133,6 +146,46 @@ router.get('/entradas/fecha/:fecha',            materialController.listarPorFech
  *         description: Detalle de entrada
  */
 router.get('/entradas/:id',                     materialController.getById);
+
+/**
+ * @swagger
+ * /material/entradas/{id}:
+ *   put:
+ *     summary: Editar entrada (recalcula el flete si cambia peso o mina)
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Entrada actualizada
+ */
+router.put('/entradas/:id',                     materialController.actualizar);
+
+/**
+ * @swagger
+ * /material/entradas/{id}:
+ *   delete:
+ *     summary: Eliminar entrada (solo si estado='pendiente' y sin análisis)
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Entrada eliminada
+ *       409:
+ *         description: No se puede eliminar (estado o análisis)
+ */
+router.delete('/entradas/:id',                  materialController.eliminar);
 
 /**
  * @swagger
@@ -339,6 +392,72 @@ router.get('/precio/calcular', precioController.buscarPrecio);
  *       201:
  *         description: Tarifas registradas
  */
+/**
+ * @swagger
+ * /material/precios:
+ *   get:
+ *     summary: Listar precios de material (con filtros)
+ *     tags: [Material]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: id_minero
+ *         schema: { type: integer }
+ *         description: Filtra por minero (precios específicos de ese minero)
+ *       - in: query
+ *         name: id_zona
+ *         schema: { type: integer }
+ *         description: Filtra por zona
+ *       - in: query
+ *         name: alcance
+ *         schema: { type: string, enum: [general] }
+ *         description: "alcance=general → solo precios sin minero ni zona"
+ *       - in: query
+ *         name: activo
+ *         schema: { type: boolean }
+ *         description: Filtra por activo (true/false)
+ *     responses:
+ *       200:
+ *         description: Lista de precios con su alcance (minero | zona | general)
+ */
+router.get('/precios', precioController.listar);
+
 router.post('/precios/lote', precioController.insertarLote);
+
+/**
+ * @swagger
+ * /material/precios/{id}:
+ *   put:
+ *     summary: Editar un intervalo de precio (desactiva el actual e inserta el reemplazo activo)
+ *     tags: [Material]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               min:
+ *                 type: number
+ *               max:
+ *                 type: number
+ *               precio_por_gramo:
+ *                 type: number
+ *               precio_por_tonelada:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Intervalo reemplazado (nuevo id activo)
+ */
+router.put('/precios/:id', precioController.reemplazarIntervalo);
 
 export default router;

@@ -50,6 +50,52 @@ router.post('/', controller.registrarAnalisis);
 
 /**
  * @swagger
+ * /material/analisis/cabeza:
+ *   post:
+ *     summary: Registrar análisis de Cabeza (tipo 1) y actualizar la entrada
+ *     tags: [Análisis]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id_entrada: { type: integer }
+ *               numero_analisis: { type: string, description: "Si se omite → AN-{numero_volqueta}" }
+ *               porcentaje_humedad: { type: number }
+ *               au_concentrado: { type: number }
+ *               au_falso: { type: number }
+ *               ag_concentrado: { type: number }
+ *               comentarios: { type: string }
+ *     responses:
+ *       201:
+ *         description: Análisis de cabeza registrado
+ */
+router.post('/cabeza', controller.registrarCabeza);
+
+/**
+ * @swagger
+ * /material/analisis:
+ *   get:
+ *     summary: Listar análisis de una entrada (por query string)
+ *     tags: [Análisis]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: id_entrada
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de análisis
+ */
+router.get('/', controller.obtenerPorQuery);
+
+/**
+ * @swagger
  * /material/analisis/entrada/{id_entrada}:
  *   get:
  *     summary: Obtener todos los análisis de una entrada
@@ -261,5 +307,26 @@ router.patch('/:id/valor',                    controller.agregarValor);
  *         description: Estado de pago actualizado
  */
 router.patch('/:id/pago',                    controller.marcarPago);
+
+/**
+ * @swagger
+ * /material/analisis/{id}:
+ *   delete:
+ *     summary: Eliminar análisis (409 si la entrada está en_proceso/incluida_viaje)
+ *     tags: [Análisis]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Análisis eliminado
+ *       409:
+ *         description: No se puede eliminar
+ */
+router.delete('/:id',                        controller.eliminar);
 
 export default router;

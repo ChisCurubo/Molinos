@@ -9,7 +9,7 @@ import { AnalisisRepository, TipoAnalisisRepository } from '../../repositories/m
 import { VehiculoRepository } from '../../repositories/material/vehiculo.repository';
 import { VEstadoPagoMaterialRepository, VEstadoPagoFleteRepository, VExcedenteEmpresaRepository, VExcedentePorVehiculoRepository, VAnalisisCompletoRepository, VEstadoAguaRepository } from '../../repositories/material/views/vistas.material.repository';
 import { MinaService, MineroService, ZonaService, TarifaZonaService } from '../../services/material/mina.service';
-import { DuenoVolquetaService } from '../../services/material/volqueta.service';
+import { DuenoVolquetaService, VehiculoService } from '../../services/material/volqueta.service';
 import { AguaPlantaService } from '../../services/material/agua.service';
 import { AnalisisService, TipoAnalisisService } from '../../services/material/analisis.service';
 import { 
@@ -74,6 +74,7 @@ export class MaterialFactory {
     private zonaService?: ZonaService;
     private tarifaZonaService?: TarifaZonaService;
     private duenoVolquetaService?: DuenoVolquetaService;
+    private vehiculoService?: VehiculoService;
     private aguaPlantaService?: AguaPlantaService;
     private analisisService?: AnalisisService;
     private tipoAnalisisService?: TipoAnalisisService;
@@ -201,7 +202,11 @@ export class MaterialFactory {
         if (!this.materialPlantaEntradaService) this.materialPlantaEntradaService = new MaterialPlantaEntradaService(
             this.getMaterialEntradaRepo(),
             this.db,
-            this.getTriggerLogicRepo()
+            this.getTriggerLogicRepo(),
+            this.getVehiculoRepo(),
+            this.getMinaRepo(),
+            this.getTarifaCalculoRepo(),
+            this.getAnalisisRepo()
         );
         return this.materialPlantaEntradaService;
     }
@@ -240,6 +245,10 @@ export class MaterialFactory {
     public getDuenoVolquetaService(): DuenoVolquetaService {
         if (!this.duenoVolquetaService) this.duenoVolquetaService = new DuenoVolquetaService(this.getDuenoVolquetaRepo());
         return this.duenoVolquetaService;
+    }
+    public getVehiculoService(): VehiculoService {
+        if (!this.vehiculoService) this.vehiculoService = new VehiculoService(this.getVehiculoRepo());
+        return this.vehiculoService;
     }
     public getAguaPlantaService(): AguaPlantaService {
         if (!this.aguaPlantaService) this.aguaPlantaService = new AguaPlantaService(this.getAguaPlantaRepo(), this.getVehiculoRepo());
@@ -331,7 +340,7 @@ export class MaterialFactory {
         return this.analisisController;
     }
     public getVehiculoController(): VehiculoController {
-        if (!this.vehiculoController) this.vehiculoController = new VehiculoController(this.getVehiculoRepo());
+        if (!this.vehiculoController) this.vehiculoController = new VehiculoController(this.getVehiculoService());
         return this.vehiculoController;
     }
     public getVistaMaterialController(): VistaMaterialController {

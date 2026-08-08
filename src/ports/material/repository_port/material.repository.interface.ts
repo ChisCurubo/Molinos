@@ -27,6 +27,12 @@ export interface IMaterialEntradaRepository {
     listarPorVehiculo(id_vehiculo: number, conn?: PoolConnection): Promise<any[]>;
     listarPorDueno(id_dueno: number, conn?: PoolConnection): Promise<any[]>;
     listarPorFecha(fecha: string, conn?: PoolConnection): Promise<any[]>;
+    estadisticas(conn?: PoolConnection): Promise<any>;
+    actualizarBase(id: number, data: Partial<CreateMaterialEntradaDTO>, conn?: PoolConnection): Promise<boolean>;
+    contarAnalisis(id: number, conn?: PoolConnection): Promise<number>;
+    eliminar(id: number, conn?: PoolConnection): Promise<boolean>;
+    eliminarInventarioDeEntrada(id: number, conn?: PoolConnection): Promise<void>;
+    contarSalidasInventario(id: number, conn?: PoolConnection): Promise<number>;
 }
 
 // --- Original: tipo_material ---
@@ -51,6 +57,14 @@ export interface IPrecioMaterialRepository {
     
     // Batch insert
     insertarLote(precios: Omit<PrecioMaterialSQL, 'id'>[], conn?: PoolConnection): Promise<void>;
+
+    // Versionado de precios
+    desactivarPreciosVigentes(idMinero: number | null, idZona: number | null, metodo: string, conn?: PoolConnection): Promise<void>;
+    reemplazarLoteVigente(idMinero: number | null, idZona: number | null, metodo: string, precios: Omit<PrecioMaterialSQL, 'id'>[]): Promise<void>;
+    reemplazarIntervalo(id: number, data: any): Promise<number>;
+
+    // Listado con filtros (id_minero / id_zona / alcance='general' / activo)
+    listar(filtros?: { id_minero?: number | null; id_zona?: number | null; alcance?: string; activo?: boolean }): Promise<any[]>;
 }
 
 // --- Original: tarifa_calculo ---

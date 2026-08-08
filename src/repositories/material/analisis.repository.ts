@@ -115,7 +115,8 @@ export class AnalisisRepository implements IAnalisisRepository {
           a.porcentaje_humedad,
           a.toneladas_humedas,
           a.toneladas_secas,
-          a.au_gr_x_ton AS tenor_real,
+          (a.au_concentrado / NULLIF(a.toneladas_secas, 0)) AS tenor_real,
+          a.au_concentrado AS au_gramos_totales,
           a.au_falso AS tenor_falso,
           a.au_concentrado,
           a.ag_gr_x_ton,
@@ -144,7 +145,8 @@ export class AnalisisRepository implements IAnalisisRepository {
           a.numero_analisis,
           a.porcentaje_humedad,
           a.toneladas_secas,
-          a.au_gr_x_ton AS tenor_real,
+          (a.au_concentrado / NULLIF(a.toneladas_secas, 0)) AS tenor_real,
+          a.au_concentrado AS au_gramos_totales,
           a.au_falso AS tenor_falso,
           a.au_concentrado,
           a.estado_pago,
@@ -175,9 +177,9 @@ export class AnalisisRepository implements IAnalisisRepository {
   async obtenerPorId(id: number, conn?: PoolConnection): Promise<Analisis | null> {
     const connection = this.getConn(conn);
     const query = `
-      SELECT a.id, a.id_entrada, ta.nombre AS tipo_analisis,
+      SELECT a.id, a.id_entrada, a.id_tipo_analisis, ta.nombre AS tipo_analisis,
         a.numero_analisis, a.ton, a.porcentaje_humedad, a.toneladas_humedas, a.toneladas_secas,
-        a.au_gr_x_ton AS tenor_real, a.au_falso AS tenor_falso,
+        (a.au_concentrado / NULLIF(a.toneladas_secas, 0)) AS tenor_real, a.au_concentrado AS au_gramos_totales, a.au_falso AS tenor_falso,
         a.au_concentrado, a.ag_concentrado, a.ag_gr_x_ton, a.valor_analisis,
         a.estado_pago, a.comentarios, a.created_at
       FROM analisis a
@@ -188,15 +190,22 @@ export class AnalisisRepository implements IAnalisisRepository {
     return rows.length > 0 ? rows[0] : null;
   }
 
+  // 4.6.2 DELETE físico del análisis (la validación de reglas va en el Service)
+  async eliminar(id: number, conn?: PoolConnection): Promise<boolean> {
+    const connection = this.getConn(conn);
+    const [result] = await connection.execute<ResultSetHeader>('DELETE FROM analisis WHERE id = ?', [id]);
+    return result.affectedRows > 0;
+  }
+
   // 4.6.1 Obtener análisis por identificador (id o numero_analisis)
   async obtenerPorIdentificador(identificador: string | number, conn?: PoolConnection): Promise<Analisis | null> {
     const connection = this.getConn(conn);
     const isId = !isNaN(Number(identificador));
     const whereClause = isId ? 'a.id = ?' : 'a.numero_analisis = ?';
     const query = `
-      SELECT a.id, a.id_entrada, ta.nombre AS tipo_analisis,
+      SELECT a.id, a.id_entrada, a.id_tipo_analisis, ta.nombre AS tipo_analisis,
         a.numero_analisis, a.ton, a.porcentaje_humedad, a.toneladas_humedas, a.toneladas_secas,
-        a.au_gr_x_ton AS tenor_real, a.au_falso AS tenor_falso,
+        (a.au_concentrado / NULLIF(a.toneladas_secas, 0)) AS tenor_real, a.au_concentrado AS au_gramos_totales, a.au_falso AS tenor_falso,
         a.au_concentrado, a.ag_concentrado, a.ag_gr_x_ton, a.valor_analisis,
         a.estado_pago, a.comentarios, a.created_at,
         a.ton AS toneladas
@@ -216,7 +225,7 @@ export class AnalisisRepository implements IAnalisisRepository {
         mi.nombre AS mina, mn.nombre AS minero,
         mpe.fecha_llegada, mpe.numero_volqueta,
         a.porcentaje_humedad, a.toneladas_secas,
-        a.au_gr_x_ton AS tenor_real, a.au_falso AS tenor_falso,
+        (a.au_concentrado / NULLIF(a.toneladas_secas, 0)) AS tenor_real, a.au_concentrado AS au_gramos_totales, a.au_falso AS tenor_falso,
         a.au_concentrado, a.estado_pago
       FROM analisis a
       JOIN tipos_analisis ta ON ta.id = a.id_tipo_analisis
@@ -237,7 +246,7 @@ export class AnalisisRepository implements IAnalisisRepository {
       SELECT a.id, a.id_entrada, ta.nombre AS tipo_analisis,
         mpe.fecha_llegada, mpe.numero_volqueta,
         a.porcentaje_humedad, a.toneladas_secas,
-        a.au_gr_x_ton AS tenor_real, a.au_falso AS tenor_falso,
+        (a.au_concentrado / NULLIF(a.toneladas_secas, 0)) AS tenor_real, a.au_concentrado AS au_gramos_totales, a.au_falso AS tenor_falso,
         a.au_concentrado
       FROM analisis a
       JOIN tipos_analisis ta ON ta.id = a.id_tipo_analisis
@@ -256,7 +265,7 @@ export class AnalisisRepository implements IAnalisisRepository {
       SELECT a.id, a.id_entrada, ta.nombre AS tipo_analisis,
         mi.nombre AS mina, mn.nombre AS minero,
         a.porcentaje_humedad, a.toneladas_secas,
-        a.au_gr_x_ton AS tenor_real, a.au_falso AS tenor_falso,
+        (a.au_concentrado / NULLIF(a.toneladas_secas, 0)) AS tenor_real, a.au_concentrado AS au_gramos_totales, a.au_falso AS tenor_falso,
         a.au_concentrado, a.estado_pago
       FROM analisis a
       JOIN tipos_analisis ta ON ta.id = a.id_tipo_analisis

@@ -1,7 +1,9 @@
 import { Pool, PoolConnection, ResultSetHeader } from 'mysql2/promise';
 import { CacheService } from '../../services/cache/cache.service';
+import { IMinaRepository } from '../../ports/material/repository_port/mina.repository.interface';
+import { HttpError } from '../../helpers/http_error';
 
-export class MinaRepository {
+export class MinaRepository implements IMinaRepository {
   constructor(private db: Pool) {}
   
   private getConn(conn?: PoolConnection | Pool): PoolConnection | Pool {
@@ -78,6 +80,7 @@ export class MinaRepository {
       JOIN mina mi ON mi.id = mpe.id_mina
       LEFT JOIN minero mn ON mn.id = mi.id_minero
       WHERE mi.id = ? AND mpe.estado != 'cancelada'
+      GROUP BY mi.id, mi.nombre, mn.nombre
     `;
     const [rows] = await this.db.execute<any[]>(query, [id_mina]);
     return rows.length > 0 ? rows[0] : null;
@@ -111,12 +114,14 @@ export class MinaRepository {
     return result.insertId;
   }
   async update(id: number, data: any): Promise<boolean> {
+    // Solo columnas reales de `mina`; se ignoran alias del GET (zona, minero, tarifa_flete_tonelada, etc.)
+    const COLUMNAS_PERMITIDAS = ['nombre', 'id_minero', 'id_zona', 'ubicacion', 'estado'];
     const fields: string[] = [];
     const values: any[] = [];
-    for (const [key, value] of Object.entries(data)) {
-      if (value !== undefined) {
+    for (const key of COLUMNAS_PERMITIDAS) {
+      if (data[key] !== undefined) {
         fields.push(`${key} = ?`);
-        values.push(value);
+        values.push(data[key]);
       }
     }
     if (fields.length === 0) return false;
@@ -193,6 +198,47 @@ export class MineroRepository {
     const [rows] = await this.db.execute<any[]>(`SELECT id, nombre, alias, metodo_calculo, estado FROM minero WHERE estado = 'activo' ORDER BY nombre`);
     return rows;
   }
+
+  // Cada minero con su arreglo de minas anidado (para el catálogo agrupado).
+  async listarConMinas(): Promise<any[]> {
+    const query = `
+      SELECT mn.id AS minero_id, mn.nombre AS minero, mn.alias AS minero_alias,
+        mn.metodo_calculo, mn.estado AS minero_estado,
+        mi.id AS mina_id, mi.nombre AS mina_nombre, mi.ubicacion, mi.estado AS mina_estado,
+        z.id AS zona_id, z.nombre AS zona
+      FROM minero mn
+      LEFT JOIN mina mi ON mi.id_minero = mn.id
+      LEFT JOIN zona z ON z.id = mi.id_zona
+      WHERE mn.estado = 'activo'
+      ORDER BY mn.nombre, mi.nombre
+    `;
+    const [rows] = await this.db.execute<any[]>(query);
+
+    const map = new Map<number, any>();
+    for (const r of rows) {
+      if (!map.has(r.minero_id)) {
+        map.set(r.minero_id, {
+          id: r.minero_id,
+          nombre: r.minero,
+          alias: r.minero_alias,
+          metodo_calculo: r.metodo_calculo,
+          estado: r.minero_estado,
+          minas: []
+        });
+      }
+      if (r.mina_id) {
+        map.get(r.minero_id).minas.push({
+          id: r.mina_id,
+          nombre: r.mina_nombre,
+          ubicacion: r.ubicacion,
+          estado: r.mina_estado,
+          zona_id: r.zona_id,
+          zona: r.zona
+        });
+      }
+    }
+    return Array.from(map.values());
+  }
 }
 
 export class ZonaRepository {
@@ -207,59 +253,93 @@ export class ZonaRepository {
       data.descripcion || null
     ];
     const [result] = await this.db.execute<ResultSetHeader>(query, values);
-    
-    if (data.valor_tonelada !== undefined) {
+
+    // `tarifa` y `valor_tonelada` son alias del mismo concepto (flete por tonelada de la zona).
+    const tarifaInicial = data.valor_tonelada ?? data.tarifa;
+    if (tarifaInicial !== undefined && tarifaInicial !== null) {
       const tarifaQuery = `
         INSERT INTO tarifa_zona (id_zona, valor_tonelada, vigente_desde, activo)
         VALUES (?, ?, CURRENT_DATE, 1)
       `;
-      await this.db.execute(tarifaQuery, [result.insertId, data.valor_tonelada]);
+      await this.db.execute(tarifaQuery, [result.insertId, tarifaInicial]);
     }
     
-    // Sincronizar caché
-    const newZona = {
-      id: result.insertId,
-      nombre: data.nombre,
-      descripcion: data.descripcion || null
-    };
-    CacheService.getInstance().addZona(newZona);
-    
+    // Sincronizar caché con la tarifa vigente incluida.
+    const newZona = await this.getByIdConTarifa(result.insertId);
+    if (newZona) CacheService.getInstance().addZona(newZona);
+
     return result.insertId;
   }
   async getById(id: number): Promise<any | null> {
     const [rows] = await this.db.execute<any[]>('SELECT * FROM zona WHERE id = ?', [id]);
     return rows.length > 0 ? rows[0] : null;
   }
+  // Zona con su tarifa vigente (mismo shape que list()) para mantener el caché consistente:
+  // la columna `tarifa` no existe en la tabla `zona`, vive en `tarifa_zona`.
+  private async getByIdConTarifa(id: number): Promise<any | null> {
+    const [rows] = await this.db.execute<any[]>(
+      `SELECT z.id, z.nombre, z.descripcion, tz.valor_tonelada AS tarifa
+       FROM zona z
+       LEFT JOIN tarifa_zona tz ON tz.id_zona = z.id AND tz.activo = 1
+       WHERE z.id = ?`, [id]);
+    return rows.length > 0 ? rows[0] : null;
+  }
   async update(id: number, data: any): Promise<boolean> {
+    // Solo columnas reales de `zona`. La tarifa de flete se maneja aparte (tarifa_zona).
+    const COLUMNAS_PERMITIDAS = ['nombre', 'descripcion'];
     const fields: string[] = [];
     const values: any[] = [];
-    for (const [key, value] of Object.entries(data)) {
-      if (value !== undefined) {
+    for (const key of COLUMNAS_PERMITIDAS) {
+      if (data[key] !== undefined) {
         fields.push(`${key} = ?`);
-        values.push(value);
+        values.push(data[key]);
       }
     }
     if (fields.length > 0) {
       values.push(id);
-      const [result] = await this.db.execute<ResultSetHeader>(`UPDATE zona SET ${fields.join(', ')} WHERE id = ?`, values);
-    }
-    
-    if (data.valor_tonelada !== undefined) {
-      // Inactivar la tarifa anterior
-      await this.db.execute('UPDATE tarifa_zona SET activo = 0, vigente_hasta = CURRENT_DATE WHERE id_zona = ? AND activo = 1', [id]);
-      // Crear nueva tarifa
-      await this.db.execute('INSERT INTO tarifa_zona (id_zona, valor_tonelada, vigente_desde, activo) VALUES (?, ?, CURRENT_DATE, 1)', [id, data.valor_tonelada]);
+      await this.db.execute<ResultSetHeader>(`UPDATE zona SET ${fields.join(', ')} WHERE id = ?`, values);
     }
 
-    const updated = await this.getById(id);
+    // `tarifa` y `valor_tonelada` son alias del mismo concepto (flete por tonelada de la zona).
+    const nuevaTarifa = data.valor_tonelada ?? data.tarifa;
+    if (nuevaTarifa !== undefined && nuevaTarifa !== null) {
+      // Versionado: inactivar la tarifa vigente y crear la nueva activa (conserva historial).
+      await this.db.execute('UPDATE tarifa_zona SET activo = 0, vigente_hasta = CURRENT_DATE WHERE id_zona = ? AND activo = 1', [id]);
+      await this.db.execute('INSERT INTO tarifa_zona (id_zona, valor_tonelada, vigente_desde, activo) VALUES (?, ?, CURRENT_DATE, 1)', [id, nuevaTarifa]);
+    }
+
+    // Refrescar el caché con la tarifa vigente (getById no la trae).
+    const updated = await this.getByIdConTarifa(id);
     if (updated) CacheService.getInstance().updateZona(updated);
-    
+
     return true;
   }
+  // Borrado físico "por equivocación": elimina la zona y TODAS sus tarifas (historial incluido)
+  // en una transacción. Si alguna mina la usa, se bloquea con 409 (reasignar minas primero).
   async delete(id: number): Promise<boolean> {
-    const [result] = await this.db.execute<ResultSetHeader>('DELETE FROM zona WHERE id = ?', [id]);
-    if (result.affectedRows > 0) CacheService.getInstance().deleteZona(id);
-    return result.affectedRows > 0;
+    const conn = await this.db.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      const [minas] = await conn.execute<any[]>('SELECT COUNT(*) AS n FROM mina WHERE id_zona = ?', [id]);
+      const nMinas = Number(minas[0]?.n ?? 0);
+      if (nMinas > 0) {
+        throw new HttpError(409, `No se puede eliminar la zona: ${nMinas} mina(s) la usan. Reasígnalas primero.`, 'ZONA_EN_USO');
+      }
+
+      // Elimina el historial de tarifas de la zona y luego la zona.
+      await conn.execute('DELETE FROM tarifa_zona WHERE id_zona = ?', [id]);
+      const [result] = await conn.execute<ResultSetHeader>('DELETE FROM zona WHERE id = ?', [id]);
+
+      await conn.commit();
+      if (result.affectedRows > 0) CacheService.getInstance().deleteZona(id);
+      return result.affectedRows > 0;
+    } catch (error) {
+      await conn.rollback();
+      throw error;
+    } finally {
+      conn.release();
+    }
   }
   async list(): Promise<any[]> {
     const [rows] = await this.db.execute<any[]>('SELECT z.id, z.nombre, tz.valor_tonelada AS tarifa FROM zona z LEFT JOIN tarifa_zona tz ON tz.id_zona = z.id AND tz.activo = 1 ORDER BY z.nombre');

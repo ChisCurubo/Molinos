@@ -54,14 +54,26 @@ export enum MetodoCalculoMinero {
   POR_TONELADA = 'por_tonelada'
 }
 
+export interface NuevaVolquetaDTO {
+  placa: string;
+  conductor?: string;
+  conductor_cc?: string | null;
+  id_dueno?: number | null;
+  tipo_vehiculo?: string;
+  capacidad_ton?: number;
+}
+
 export interface CreateMaterialEntradaDTO {
   numero_volqueta: string;
   id_mina: number;
   id_vehiculo?: number;
   id_tipo_material: number;
-  fecha_llegada: string; 
-  peso_llegada_planta: number; 
+  fecha_llegada: string;
+  peso_llegada_planta: number;
   comentarios?: string;
+  // Si id_vehiculo es null y se envía nueva_volqueta, el Service crea el vehículo
+  // primero (dentro de la misma transacción) y usa su id como id_vehiculo.
+  nueva_volqueta?: NuevaVolquetaDTO | null;
 }
 
 export interface UpdateDesdeAnalisisDTO {

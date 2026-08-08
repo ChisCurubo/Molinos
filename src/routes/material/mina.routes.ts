@@ -54,6 +54,45 @@ router.get('/',                 ctrl.list);
  *         description: Mina creada
  */
 router.post('/',                ctrl.create);
+
+/**
+ * @swagger
+ * /material/mina/{id}:
+ *   put:
+ *     summary: Actualizar una mina (parcial; solo columnas reales)
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nombre: { type: string }
+ *               id_minero: { type: integer }
+ *               id_zona: { type: integer }
+ *               ubicacion: { type: string }
+ *               estado: { type: string }
+ *     responses:
+ *       200: { description: Mina actualizada }
+ *   delete:
+ *     summary: Eliminar una mina
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Mina eliminada }
+ */
 router.put('/:id',              ctrl.update);
 router.delete('/:id',           ctrl.delete);
 
@@ -69,6 +108,19 @@ router.delete('/:id',           ctrl.delete);
  *         description: Lista de mineros
  */
 router.get('/catalogo/mineros', ctrl.mineros);
+
+/**
+ * @swagger
+ * /material/mina/catalogo/mineros-con-minas:
+ *   get:
+ *     summary: Catálogo de mineros con sus minas anidadas
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: Lista de mineros, cada uno con su arreglo `minas`
+ */
+router.get('/catalogo/mineros-con-minas', ctrl.minerosConMinas);
 
 /**
  * @swagger
@@ -96,6 +148,44 @@ router.get('/catalogo/mineros', ctrl.mineros);
  *         description: Minero creado
  */
 router.post('/minero',          ctrl.createMinero);
+
+/**
+ * @swagger
+ * /material/mina/minero/{id}:
+ *   put:
+ *     summary: Actualizar un minero
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nombre: { type: string }
+ *               alias: { type: string }
+ *               metodo_calculo: { type: string, example: "por_gramo" }
+ *               estado: { type: string }
+ *     responses:
+ *       200: { description: Minero actualizado }
+ *   delete:
+ *     summary: Eliminar un minero
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Minero eliminado }
+ */
 router.put('/minero/:id',       ctrl.updateMinero);
 router.delete('/minero/:id',    ctrl.deleteMinero);
 
@@ -130,11 +220,52 @@ router.get('/catalogo/zonas',   ctrl.zonas);
  *                 type: string
  *               descripcion:
  *                 type: string
+ *               valor_tonelada:
+ *                 type: number
+ *                 description: "Tarifa de flete inicial (alias aceptado: tarifa)"
  *     responses:
  *       201:
  *         description: Zona creada
  */
 router.post('/zona',            ctrl.createZona);
+
+/**
+ * @swagger
+ * /material/mina/zona/{id}:
+ *   put:
+ *     summary: Actualizar una zona (acepta tarifa | valor_tonelada; versiona el flete)
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nombre: { type: string }
+ *               descripcion: { type: string }
+ *               valor_tonelada: { type: number, description: "Tarifa de flete (alias: tarifa)" }
+ *     responses:
+ *       200: { description: Zona actualizada }
+ *   delete:
+ *     summary: Eliminar zona y su historial de tarifas (409 si minas la usan)
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Zona eliminada }
+ *       409: { description: "ZONA_EN_USO — hay minas usándola" }
+ */
 router.put('/zona/:id',         ctrl.updateZona);
 router.delete('/zona/:id',      ctrl.deleteZona);
 
