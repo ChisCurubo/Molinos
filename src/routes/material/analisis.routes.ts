@@ -211,6 +211,25 @@ router.get('/entrada/:id_entrada',           controller.obtenerAnalisis);
 
 /**
  * @swagger
+ * /material/analisis/concentrado/{id_lote}:
+ *   get:
+ *     summary: Análisis del concentrado de un lote
+ *     tags: [Análisis]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id_lote
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Análisis del concentrado del lote
+ */
+router.get('/concentrado/:id_lote',          controller.obtenerPorConcentrado);
+
+/**
+ * @swagger
  * /material/analisis/{id}:
  *   get:
  *     summary: Obtener análisis por ID

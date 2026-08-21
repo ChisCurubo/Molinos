@@ -5,6 +5,8 @@ import { factory } from '../../config/factory';
 const router = Router();
 const materialController = factory.material.getMaterialEntradaController();
 const precioController = factory.material.getPrecioMaterialController();
+const excedenteController = factory.material.getExcedenteController();
+const tipoMaterialController = factory.material.getTipoMaterialController();
 
 // === Rutas específicas (deben ir antes de /:id) ===
 /**
@@ -205,6 +207,148 @@ router.delete('/entradas/:id',                  materialController.eliminar);
  *         description: Estado actualizado
  */
 router.patch('/entradas/:id/estado',            materialController.cambiarEstado);
+
+/**
+ * @swagger
+ * /material/entradas/{id}/precio:
+ *   patch:
+ *     summary: Asignar precio manual (Fase 3). Digite UNO de los dos precios; recalcula precio_total y totales.
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             description: Envíe exactamente uno de los dos campos (el otro queda NULL).
+ *             properties:
+ *               precio_por_gramo:
+ *                 type: number
+ *                 example: 72000
+ *               precio_por_tonelada:
+ *                 type: number
+ *                 example: 650000
+ *     responses:
+ *       200:
+ *         description: Entrada actualizada con el precio y totales recalculados
+ *       400:
+ *         description: Body inválido (ninguno o ambos precios, o precio <= 0)
+ *       404:
+ *         description: Entrada no encontrada
+ *       409:
+ *         description: Entrada cancelada o análisis (Fase 2) incompleto
+ */
+router.patch('/entradas/:id/precio',            materialController.asignarPrecio);
+
+/**
+ * @swagger
+ * /material/entradas/{id}/gastos-operativos:
+ *   get:
+ *     summary: Desglose de gastos operativos de la entrada (+ totales)
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: costo_cargue/bascula/maquila/adicional/volqueta + total_costos_operativos + total_material
+ *   patch:
+ *     summary: Editar gastos operativos (envía solo los que cambian; recalcula totales)
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               costo_cargue: { type: number, example: 300000 }
+ *               costo_bascula: { type: number, example: 0 }
+ *               costo_maquila: { type: number, example: 0 }
+ *               costo_adicional: { type: number, example: 50000 }
+ *               costo_volqueta: { type: number, example: 120000 }
+ *     responses:
+ *       200: { description: Entrada con gastos y totales recalculados }
+ *       409: { description: Entrada cancelada }
+ */
+router.get('/entradas/:id/gastos-operativos',   materialController.obtenerGastosOperativos);
+router.patch('/entradas/:id/gastos-operativos', materialController.actualizarGastosOperativos);
+
+/**
+ * @swagger
+ * /material/entradas/{id}/excedente:
+ *   get:
+ *     summary: Excedente registrado de la entrada (o null)
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: valor_excedente, monto_distribuido, saldo_por_distribuir, estado_distribucion, concepto, notas
+ *   put:
+ *     summary: Registrar o actualizar (upsert 1:1) el excedente de la entrada
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             description: >-
+ *               Envíe UNO de los dos: valor_excedente (monto final) o
+ *               tarifa_excedente_por_ton (cobro por ton seca; el backend calcula
+ *               valor = total_material_seco × tarifa). Si el monto resultante es 0,
+ *               el excedente se elimina (respuesta data: null).
+ *             properties:
+ *               valor_excedente: { type: number, example: 1500000 }
+ *               tarifa_excedente_por_ton: { type: number, example: 100000 }
+ *               fecha_calculo: { type: string, format: date, example: "2026-08-16" }
+ *               concepto: { type: string, example: "Excedente entrada #42 roca Naum" }
+ *               notas: { type: string }
+ *     responses:
+ *       200: { description: Excedente registrado/actualizado (o eliminado → data null) }
+ *       409: { description: Entrada cancelada, sin ton secas, o excedente ya distribuido }
+ */
+router.get('/entradas/:id/excedente',           excedenteController.obtener);
+router.put('/entradas/:id/excedente',           excedenteController.registrarOActualizar);
+
+/**
+ * @swagger
+ * /material/tipos-material:
+ *   get:
+ *     summary: Catálogo de tipos de material (para selector, cacheable)
+ *     tags: [Material]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: Lista de { id, nombre, descripcion }
+ */
+router.get('/tipos-material',                   tipoMaterialController.listar);
 
 /**
  * @swagger

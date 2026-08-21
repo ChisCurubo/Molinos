@@ -6,7 +6,6 @@ export interface MaterialPlantaEntradaSQL {
     id_mina: number;
     id_vehiculo?: number;
     id_tipo_material: number;
-    id_precio?: number;
     fecha_llegada: Date;
     peso_llegada_planta: number;
     porcentaje_humedad: number;
@@ -85,10 +84,47 @@ export interface UpdateDesdeAnalisisDTO {
 }
 
 export interface UpdatePrecioDTO {
-  id_precio: number;
   precio_por_gramo: number | null;
   precio_por_tonelada: number | null;
   precio_total: number;
+}
+
+// FASE 3 — Precio manual. El operador digita EXACTAMENTE uno de los dos precios
+// (el otro queda NULL). Body de PATCH /material/entradas/:id/precio.
+export interface AsignarPrecioManualDTO {
+  precio_por_gramo?: number | null;
+  precio_por_tonelada?: number | null;
+}
+
+// Valores ya calculados y validados que se persisten en la FASE 3 de precio manual.
+export interface PrecioManualCalculadoDTO {
+  precio_por_gramo: number | null;
+  precio_por_tonelada: number | null;
+  precio_total: number;
+  total_costos_operativos: number;
+  total_material: number;
+}
+
+// Gastos operativos: columnas de costo_* que viven en material_planta_entrada.
+// Body de PATCH /material/entradas/:id/gastos-operativos (todos opcionales;
+// los que no se envíen conservan su valor actual).
+export interface ActualizarGastosOperativosDTO {
+  costo_cargue?: number;
+  costo_bascula?: number;
+  costo_maquila?: number;
+  costo_adicional?: number;
+  costo_volqueta?: number;
+}
+
+// Valores ya resueltos/recalculados que persiste el repositorio de gastos operativos.
+export interface GastosOperativosCalculadoDTO {
+  costo_cargue: number;
+  costo_bascula: number;
+  costo_maquila: number;
+  costo_adicional: number;
+  costo_volqueta: number;
+  total_costos_operativos: number;
+  total_material: number;
 }
 
 export interface UpdateCostosDTO {
@@ -132,7 +168,6 @@ export interface EntradaMaterial extends RowDataPacket {
   total_material_seco: number | null;
   tenor: number | null;
   total_gramos: number | null;
-  id_precio: number | null;
   precio_por_gramo: number | null;
   precio_por_tonelada: number | null;
   precio_total: number | null;

@@ -40,34 +40,75 @@ import { CreateAnalisisDTO } from '../../models/material/sql/analisis.sql';
 import { EstadoEntrada } from '../../models/material/sql/material_planta_entrada.sql';
 import { HttpError } from '../../helpers/http_error';
 import Database from '../../config/database.config';
-import { TriggerLogicRepository } from '../../ports/db_triggers/trigger_logic.repository.interface';
+import { IInventarioService } from '../../ports/material/inventario.interface';
 import { IAnalisisRepository } from '../../ports/material/repository_port/analisis.repository.interface';
 import { IPrecioMaterialRepository, ITarifaCalculoRepository } from '../../ports/material/repository_port/material.repository.interface';
 import { IMaterialEntradaRepository } from '../../ports/material/repository_port/material.repository.interface';
 import { IConcentradoRepository } from '../../ports/material/concentrado.interface';
+import { IExcedenteRepository } from '../../ports/material/excedente.interface';
+import { PoolConnection } from 'mysql2/promise';
 
 export class AnalisisService implements IAnalisisService {
     private analisisRepo: IAnalisisRepository;
     private materialRepo: IMaterialEntradaRepository;
     private precioRepo: IPrecioMaterialRepository;
     private tarifaRepo: ITarifaCalculoRepository;
-    private triggerLogicRepo: TriggerLogicRepository;
+    private inventarioService: IInventarioService;
     private concentradoRepo: IConcentradoRepository;
+    private excedenteRepo: IExcedenteRepository;
+
+    // Excedente = ton_seco × tarifa, solo si el tenor real supera este umbral (gr Au/ton).
+    private readonly TARIFA_EXCEDENTE_POR_TON = 100000;
+    private readonly TENOR_MINIMO_EXCEDENTE = 2;
 
     constructor(
         analisisRepo: IAnalisisRepository,
         materialRepo: IMaterialEntradaRepository,
         precioRepo: IPrecioMaterialRepository,
         tarifaRepo: ITarifaCalculoRepository,
-        triggerLogicRepo: TriggerLogicRepository,
-        concentradoRepo: IConcentradoRepository
+        inventarioService: IInventarioService,
+        concentradoRepo: IConcentradoRepository,
+        excedenteRepo: IExcedenteRepository
     ) {
         this.analisisRepo = analisisRepo;
         this.materialRepo = materialRepo;
         this.precioRepo = precioRepo;
         this.tarifaRepo = tarifaRepo;
-        this.triggerLogicRepo = triggerLogicRepo;
+        this.inventarioService = inventarioService;
         this.concentradoRepo = concentradoRepo;
+        this.excedenteRepo = excedenteRepo;
+    }
+
+    // Excedente estimado de la entrada: solo si el tenor real > umbral (por defecto 2 gr Au/ton).
+    // La tarifa por tonelada seca es configurable (default 100000).
+    private calcularExcedente(tenorReal: number, totalMaterialSeco: number, tarifaPorTon?: number): number {
+        if (!(tenorReal > this.TENOR_MINIMO_EXCEDENTE)) return 0;
+        const tarifa = (tarifaPorTon !== undefined && tarifaPorTon !== null && Number(tarifaPorTon) > 0)
+            ? Number(tarifaPorTon)
+            : this.TARIFA_EXCEDENTE_POR_TON;
+        return totalMaterialSeco * tarifa;
+    }
+
+    // Sincroniza el excedente en la tabla Excedente, en la misma transacción del análisis.
+    // valor > 0 → upsert (inserta o actualiza). valor = 0 → elimina la fila si existía
+    // (no se deja excedente en 0). Nunca toca un excedente ya distribuido (monto_distribuido > 0).
+    // La columna material_planta_entrada.excedente_calculado ya quedó en 0 aparte (entra a total_material).
+    private async sincronizarExcedente(idEntrada: number, valor: number, conn: PoolConnection): Promise<void> {
+        const existente = await this.excedenteRepo.obtenerPorEntrada(idEntrada, conn);
+        if (existente && Number(existente.monto_distribuido) > 0) return; // ya distribuido: no se toca
+
+        if (valor > 0) {
+            if (existente) {
+                await this.excedenteRepo.actualizar(existente.id, { valor_excedente: valor }, conn);
+            } else {
+                await this.excedenteRepo.insertar(idEntrada, {
+                    valor_excedente: valor,
+                    concepto: `Auto — análisis MPE #${idEntrada}`
+                }, conn);
+            }
+        } else if (existente) {
+            await this.excedenteRepo.eliminar(existente.id, conn);
+        }
     }
 
     async vincularAnalisisAEntrada(data: CreateAnalisisDTO): Promise<void> {
@@ -115,31 +156,23 @@ export class AnalisisService implements IAnalisisService {
                 const tenor = data.au_falso || 0;
                 const total_gramos_pago = total_material_seco * tenor;
 
-                const hoy = new Date().toISOString().split('T')[0];
-                const precio = await this.precioRepo.buscarPrecioAplicable(
-                    entrada.minero_id, entrada.zona_id, entrada.metodo_calculo as string, tenor, hoy, conn
-                );
-                
-                let id_precio = null, precio_por_gramo = 0, precio_por_tonelada = 0, precio_total = 0;
-                if (precio) {
-                    id_precio = precio.id;
-                    precio_por_gramo = precio.precio_por_gramo;
-                    precio_por_tonelada = precio.precio_por_tonelada;
-                    if (entrada.metodo_calculo === 'por_gramo') {
-                        precio_total = total_gramos_pago * precio_por_gramo;
-                    } else {
-                        precio_total = total_material_seco * precio_por_tonelada;
-                    }
-                }
+                // El precio ya NO se calcula aquí ni se consulta Precio_Material (columna id_precio
+                // y tabla eliminadas). Se asigna manualmente en la Fase 3:
+                // PATCH /material/entradas/:id/precio. Aquí los campos de precio quedan en cero.
+                const precio_por_gramo = 0;
+                const precio_por_tonelada = 0;
+                const precio_total = 0;
 
-                const excedente_calculado = total_material_seco * 100000;
+                // Excedente: solo si el tenor real (au_gr_x_ton) supera el umbral; tarifa configurable.
+                const tenor_real = data.au_gr_x_ton || 0;
+                const excedente_calculado = this.calcularExcedente(tenor_real, total_material_seco, data.tarifa_excedente_por_ton);
                 const costo_cargue = 300000;
                 const costo_bascula = 0;
                 const costo_maquila = 0;
                 const costo_adicional = 0;
                 const tarifaVolqueta = await this.tarifaRepo.obtenerTarifaZonaOCalculo(entrada.zona_id, conn);
                 const costo_volqueta = entrada.peso_llegada_planta * tarifaVolqueta;
-                
+
                 const total_costos_operativos = costo_cargue + costo_bascula + costo_maquila + costo_adicional + costo_volqueta;
                 const total_material = precio_total + total_costos_operativos + excedente_calculado;
 
@@ -149,7 +182,6 @@ export class AnalisisService implements IAnalisisService {
                     total_material_seco,
                     tenor,
                     total_gramos: total_gramos_pago,
-                    id_precio,
                     precio_por_gramo,
                     precio_por_tonelada,
                     precio_total,
@@ -165,6 +197,18 @@ export class AnalisisService implements IAnalisisService {
 
                 await this.materialRepo.actualizarCompleto(data.id_entrada, datosActualizados as any, conn);
                 await this.materialRepo.actualizarEstado(data.id_entrada, 'en_proceso' as any, conn);
+
+                // [MIGRACIÓN TRIGGERS] Reemplaza a 'trg_after_update_mpe': el análisis hace que
+                // total_material_seco pase de 0 a >0, así que se corrige el lote de bruto a seco
+                // (ajusta toneladas + kardex AJUSTE_MERMA si no hubo salidas).
+                await this.inventarioService.triggerAlActualizarAnalisis(
+                    { total_material_seco: entrada.total_material_seco },
+                    { id: data.id_entrada, total_material_seco, porcentaje_humedad: data.porcentaje_humedad },
+                    conn
+                );
+
+                // Persiste (o crea) el excedente de la entrada en la tabla Excedente.
+                await this.sincronizarExcedente(data.id_entrada, excedente_calculado, conn);
 
             } else if (data.id_tipo_analisis === 2) {
                 // TIPO 2: CONCENTRADO
@@ -258,31 +302,23 @@ export class AnalisisService implements IAnalisisService {
                 const tenor = data.au_falso !== undefined ? data.au_falso : analisisExistente.tenor_falso;
                 const total_gramos_pago = total_material_seco * tenor;
 
-                const hoy = new Date().toISOString().split('T')[0];
-                const precio = await this.precioRepo.buscarPrecioAplicable(
-                    entrada.minero_id, entrada.zona_id, entrada.metodo_calculo as string, tenor, hoy, conn
-                );
-                
-                let id_precio = null, precio_por_gramo = 0, precio_por_tonelada = 0, precio_total = 0;
-                if (precio) {
-                    id_precio = precio.id;
-                    precio_por_gramo = precio.precio_por_gramo;
-                    precio_por_tonelada = precio.precio_por_tonelada;
-                    if (entrada.metodo_calculo === 'por_gramo') {
-                        precio_total = total_gramos_pago * precio_por_gramo;
-                    } else {
-                        precio_total = total_material_seco * precio_por_tonelada;
-                    }
-                }
+                // El precio ya NO se calcula aquí ni se consulta Precio_Material (columna id_precio
+                // y tabla eliminadas). Se asigna manualmente en la Fase 3:
+                // PATCH /material/entradas/:id/precio. Aquí los campos de precio quedan en cero.
+                const precio_por_gramo = 0;
+                const precio_por_tonelada = 0;
+                const precio_total = 0;
 
-                const excedente_calculado = total_material_seco * 100000;
+                // Excedente: solo si el tenor real (au_gr_x_ton) supera el umbral; tarifa configurable.
+                const tenor_real = data.au_gr_x_ton || 0;
+                const excedente_calculado = this.calcularExcedente(tenor_real, total_material_seco, data.tarifa_excedente_por_ton);
                 const costo_cargue = 300000;
                 const costo_bascula = 0;
                 const costo_maquila = 0;
                 const costo_adicional = 0;
                 const tarifaVolqueta = await this.tarifaRepo.obtenerTarifaZonaOCalculo(entrada.zona_id, conn);
                 const costo_volqueta = entrada.peso_llegada_planta * tarifaVolqueta;
-                
+
                 const total_costos_operativos = costo_cargue + costo_bascula + costo_maquila + costo_adicional + costo_volqueta;
                 const total_material = precio_total + total_costos_operativos + excedente_calculado;
 
@@ -292,7 +328,6 @@ export class AnalisisService implements IAnalisisService {
                     total_material_seco,
                     tenor,
                     total_gramos: total_gramos_pago,
-                    id_precio,
                     precio_por_gramo,
                     precio_por_tonelada,
                     precio_total,
@@ -308,6 +343,18 @@ export class AnalisisService implements IAnalisisService {
 
                 await this.materialRepo.actualizarCompleto(entrada.id, datosActualizados as any, conn);
                 await this.materialRepo.actualizarEstado(idEntradaActual, 'en_proceso' as any, conn);
+
+                // [MIGRACIÓN TRIGGERS] Reemplaza a 'trg_after_update_mpe'. Corrige el lote de
+                // bruto a seco la primera vez (cuando total_material_seco pasa de 0 a >0);
+                // en re-ediciones (old > 0) el propio método no hace nada, igual que el trigger.
+                await this.inventarioService.triggerAlActualizarAnalisis(
+                    { total_material_seco: entrada.total_material_seco },
+                    { id: entrada.id, total_material_seco, porcentaje_humedad: porcentaje_decimal },
+                    conn
+                );
+
+                // Persiste (o actualiza) el excedente de la entrada en la tabla Excedente.
+                await this.sincronizarExcedente(entrada.id, excedente_calculado, conn);
             } else if (analisisExistente.id_tipo_analisis === 2) {
                 // TIPO 2: CONCENTRADO
                 let idLoteActual = analisisExistente.id_material_concentrado!;
@@ -339,9 +386,6 @@ export class AnalisisService implements IAnalisisService {
             } else {
                 throw new Error("Tipo de análisis no soportado");
             }
-            
-            // TODO: [MIGRACIÓN TRIGGERS] Descomentar la siguiente línea el día que se elimine el trigger 'trg_after_update_mpe' de la BD.
-            // await this.triggerLogicRepo.afterUpdateMPE(conn, entrada, newMpeRow);
 
             await conn.commit();
         } catch (error) {

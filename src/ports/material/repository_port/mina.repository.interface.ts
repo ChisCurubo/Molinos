@@ -21,6 +21,7 @@ export interface IMineroRepository {
     update(id: number, data: Partial<MineroSQL>): Promise<boolean>;
     delete(id: number): Promise<boolean>;
     list(): Promise<MineroSQL[]>;
+    listarConMinas(): Promise<any[]>;
 }
 
 // --- Original: zona ---
@@ -40,3 +41,11 @@ export interface ITarifaZonaRepository {
     delete(id: number): Promise<boolean>;
     list(): Promise<TarifaZonaSQL[]>;
 }
+
+export interface IMinaPrecioMaterialRepository {
+    list(): Promise<any[]>;
+    getById(id: number): Promise<any | null>;
+    create(data: any): Promise<number>;
+    update(id: number, data: any): Promise<boolean>;
+    delete(id: number): Promise<boolean>;
+}

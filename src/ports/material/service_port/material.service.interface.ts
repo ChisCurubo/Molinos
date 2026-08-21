@@ -1,4 +1,4 @@
-import { MaterialPlantaEntradaSQL, CreateMaterialEntradaDTO } from '../../../models/material/sql/material_planta_entrada.sql';
+import { MaterialPlantaEntradaSQL, CreateMaterialEntradaDTO, AsignarPrecioManualDTO, ActualizarGastosOperativosDTO, EntradaMaterial } from '../../../models/material/sql/material_planta_entrada.sql';
 import { CreateAnalisisDTO } from '../../../models/material/sql/analisis.sql';
 import { TipoMaterialSQL } from '../../../models/material/sql/tipo_material.sql';
 import { PrecioMaterialSQL, PrecioMaterialLookup } from '../../../models/material/sql/precio_material.sql';
@@ -21,6 +21,9 @@ export interface IMaterialEntradaService {
     cancelar(id: number, motivo: string): Promise<void>;
     estadisticas(): Promise<any>;
     actualizarEntrada(id: number, data: CreateMaterialEntradaDTO): Promise<any>;
+    asignarPrecio(id: number, data: AsignarPrecioManualDTO): Promise<EntradaMaterial>;
+    obtenerGastosOperativos(id: number): Promise<any>;
+    actualizarGastosOperativos(id: number, data: ActualizarGastosOperativosDTO): Promise<EntradaMaterial>;
     eliminarEntrada(id: number): Promise<void>;
 }
 

@@ -16,13 +16,32 @@ export class AnalisisController {
   public registrarAnalisis = async (req: Request, res: Response): Promise<void> => {
     try {
       const data: CreateAnalisisDTO = req.body;
+
+      // CASO CONCENTRADO (tipo 2): análisis del LOTE. Solo requiere humedad + au + nombre;
+      // la tonelada base y los tenores se calculan sobre el lote (toneladas_seco del cierre).
+      if (data.id_material_concentrado) {
+        data.id_tipo_analisis = 2;
+        if (data.porcentaje_humedad === undefined || data.au_concentrado === undefined) {
+          res.status(400).json({ success: false, message: 'Faltan campos obligatorios: porcentaje_humedad, au_concentrado (análisis de concentrado).' });
+          return;
+        }
+        if (!data.numero_analisis) data.numero_analisis = `AN-LOTE-${data.id_material_concentrado}`;
+        if (data.ag_concentrado === undefined) data.ag_concentrado = 0;
+        if (data.au_falso === undefined) data.au_falso = 0;
+
+        await this.analisisService.vincularAnalisisAEntrada(data);
+        res.status(201).json({ success: true, message: 'Análisis de concentrado registrado y vinculado al lote.' });
+        return;
+      }
+
+      // CASO ENTRADA (tipo cabeza / crudo)
       if (!data.id_entrada || !data.numero_analisis || data.toneladas === undefined || data.porcentaje_humedad === undefined || data.au_concentrado === undefined || data.au_falso === undefined || data.ag_concentrado === undefined) {
         res.status(400).json({ success: false, message: 'Faltan campos obligatorios para el análisis.' });
         return;
       }
 
       await this.analisisService.vincularAnalisisAEntrada(data);
-      
+
       res.status(201).json({
         success: true,
         message: 'Análisis registrado exitosamente y cálculos de material actualizados (Fases 2 a 5).'
@@ -145,7 +164,13 @@ export class AnalisisController {
   };
 
   public listarPorFecha = async (req: Request, res: Response): Promise<void> => {
-      try { res.status(200).json({ success: true, data: await this.repo.listarPorFecha(String(req.params.fecha)) }); } 
+      try { res.status(200).json({ success: true, data: await this.repo.listarPorFecha(String(req.params.fecha)) }); }
+      catch (e: any) { res.status(500).json({ success: false, error: e.message || String(e) }); }
+  };
+
+  // GET /material/analisis/concentrado/:id_lote — análisis del concentrado de un lote.
+  public obtenerPorConcentrado = async (req: Request, res: Response): Promise<void> => {
+      try { res.status(200).json({ success: true, data: await this.repo.obtenerAnalisisDeConcentrado(Number(req.params.id_lote)) }); }
       catch (e: any) { res.status(500).json({ success: false, error: e.message || String(e) }); }
   };
 

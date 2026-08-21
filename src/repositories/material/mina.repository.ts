@@ -1,6 +1,6 @@
 import { Pool, PoolConnection, ResultSetHeader } from 'mysql2/promise';
 import { CacheService } from '../../services/cache/cache.service';
-import { IMinaRepository } from '../../ports/material/repository_port/mina.repository.interface';
+import { IMinaRepository, IMinaPrecioMaterialRepository } from '../../ports/material/repository_port/mina.repository.interface';
 import { HttpError } from '../../helpers/http_error';
 
 export class MinaRepository implements IMinaRepository {
@@ -347,11 +347,169 @@ export class ZonaRepository {
   }
 }
 
+// CRUD de tarifas de flete por zona. Es la tabla que gobierna el flete:
+// costo_volqueta = peso × tarifa_zona.valor_tonelada (ver material.service.ts › obtenerTarifaZonaOCalculo).
 export class TarifaZonaRepository {
   constructor(private db: Pool) {}
-  async create(data: any): Promise<number> { throw new Error('Not implemented'); }
-  async getById(id: number): Promise<any | null> { throw new Error('Not implemented'); }
-  async update(id: number, data: any): Promise<boolean> { throw new Error('Not implemented'); }
-  async delete(id: number): Promise<boolean> { throw new Error('Not implemented'); }
-  async list(): Promise<any[]> { throw new Error('Not implemented'); }
+
+  async list(): Promise<any[]> {
+    const [rows] = await this.db.execute<any[]>(
+      `SELECT tz.id, tz.id_zona, z.nombre AS zona, tz.valor_tonelada,
+              tz.vigente_desde, tz.vigente_hasta, tz.activo, tz.created_at
+       FROM tarifa_zona tz
+       LEFT JOIN zona z ON z.id = tz.id_zona
+       ORDER BY z.nombre, tz.activo DESC, tz.vigente_desde DESC`);
+    return rows;
+  }
+
+  async getById(id: number): Promise<any | null> {
+    const [rows] = await this.db.execute<any[]>(
+      `SELECT tz.id, tz.id_zona, z.nombre AS zona, tz.valor_tonelada,
+              tz.vigente_desde, tz.vigente_hasta, tz.activo, tz.created_at
+       FROM tarifa_zona tz
+       LEFT JOIN zona z ON z.id = tz.id_zona
+       WHERE tz.id = ?`, [id]);
+    return rows.length > 0 ? rows[0] : null;
+  }
+
+  async create(data: any): Promise<number> {
+    const idZona = data.id_zona;
+    if (!idZona) throw new HttpError(400, 'id_zona es obligatorio', 'ID_ZONA_REQUERIDO');
+
+    // `tarifa` y `valor_tonelada` son alias del mismo concepto.
+    const valorTonelada = data.valor_tonelada ?? data.tarifa;
+    if (valorTonelada === undefined || valorTonelada === null) {
+      throw new HttpError(400, 'valor_tonelada es obligatorio', 'VALOR_TONELADA_REQUERIDO');
+    }
+
+    const activo = data.activo === undefined ? 1 : (data.activo ? 1 : 0);
+    const vigenteDesde = data.vigente_desde || null; // null → usa DEFAULT CURRENT_DATE
+    const vigenteHasta = data.vigente_hasta ?? null;
+
+    const conn = await this.db.getConnection();
+    try {
+      await conn.beginTransaction();
+      // Versionado: si la nueva tarifa entra activa, cierra la vigente de esa zona
+      // para que solo haya una activa por zona (igual que el update de Zona).
+      if (activo === 1) {
+        await conn.execute(
+          'UPDATE tarifa_zona SET activo = 0, vigente_hasta = COALESCE(vigente_hasta, CURRENT_DATE) WHERE id_zona = ? AND activo = 1',
+          [idZona]);
+      }
+      const [result] = await conn.execute<ResultSetHeader>(
+        `INSERT INTO tarifa_zona (id_zona, valor_tonelada, vigente_desde, vigente_hasta, activo)
+         VALUES (?, ?, COALESCE(?, CURRENT_DATE), ?, ?)`,
+        [idZona, valorTonelada, vigenteDesde, vigenteHasta, activo]);
+      await conn.commit();
+      return result.insertId;
+    } catch (error) {
+      await conn.rollback();
+      throw error;
+    } finally {
+      conn.release();
+    }
+  }
+
+  async update(id: number, data: any): Promise<boolean> {
+    const COLUMNAS_PERMITIDAS = ['id_zona', 'valor_tonelada', 'vigente_desde', 'vigente_hasta', 'activo'];
+    const fields: string[] = [];
+    const values: any[] = [];
+    for (const key of COLUMNAS_PERMITIDAS) {
+      // `tarifa` es alias de `valor_tonelada`.
+      const val = key === 'valor_tonelada' && data[key] === undefined ? data.tarifa : data[key];
+      if (val !== undefined) {
+        fields.push(`${key} = ?`);
+        values.push(key === 'activo' ? (val ? 1 : 0) : val);
+      }
+    }
+    if (fields.length === 0) return false;
+    values.push(id);
+    const [result] = await this.db.execute<ResultSetHeader>(
+      `UPDATE tarifa_zona SET ${fields.join(', ')} WHERE id = ?`, values);
+    return result.affectedRows > 0;
+  }
+
+  async delete(id: number): Promise<boolean> {
+    const [result] = await this.db.execute<ResultSetHeader>('DELETE FROM tarifa_zona WHERE id = ?', [id]);
+    return result.affectedRows > 0;
+  }
+}
+
+// CRUD básico de Precio_Material — tabla de referencia (escala de precios de compra por
+// rango de tenor). Se expone editable, pero el flujo de precio hoy es manual (Fase 3);
+// este CRUD es principalmente de consulta/administración de la tabla de referencia.
+export class MinaPrecioMaterialRepository implements IMinaPrecioMaterialRepository {
+  constructor(private db: Pool) {}
+
+  async list(): Promise<any[]> {
+    const [rows] = await this.db.execute<any[]>(
+      `SELECT pm.id, pm.id_minero, mn.nombre AS minero, pm.id_zona, z.nombre AS zona,
+              pm.metodo, pm.precio_por_gramo, pm.precio_por_tonelada,
+              pm.intervalo_tenor_min, pm.intervalo_tenor_max,
+              pm.fecha_inicio, pm.fecha_fin, pm.activo, pm.created_at
+       FROM precio_material pm
+       LEFT JOIN minero mn ON mn.id = pm.id_minero
+       LEFT JOIN zona z ON z.id = pm.id_zona
+       ORDER BY pm.activo DESC, pm.fecha_inicio DESC, pm.id DESC`);
+    return rows;
+  }
+
+  async getById(id: number): Promise<any | null> {
+    const [rows] = await this.db.execute<any[]>(
+      `SELECT pm.id, pm.id_minero, mn.nombre AS minero, pm.id_zona, z.nombre AS zona,
+              pm.metodo, pm.precio_por_gramo, pm.precio_por_tonelada,
+              pm.intervalo_tenor_min, pm.intervalo_tenor_max,
+              pm.fecha_inicio, pm.fecha_fin, pm.activo, pm.created_at
+       FROM precio_material pm
+       LEFT JOIN minero mn ON mn.id = pm.id_minero
+       LEFT JOIN zona z ON z.id = pm.id_zona
+       WHERE pm.id = ?`, [id]);
+    return rows.length > 0 ? rows[0] : null;
+  }
+
+  async create(data: any): Promise<number> {
+    const [result] = await this.db.execute<ResultSetHeader>(
+      `INSERT INTO precio_material
+         (id_minero, id_zona, metodo, precio_por_gramo, precio_por_tonelada,
+          intervalo_tenor_min, intervalo_tenor_max, fecha_inicio, fecha_fin, activo)
+       VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_DATE), ?, ?)`,
+      [
+        data.id_minero ?? null,
+        data.id_zona ?? null,
+        data.metodo || 'por_tonelada',
+        data.precio_por_gramo ?? null,
+        data.precio_por_tonelada ?? null,
+        data.intervalo_tenor_min ?? 0,
+        data.intervalo_tenor_max ?? 9999,
+        data.fecha_inicio || null,
+        data.fecha_fin ?? null,
+        data.activo === undefined ? 1 : (data.activo ? 1 : 0)
+      ]);
+    return result.insertId;
+  }
+
+  async update(id: number, data: any): Promise<boolean> {
+    const COLUMNAS_PERMITIDAS = [
+      'id_minero', 'id_zona', 'metodo', 'precio_por_gramo', 'precio_por_tonelada',
+      'intervalo_tenor_min', 'intervalo_tenor_max', 'fecha_inicio', 'fecha_fin', 'activo'
+    ];
+    const fields: string[] = [];
+    const values: any[] = [];
+    for (const key of COLUMNAS_PERMITIDAS) {
+      if (data[key] !== undefined) {
+        fields.push(`${key} = ?`);
+        values.push(key === 'activo' ? (data[key] ? 1 : 0) : data[key]);
+      }
+    }
+    if (fields.length === 0) return false;
+    values.push(id);
+    const [result] = await this.db.execute<ResultSetHeader>(
+      `UPDATE precio_material SET ${fields.join(', ')} WHERE id = ?`, values);
+    return result.affectedRows > 0;
+  }
+
+  async delete(id: number): Promise<boolean> {
+    const [result] = await this.db.execute<ResultSetHeader>('DELETE FROM precio_material WHERE id = ?', [id]);
+    return result.affectedRows > 0;
+  }
 }

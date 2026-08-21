@@ -82,6 +82,38 @@ router.get('/resumen', controller.resumenPorDueno);
 
 /**
  * @swagger
+ * /material/agua/reporte-mensual:
+ *   get:
+ *     summary: Reporte de viajes de agua agrupado por dueño, con arrastre de saldo
+ *     description: >
+ *       Agrupa los viajes del período por dueño. Por cada dueño devuelve la lista de viajes
+ *       y un resumen con bruto, acpm, neto_mes, saldo_inicio (netos de meses previos),
+ *       abonado (0 por ahora) y saldo_fin = saldo_inicio + neto_mes - abonado.
+ *       Acepta desde/hasta o mes/anio.
+ *     tags: [Agua Planta]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: desde
+ *         schema: { type: string, example: "2026-08-01" }
+ *       - in: query
+ *         name: hasta
+ *         schema: { type: string, example: "2026-08-31" }
+ *       - in: query
+ *         name: mes
+ *         schema: { type: integer, example: 8 }
+ *       - in: query
+ *         name: anio
+ *         schema: { type: integer, example: 2026 }
+ *     responses:
+ *       200:
+ *         description: Reporte agrupado por dueño
+ */
+router.get('/reporte-mensual', controller.reporteMensual);
+
+/**
+ * @swagger
  * /material/agua/dueno/{id_dueno}:
  *   get:
  *     summary: Obtener resumen y viajes de agua por dueño
@@ -99,6 +131,28 @@ router.get('/resumen', controller.resumenPorDueno);
  *         description: Resumen y lista de viajes del dueño
  */
 router.get('/dueno/:id_dueno', controller.obtenerPorDueno);
+
+/**
+ * @swagger
+ * /material/agua/{id}:
+ *   get:
+ *     summary: Obtener un viaje de agua específico por ID
+ *     tags: [Agua Planta]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Detalle del viaje de agua
+ *       404:
+ *         description: Viaje de agua no encontrado
+ */
+router.get('/:id', controller.obtener);
 
 /**
  * @swagger

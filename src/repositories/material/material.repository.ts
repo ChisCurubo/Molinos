@@ -1,5 +1,5 @@
 import { Pool, RowDataPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise';
-import { MaterialPlantaEntradaSQL, CreateMaterialEntradaDTO, UpdateDesdeAnalisisDTO, UpdatePrecioDTO, UpdateCostosDTO, UpdateCompletoDTO, EntradaMaterial, EstadoEntrada, EstadoPagoFlete } from '../../models/material/sql/material_planta_entrada.sql';
+import { MaterialPlantaEntradaSQL, CreateMaterialEntradaDTO, UpdateDesdeAnalisisDTO, UpdatePrecioDTO, PrecioManualCalculadoDTO, GastosOperativosCalculadoDTO, UpdateCostosDTO, UpdateCompletoDTO, EntradaMaterial, EstadoEntrada, EstadoPagoFlete } from '../../models/material/sql/material_planta_entrada.sql';
 import { TipoMaterialSQL } from '../../models/material/sql/tipo_material.sql';
 import { ITipoMaterialRepository } from '../../ports/material/repository_port/material.repository.interface';
 import { PrecioMaterialSQL } from '../../models/material/sql/precio_material.sql';
@@ -59,7 +59,7 @@ export class MaterialEntradaRepository implements IMaterialEntradaRepository {
           vv.id AS vehiculo_id, vv.placa, dv.id AS dueno_id, dv.nombre AS dueno, dv.alias AS dueno_alias,
           tm.nombre AS tipo_material,
           mpe.peso_llegada_planta, mpe.porcentaje_humedad, mpe.gramos_humedad, mpe.total_material_seco, mpe.tenor,
-          mpe.total_gramos, mpe.id_precio, mpe.precio_por_gramo, mpe.precio_por_tonelada, mpe.precio_total,
+          mpe.total_gramos, mpe.precio_por_gramo, mpe.precio_por_tonelada, mpe.precio_total,
           mpe.excedente_calculado, mpe.costo_cargue, mpe.costo_bascula, mpe.costo_maquila, mpe.costo_adicional,
           mpe.costo_volqueta, mpe.total_costos_operativos, mpe.total_material, mpe.comentarios, mpe.created_at, mpe.updated_at
       FROM material_planta_entrada mpe
@@ -86,9 +86,17 @@ export class MaterialEntradaRepository implements IMaterialEntradaRepository {
           EXISTS (
               SELECT 1 FROM analisis a
               WHERE a.id_entrada = mpe.id AND a.id_tipo_analisis = 1
-          ) AS tiene_analisis_cabeza
+          ) AS tiene_analisis_cabeza,
+          -- Flete = costo_volqueta de la entrada (mismo valor que expone GET /material/entradas/:id → detalle.flete)
+          mpe.costo_volqueta AS flete,
+          -- ACPM adelantado: no existe columna en material_planta_entrada (solo en agua_planta),
+          -- se expone 0 para ser consistente con detalle.acpm_adelantado del detalle.
+          CAST(0 AS DECIMAL(14,2)) AS acpm_adelantado,
+          -- Zona de la mina de la entrada.
+          z.nombre AS zona
       FROM material_planta_entrada mpe
       JOIN mina mi ON mi.id = mpe.id_mina
+      LEFT JOIN zona z ON z.id = mi.id_zona
       LEFT JOIN minero mn ON mn.id = mi.id_minero
       LEFT JOIN volqueta_vehiculo vv ON vv.id = mpe.id_vehiculo
       LEFT JOIN dueno_volqueta dv ON dv.id = vv.id_dueno_volqueta
@@ -150,17 +158,65 @@ export class MaterialEntradaRepository implements IMaterialEntradaRepository {
     const connection = this.getConn(conn);
     const query = `
       UPDATE material_planta_entrada SET
-          id_precio           = ?,
           precio_por_gramo    = ?,
           precio_por_tonelada = ?,
           precio_total        = ?
       WHERE id = ?
     `;
     await connection.execute(query, [
-      data.id_precio,
       data.precio_por_gramo,
       data.precio_por_tonelada,
       data.precio_total,
+      id
+    ]);
+  }
+
+  // 3.6.1 UPDATE fase 3 — precio manual (uno de los dos precios) + recálculo de totales.
+  // No toca id_precio (no hay regla de Precio_Material asociada) ni los cálculos de análisis.
+  async asignarPrecioManual(id: number, data: PrecioManualCalculadoDTO, conn?: PoolConnection): Promise<void> {
+    const connection = this.getConn(conn);
+    const query = `
+      UPDATE material_planta_entrada SET
+          precio_por_gramo        = ?,
+          precio_por_tonelada     = ?,
+          precio_total            = ?,
+          total_costos_operativos = ?,
+          total_material          = ?
+      WHERE id = ?
+    `;
+    await connection.execute(query, [
+      data.precio_por_gramo,
+      data.precio_por_tonelada,
+      data.precio_total,
+      data.total_costos_operativos,
+      data.total_material,
+      id
+    ]);
+  }
+
+  // 3.6.2 UPDATE gastos operativos (los 5 costo_*) + recálculo de total_costos_operativos
+  // y total_material (= precio_total + total_costos_operativos). No toca precio ni excedente.
+  async actualizarGastosOperativos(id: number, data: GastosOperativosCalculadoDTO, conn?: PoolConnection): Promise<void> {
+    const connection = this.getConn(conn);
+    const query = `
+      UPDATE material_planta_entrada SET
+          costo_cargue            = ?,
+          costo_bascula           = ?,
+          costo_maquila           = ?,
+          costo_adicional         = ?,
+          costo_volqueta          = ?,
+          total_costos_operativos = ?,
+          total_material          = ?
+      WHERE id = ?
+    `;
+    await connection.execute(query, [
+      data.costo_cargue,
+      data.costo_bascula,
+      data.costo_maquila,
+      data.costo_adicional,
+      data.costo_volqueta,
+      data.total_costos_operativos,
+      data.total_material,
       id
     ]);
   }
@@ -193,6 +249,15 @@ export class MaterialEntradaRepository implements IMaterialEntradaRepository {
     ]);
   }
 
+  // 3.7.1 UPDATE puntual del excedente + total_material (al editar el excedente de la entrada).
+  async actualizarExcedente(id: number, excedente_calculado: number, total_material: number, conn?: PoolConnection): Promise<void> {
+    const connection = this.getConn(conn);
+    await connection.execute(
+      `UPDATE material_planta_entrada SET excedente_calculado = ?, total_material = ? WHERE id = ?`,
+      [excedente_calculado, total_material, id]
+    );
+  }
+
   // 3.8 UPDATE fases 3+4+5 en un solo query
   async actualizarCompleto(id: number, data: UpdateCompletoDTO, conn?: PoolConnection): Promise<void> {
     const connection = this.getConn(conn);
@@ -203,7 +268,6 @@ export class MaterialEntradaRepository implements IMaterialEntradaRepository {
           total_material_seco     = ?,
           tenor                   = ?,
           total_gramos            = ?,
-          id_precio               = ?,
           precio_por_gramo        = ?,
           precio_por_tonelada     = ?,
           precio_total            = ?,
@@ -223,7 +287,6 @@ export class MaterialEntradaRepository implements IMaterialEntradaRepository {
       data.total_material_seco,
       data.tenor,
       data.total_gramos,
-      data.id_precio,
       data.precio_por_gramo,
       data.precio_por_tonelada,
       data.precio_total,
@@ -249,7 +312,6 @@ export class MaterialEntradaRepository implements IMaterialEntradaRepository {
           total_material_seco     = 0,
           tenor                   = NULL,
           total_gramos            = 0,
-          id_precio               = NULL,
           precio_por_gramo        = 0,
           precio_por_tonelada     = 0,
           precio_total            = 0,
@@ -502,7 +564,7 @@ export class TipoMaterialRepository implements ITipoMaterialRepository {
     }
 
     async getById(id: number): Promise<TipoMaterialSQL | null> {
-        const [rows] = await this.db.query<RowDataPacket[]>('SELECT * FROM Tipo_Material WHERE id = ?', [id]);
+        const [rows] = await this.db.query<RowDataPacket[]>('SELECT * FROM tipos_material WHERE id = ?', [id]);
         if (rows.length === 0) return null;
         return rows[0] as TipoMaterialSQL;
     }
@@ -527,12 +589,12 @@ export class TipoMaterialRepository implements ITipoMaterialRepository {
     }
 
     async delete(id: number): Promise<boolean> {
-        const [result] = await this.db.query<ResultSetHeader>('DELETE FROM Tipo_Material WHERE id = ?', [id]);
+        const [result] = await this.db.query<ResultSetHeader>('DELETE FROM tipos_material WHERE id = ?', [id]);
         return result.affectedRows > 0;
     }
 
     async list(): Promise<TipoMaterialSQL[]> {
-        const [rows] = await this.db.query<RowDataPacket[]>('SELECT * FROM Tipo_Material');
+        const [rows] = await this.db.query<RowDataPacket[]>('SELECT id, nombre, descripcion FROM tipos_material ORDER BY nombre');
         return rows as TipoMaterialSQL[];
     }
 }

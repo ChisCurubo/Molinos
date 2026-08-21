@@ -19,6 +19,7 @@ export interface IMineroService {
     update(id: number, data: any): Promise<MineroSQL | null>;
     delete(id: number): Promise<boolean>;
     list(): Promise<MineroSQL[]>;
+    listarConMinas(): Promise<any[]>;
 }
 
 // --- Original: zona ---
@@ -38,3 +39,11 @@ export interface ITarifaZonaService {
     delete(id: number): Promise<boolean>;
     list(): Promise<TarifaZonaSQL[]>;
 }
+
+export interface IMinaPrecioMaterialService {
+    create(data: any): Promise<any>;
+    getById(id: number): Promise<any | null>;
+    update(id: number, data: any): Promise<any | null>;
+    delete(id: number): Promise<boolean>;
+    list(): Promise<any[]>;
+}

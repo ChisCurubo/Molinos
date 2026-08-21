@@ -39,6 +39,19 @@ router.get('/concentrado', ctrl.obtenerConcentrado);
 
 /**
  * @swagger
+ * /material/inventario/resumen:
+ *   get:
+ *     summary: KPIs de inventario (crudo por procesar + concentrado disponible)
+ *     tags: [Inventario Material]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: Resumen de inventario
+ */
+router.get('/resumen', ctrl.obtenerResumenInventario);
+
+/**
+ * @swagger
  * /material/inventario/lote/{id}:
  *   get:
  *     summary: Resumen de un lote específico

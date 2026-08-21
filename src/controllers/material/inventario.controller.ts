@@ -23,6 +23,14 @@ export class InventarioController {
         }
     };
 
+    public obtenerResumenInventario = async (_req: Request, res: Response): Promise<void> => {
+        try {
+            ok(res, await this.service.obtenerResumenInventario());
+        } catch (e) {
+            err(res, e);
+        }
+    };
+
     public obtenerResumenLote = async (req: Request, res: Response): Promise<void> => {
         try {
             const idLote = parseInt(req.params.id as string);

@@ -9,71 +9,9 @@ export class TriggerLogicRepositoryImpl implements TriggerLogicRepository {
     return tx || this.db;
   }
 
-  async afterInsertMPE(newRow: any, tx?: PoolConnection): Promise<void> {
-    const conn = this.getConn(tx);
-    const v_condicion = newRow.porcentaje_humedad > 0 ? 'Humedo' : 'Seco';
-
-    if (newRow.id_mina !== null && newRow.id_tipo_material !== null && newRow.peso_llegada_planta > 0) {
-      const [resLote] = await conn.execute<ResultSetHeader>(
-        `INSERT INTO Inventario_Lotes (
-          id_entrada, id_mina, id_tipo_material,
-          condicion_material, porcentaje_humedad,
-          toneladas_iniciales, toneladas_disponibles,
-          estado, fecha_ingreso
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'almacenado', NOW())`,
-        [
-          newRow.id, newRow.id_mina, newRow.id_tipo_material,
-          v_condicion, newRow.porcentaje_humedad || 0,
-          newRow.peso_llegada_planta, newRow.peso_llegada_planta // Siempre WET (Húmedo)
-        ]
-      );
-      
-      const v_id_lote = resLote.insertId;
-
-      await conn.execute(
-        `INSERT INTO Kardex_Movimientos (
-          id_lote, fecha, tipo_movimiento,
-          toneladas_movidas, destino_referencia
-        ) VALUES (?, NOW(), 'ENTRADA_PLANTA', ?, ?)`,
-        [
-          v_id_lote,
-          newRow.peso_llegada_planta,
-          `Entrada MPE #${newRow.id} | Vol:${newRow.numero_volqueta} | ${newRow.fecha_llegada}`
-        ]
-      );
-    }
-
-    if (newRow.excedente_calculado !== null && newRow.excedente_calculado > 0) {
-      await conn.execute(
-        `INSERT INTO Excedente (id_entrada, valor_excedente, monto_distribuido, fecha_calculo, concepto, estado_distribucion)
-         VALUES (?, ?, 0, ?, ?, 'pendiente')`,
-        [
-          newRow.id,
-          newRow.excedente_calculado,
-          newRow.fecha_llegada,
-          `Auto-generado — MPE #${newRow.id}`
-        ]
-      );
-    }
-  }
-
-  async afterUpdateMPE(oldRow: any, newRow: any, tx?: PoolConnection): Promise<void> {
-    const conn = this.getConn(tx);
-    const oldSeco = oldRow?.total_material_seco || 0;
-    const newSeco = newRow?.total_material_seco || 0;
-
-    if (oldSeco === 0 && newSeco > 0) {
-      const condicion = newRow.porcentaje_humedad > 0 ? 'Humedo' : 'Seco';
-      
-      // ACTUALIZAMOS SOLO LA METADATA (Humedad), NUNCA LAS TONELADAS FÍSICAS
-      await conn.execute(
-        `UPDATE Inventario_Lotes
-         SET porcentaje_humedad = ?, condicion_material = ?
-         WHERE id_entrada = ?`,
-        [newRow.porcentaje_humedad || 0, condicion, newRow.id]
-      );
-    }
-  }
+  // NOTA: afterInsertMPE / afterUpdateMPE se movieron al módulo Inventario
+  // (InventarioRepository.triggerAlCrearEntrada / triggerAlActualizarAnalisis),
+  // en reemplazo de los triggers de BD 'trg_after_insert_mpe' y 'trg_after_update_mpe'.
 
   async afterInsertProcesamiento(newRow: any, tx?: PoolConnection): Promise<void> {
     const conn = this.getConn(tx);

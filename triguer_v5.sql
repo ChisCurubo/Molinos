@@ -1,78 +1,20 @@
 DELIMITER $$
 
 -- ====================================================================
--- 1. ENTRADA DE MATERIA PRIMA (sin cambios)
+-- 1 y 2. ENTRADA / ACTUALIZACIÓN DE MATERIA PRIMA  ->  MIGRADO A LA APP (Node)
+--   La lógica de estos dos triggers ahora vive en el módulo Inventario:
+--     - trg_after_insert_mpe  ->  IInventarioService.triggerAlCrearEntrada
+--                                  (invocado desde material.service.registrarLlegada)
+--     - trg_after_update_mpe  ->  IInventarioService.triggerAlActualizarAnalisis
+--                                  (invocado desde analisis.service al vincular/actualizar)
+--   Se dejan solo los DROP para que la BD quede sin estos triggers.
 -- ====================================================================
--- 1. INSERTAR MPE: Guardar siempre el inventario en peso HÚMEDO
 DROP TRIGGER IF EXISTS trg_after_insert_mpe$$
-CREATE TRIGGER trg_after_insert_mpe
-AFTER INSERT ON material_planta_entrada
-FOR EACH ROW
-BEGIN
-    DECLARE v_id_lote   INT           DEFAULT NULL;
-    DECLARE v_condicion VARCHAR(10)   DEFAULT 'Humedo';
-
-    -- Determinamos si llega con humedad o no
-    SET v_condicion = CASE WHEN NEW.porcentaje_humedad > 0 THEN 'Humedo' ELSE 'Seco' END;
-
-    -- Validamos que venga con datos base y que el peso HÚMEDO sea mayor a 0
-    IF NEW.id_mina IS NOT NULL AND NEW.id_tipo_material IS NOT NULL AND NEW.peso_llegada_planta > 0 THEN
-        INSERT INTO Inventario_Lotes (
-            id_entrada, id_mina, id_tipo_material,
-            condicion_material, porcentaje_humedad,
-            toneladas_iniciales, toneladas_disponibles,
-            estado, fecha_ingreso
-        ) VALUES (
-            NEW.id, NEW.id_mina, NEW.id_tipo_material,
-            v_condicion, NEW.porcentaje_humedad,
-            NEW.peso_llegada_planta, NEW.peso_llegada_planta, -- Siempre usamos el húmedo
-            'almacenado', NOW()
-        );
-
-        SET v_id_lote = LAST_INSERT_ID();
-
-        -- Registramos en el Kardex
-        INSERT INTO Kardex_Movimientos (
-            id_lote, fecha, tipo_movimiento,
-            toneladas_movidas, destino_referencia
-        ) VALUES (
-            v_id_lote, NOW(), 'ENTRADA_PLANTA',
-            NEW.peso_llegada_planta,
-            CONCAT('Entrada MPE #', NEW.id, ' | Vol:', NEW.numero_volqueta, ' | ', NEW.fecha_llegada)
-        );
-    END IF;
-
-    -- Excedentes (Se mantiene igual)
-    IF NEW.excedente_calculado IS NOT NULL AND NEW.excedente_calculado > 0 THEN
-        INSERT INTO Excedente (id_entrada, valor_excedente, monto_distribuido, fecha_calculo, concepto, estado_distribucion)
-        VALUES (NEW.id, NEW.excedente_calculado, 0, NEW.fecha_llegada, CONCAT('Auto-generado — MPE #', NEW.id), 'pendiente');
-    END IF;
-END$$
-
--- ====================================================================
--- 2. ACTUALIZACIÓN DE MATERIA PRIMA (sin cambios)
--- ====================================================================
-
 DROP TRIGGER IF EXISTS trg_after_update_mpe$$
-CREATE TRIGGER trg_after_update_mpe
-AFTER UPDATE ON material_planta_entrada
-FOR EACH ROW
-BEGIN
-    -- Si llegó el análisis (total_material_seco pasa de 0 a un valor real)
-    IF COALESCE(OLD.total_material_seco, 0) = 0 
-       AND COALESCE(NEW.total_material_seco, 0) > 0 THEN
-       
-        -- ACTUALIZAMOS SOLO LA METADATA (Humedad), NUNCA LAS TONELADAS FÍSICAS
-        UPDATE Inventario_Lotes
-        SET
-            porcentaje_humedad    = NEW.porcentaje_humedad,
-            condicion_material    = CASE 
-                WHEN NEW.porcentaje_humedad > 0 THEN 'Humedo' ELSE 'Seco' 
-            END
-        WHERE id_entrada = NEW.id;
-        
-    END IF;
-END$$
+
+-- ====================================================================
+-- (trg_after_update_mpe migrado a la app; ver nota en el bloque anterior)
+-- ====================================================================
 
 -- ====================================================================
 -- 3. PROCESAMIENTO (sin cambios)

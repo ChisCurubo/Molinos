@@ -271,6 +271,170 @@ router.delete('/zona/:id',      ctrl.deleteZona);
 
 /**
  * @swagger
+ * /material/mina/tarifa-zona:
+ *   get:
+ *     summary: Listar tarifas de flete por zona (con historial)
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Lista de tarifas por zona }
+ *   post:
+ *     summary: Crear una tarifa de flete para una zona (versiona la vigente si entra activa)
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [id_zona, valor_tonelada]
+ *             properties:
+ *               id_zona: { type: integer }
+ *               valor_tonelada: { type: number, description: "Flete por tonelada (alias: tarifa)" }
+ *               vigente_desde: { type: string, format: date, description: "Opcional; por defecto hoy" }
+ *               vigente_hasta: { type: string, format: date, nullable: true }
+ *               activo: { type: boolean, default: true }
+ *     responses:
+ *       201: { description: Tarifa creada }
+ */
+router.get('/tarifa-zona',        ctrl.listTarifasZona);
+router.post('/tarifa-zona',       ctrl.createTarifaZona);
+
+/**
+ * @swagger
+ * /material/mina/tarifa-zona/{id}:
+ *   get:
+ *     summary: Obtener una tarifa de zona por ID
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Detalle de la tarifa }
+ *       404: { description: No encontrada }
+ *   put:
+ *     summary: Editar una tarifa de zona
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id_zona: { type: integer }
+ *               valor_tonelada: { type: number, description: "alias: tarifa" }
+ *               vigente_desde: { type: string, format: date }
+ *               vigente_hasta: { type: string, format: date, nullable: true }
+ *               activo: { type: boolean }
+ *     responses:
+ *       200: { description: Tarifa actualizada }
+ *   delete:
+ *     summary: Eliminar una tarifa de zona
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Tarifa eliminada }
+ */
+router.get('/tarifa-zona/:id',    ctrl.getTarifaZona);
+router.put('/tarifa-zona/:id',    ctrl.updateTarifaZona);
+router.delete('/tarifa-zona/:id', ctrl.deleteTarifaZona);
+
+/**
+ * @swagger
+ * /material/mina/precio-material:
+ *   get:
+ *     summary: Listar precios de material (tabla de referencia)
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Lista de precios de material }
+ *   post:
+ *     summary: Crear un precio de material (referencia)
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id_minero: { type: integer, nullable: true }
+ *               id_zona: { type: integer, nullable: true }
+ *               metodo: { type: string, enum: [por_gramo, por_tonelada], default: por_tonelada }
+ *               precio_por_gramo: { type: number, nullable: true }
+ *               precio_por_tonelada: { type: number, nullable: true }
+ *               intervalo_tenor_min: { type: number, default: 0 }
+ *               intervalo_tenor_max: { type: number, default: 9999 }
+ *               fecha_inicio: { type: string, format: date }
+ *               fecha_fin: { type: string, format: date, nullable: true }
+ *               activo: { type: boolean, default: true }
+ *     responses:
+ *       201: { description: Precio creado }
+ */
+router.get('/precio-material',        ctrl.listPreciosMaterial);
+router.post('/precio-material',       ctrl.createPrecioMaterial);
+
+/**
+ * @swagger
+ * /material/mina/precio-material/{id}:
+ *   get:
+ *     summary: Obtener un precio de material por ID
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Detalle del precio }
+ *       404: { description: No encontrado }
+ *   put:
+ *     summary: Editar un precio de material
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Precio actualizado }
+ *   delete:
+ *     summary: Eliminar un precio de material
+ *     tags: [Mina]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Precio eliminado }
+ */
+router.get('/precio-material/:id',    ctrl.getPrecioMaterial);
+router.put('/precio-material/:id',    ctrl.updatePrecioMaterial);
+router.delete('/precio-material/:id', ctrl.deletePrecioMaterial);
+
+/**
+ * @swagger
  * /material/mina/{id}:
  *   get:
  *     summary: Obtener detalle de mina por ID

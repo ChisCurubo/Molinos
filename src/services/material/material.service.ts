@@ -1,6 +1,6 @@
 import { Pool } from 'mysql2/promise';
-import { MaterialPlantaEntradaSQL, EstadoEntrada, CreateMaterialEntradaDTO } from '../../models/material/sql/material_planta_entrada.sql';
-import { TriggerLogicRepository } from '../../ports/db_triggers/trigger_logic.repository.interface';
+import { MaterialPlantaEntradaSQL, EstadoEntrada, CreateMaterialEntradaDTO, AsignarPrecioManualDTO, ActualizarGastosOperativosDTO, EntradaMaterial } from '../../models/material/sql/material_planta_entrada.sql';
+import { IInventarioService } from '../../ports/material/inventario.interface';
 import { IMaterialEntradaRepository } from '../../ports/material/repository_port/material.repository.interface';
 import { ITarifaCalculoRepository as ITarifaCalculoRepo } from '../../ports/material/repository_port/material.repository.interface';
 import { IAnalisisRepository } from '../../ports/material/repository_port/analisis.repository.interface';
@@ -29,7 +29,7 @@ import { ProveedorSQL } from '../../models/pagos/sql/proveedor.sql';
 export class MaterialPlantaEntradaService implements IMaterialEntradaService {
     private repo: IMaterialEntradaRepository;
     private db: Pool;
-    private triggerLogicRepo: TriggerLogicRepository;
+    private inventarioService: IInventarioService;
     private vehiculoRepo: IVehiculoRepository;
     private minaRepo: IMinaRepository;
     private tarifaRepo: ITarifaCalculoRepo;
@@ -38,7 +38,7 @@ export class MaterialPlantaEntradaService implements IMaterialEntradaService {
     constructor(
         repo: IMaterialEntradaRepository,
         db: Pool,
-        triggerLogicRepo: TriggerLogicRepository,
+        inventarioService: IInventarioService,
         vehiculoRepo: IVehiculoRepository,
         minaRepo: IMinaRepository,
         tarifaRepo: ITarifaCalculoRepo,
@@ -46,7 +46,7 @@ export class MaterialPlantaEntradaService implements IMaterialEntradaService {
     ) {
         this.repo = repo;
         this.db = db;
-        this.triggerLogicRepo = triggerLogicRepo;
+        this.inventarioService = inventarioService;
         this.vehiculoRepo = vehiculoRepo;
         this.minaRepo = minaRepo;
         this.tarifaRepo = tarifaRepo;
@@ -75,11 +75,22 @@ export class MaterialPlantaEntradaService implements IMaterialEntradaService {
             }
 
             const id = await this.repo.registrarLlegada(data, conn);
-            const newRow = await this.repo.obtenerPorId(id, conn);
 
-            // TODO: [MIGRACIÓN TRIGGERS] Descomentar la siguiente línea el día que se elimine el trigger 'trg_after_insert_mpe' de la BD.
-            // (el trigger calcula costo_volqueta = peso × tarifa de zona). Hoy lo hace la BD.
-            // await this.triggerLogicRepo.afterInsertMPE(conn, newRow);
+            // [MIGRACIÓN TRIGGERS] Reemplaza al trigger de BD 'trg_after_insert_mpe':
+            // crea el lote en Inventario_Lotes + el movimiento de Kardex, en la misma transacción.
+            // Se pasa la fila cruda (columnas reales de material_planta_entrada) tal como la vería
+            // el trigger en NEW: al registrar, humedad = 0 y aún no hay excedente calculado.
+            const nuevoLote = {
+                id,
+                id_mina: data.id_mina,
+                id_tipo_material: data.id_tipo_material,
+                numero_volqueta: data.numero_volqueta,
+                fecha_llegada: data.fecha_llegada,
+                peso_llegada_planta: data.peso_llegada_planta,
+                porcentaje_humedad: 0,
+                excedente_calculado: null
+            };
+            await this.inventarioService.triggerAlCrearEntrada(nuevoLote, conn);
 
             await conn.commit();
             return id;
@@ -113,8 +124,16 @@ export class MaterialPlantaEntradaService implements IMaterialEntradaService {
             tenor_au: entrada.tenor,
             flete: entrada.costo_volqueta,
             acpm_adelantado: 0,
+            // Gastos operativos: total + desglose (para el panel editable del front).
             gastos_operativos: entrada.total_costos_operativos,
+            costo_cargue: entrada.costo_cargue,
+            costo_bascula: entrada.costo_bascula,
+            costo_maquila: entrada.costo_maquila,
+            costo_adicional: entrada.costo_adicional,
+            costo_volqueta: entrada.costo_volqueta,
             valor_material: entrada.precio_total,
+            excedente: entrada.excedente_calculado,
+            total_material: entrada.total_material,
             estado_pago: entrada.estado_pago_flete
         };
 
@@ -163,6 +182,146 @@ export class MaterialPlantaEntradaService implements IMaterialEntradaService {
 
             await conn.commit();
             return await this.repo.obtenerPorId(id);
+        } catch (error) {
+            await conn.rollback();
+            throw error;
+        } finally {
+            conn.release();
+        }
+    }
+
+    // FASE 3 — Asignar precio manual. El operador digita EXACTAMENTE uno de los dos
+    // precios (por_gramo o por_tonelada); el otro se guarda NULL. Se recalculan
+    // precio_total, total_costos_operativos y total_material.
+    async asignarPrecio(id: number, data: AsignarPrecioManualDTO): Promise<EntradaMaterial> {
+        // Presencia: exactamente uno de los dos campos (no ambos, no ninguno).
+        const tieneGramo = data.precio_por_gramo !== undefined && data.precio_por_gramo !== null;
+        const tieneTonelada = data.precio_por_tonelada !== undefined && data.precio_por_tonelada !== null;
+        if (tieneGramo === tieneTonelada) {
+            throw new HttpError(400, 'Envía exactamente uno: precio_por_gramo o precio_por_tonelada (no ambos, no ninguno).', 'PRECIO_INVALIDO');
+        }
+
+        const precio = Number(tieneGramo ? data.precio_por_gramo : data.precio_por_tonelada);
+        if (!Number.isFinite(precio) || precio <= 0) {
+            throw new HttpError(400, 'El precio debe ser un número mayor que 0.', 'PRECIO_NO_POSITIVO');
+        }
+
+        const conn = await this.db.getConnection();
+        await conn.beginTransaction();
+        try {
+            const entrada = await this.repo.obtenerPorId(id, conn);
+            if (!entrada) throw new HttpError(404, 'Entrada de material no encontrada');
+            if (entrada.estado === EstadoEntrada.CANCELADA) {
+                throw new HttpError(409, 'No se puede asignar precio a una entrada cancelada.', 'ENTRADA_CANCELADA');
+            }
+
+            // Fase 2 (análisis) debe estar completa: hay peso seco y gramos de Au.
+            const totalMaterialSeco = Number(entrada.total_material_seco ?? 0);
+            const totalGramos = Number(entrada.total_gramos ?? 0);
+            if (totalMaterialSeco <= 0 || totalGramos <= 0) {
+                throw new HttpError(409, 'La entrada no tiene el análisis completo (total_material_seco y total_gramos deben ser > 0).', 'ANALISIS_INCOMPLETO');
+            }
+
+            // Cálculo del valor a pagar al minero según el método digitado.
+            const precioPorGramo = tieneGramo ? precio : null;
+            const precioPorTonelada = tieneTonelada ? precio : null;
+            const precioTotal = tieneGramo
+                ? totalGramos * precio
+                : totalMaterialSeco * precio;
+
+            // Recalcular costos operativos y total del material (no se tocan los costos base).
+            const totalCostosOperativos =
+                Number(entrada.costo_cargue ?? 0) +
+                Number(entrada.costo_bascula ?? 0) +
+                Number(entrada.costo_maquila ?? 0) +
+                Number(entrada.costo_adicional ?? 0) +
+                Number(entrada.costo_volqueta ?? 0);
+            const totalMaterial = precioTotal + totalCostosOperativos;
+
+            await this.repo.asignarPrecioManual(id, {
+                precio_por_gramo: precioPorGramo,
+                precio_por_tonelada: precioPorTonelada,
+                precio_total: precioTotal,
+                total_costos_operativos: totalCostosOperativos,
+                total_material: totalMaterial
+            }, conn);
+
+            await conn.commit();
+
+            const actualizada = await this.repo.obtenerPorId(id);
+            return actualizada!;
+        } catch (error) {
+            await conn.rollback();
+            throw error;
+        } finally {
+            conn.release();
+        }
+    }
+
+    // Lectura de los gastos operativos (para precargar el panel del formulario).
+    async obtenerGastosOperativos(id: number): Promise<any> {
+        const entrada = await this.repo.obtenerPorId(id);
+        if (!entrada) throw new HttpError(404, 'Entrada de material no encontrada');
+        return {
+            id: entrada.id,
+            costo_cargue: Number(entrada.costo_cargue ?? 0),
+            costo_bascula: Number(entrada.costo_bascula ?? 0),
+            costo_maquila: Number(entrada.costo_maquila ?? 0),
+            costo_adicional: Number(entrada.costo_adicional ?? 0),
+            costo_volqueta: Number(entrada.costo_volqueta ?? 0),
+            total_costos_operativos: Number(entrada.total_costos_operativos ?? 0),
+            precio_total: Number(entrada.precio_total ?? 0),
+            total_material: Number(entrada.total_material ?? 0)
+        };
+    }
+
+    // Actualiza los gastos operativos (los que se envíen; el resto conserva su valor)
+    // y recalcula total_costos_operativos y total_material = precio_total + total_costos_operativos.
+    async actualizarGastosOperativos(id: number, data: ActualizarGastosOperativosDTO): Promise<EntradaMaterial> {
+        const campos: (keyof ActualizarGastosOperativosDTO)[] = ['costo_cargue', 'costo_bascula', 'costo_maquila', 'costo_adicional', 'costo_volqueta'];
+        for (const c of campos) {
+            if (data[c] !== undefined) {
+                const v = Number(data[c]);
+                if (!Number.isFinite(v) || v < 0) {
+                    throw new HttpError(400, `${c} debe ser un número mayor o igual a 0.`, 'GASTO_INVALIDO');
+                }
+            }
+        }
+
+        const conn = await this.db.getConnection();
+        await conn.beginTransaction();
+        try {
+            const entrada = await this.repo.obtenerPorId(id, conn);
+            if (!entrada) throw new HttpError(404, 'Entrada de material no encontrada');
+            if (entrada.estado === EstadoEntrada.CANCELADA) {
+                throw new HttpError(409, 'No se pueden editar los gastos de una entrada cancelada.', 'ENTRADA_CANCELADA');
+            }
+
+            const resolver = (nuevo: number | undefined, actual: any) =>
+                nuevo !== undefined ? Number(nuevo) : Number(actual ?? 0);
+
+            const costo_cargue = resolver(data.costo_cargue, entrada.costo_cargue);
+            const costo_bascula = resolver(data.costo_bascula, entrada.costo_bascula);
+            const costo_maquila = resolver(data.costo_maquila, entrada.costo_maquila);
+            const costo_adicional = resolver(data.costo_adicional, entrada.costo_adicional);
+            const costo_volqueta = resolver(data.costo_volqueta, entrada.costo_volqueta);
+
+            const total_costos_operativos = costo_cargue + costo_bascula + costo_maquila + costo_adicional + costo_volqueta;
+            const total_material = Number(entrada.precio_total ?? 0) + total_costos_operativos;
+
+            await this.repo.actualizarGastosOperativos(id, {
+                costo_cargue,
+                costo_bascula,
+                costo_maquila,
+                costo_adicional,
+                costo_volqueta,
+                total_costos_operativos,
+                total_material
+            }, conn);
+
+            await conn.commit();
+            const actualizada = await this.repo.obtenerPorId(id);
+            return actualizada!;
         } catch (error) {
             await conn.rollback();
             throw error;

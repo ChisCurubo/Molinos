@@ -277,6 +277,21 @@ export class AnalisisRepository implements IAnalisisRepository {
     const [rows] = await connection.execute<any[]>(query, [fecha]);
     return rows;
   }
+
+  // 4.10 Análisis del CONCENTRADO de un lote (id_material_concentrado = id_lote).
+  async obtenerAnalisisDeConcentrado(id_lote: number, conn?: PoolConnection): Promise<any[]> {
+    const connection = this.getConn(conn);
+    const query = `
+      SELECT a.id, a.numero_analisis, a.toneladas_secas,
+             a.au_gr_x_ton, a.ag_gr_x_ton, a.au_concentrado, a.ag_concentrado,
+             a.porcentaje_humedad
+      FROM analisis a
+      WHERE a.id_material_concentrado = ?
+      ORDER BY a.id
+    `;
+    const [rows] = await connection.execute<any[]>(query, [id_lote]);
+    return rows;
+  }
 }
 
 import { ITipoAnalisisRepository } from '../../ports/material/repository_port/analisis.repository.interface';

@@ -17,6 +17,62 @@ export class ConcentradoService {
         return await this.repo.iniciarLote(data);
     }
 
+    // --- LECTURA -------------------------------------------------------------
+
+    // Listar lotes (todos los estados) con filtros.
+    async listarLotes(filtros: any): Promise<any[]> {
+        return await this.repo.listarLotes(filtros);
+    }
+
+    // Detalle de un lote + materiales vinculados + análisis del concentrado.
+    async obtenerLoteDetalle(id: number): Promise<any> {
+        const lote = await this.repo.obtenerLotePorId(id);
+        if (!lote) { const e: any = new Error('Lote no encontrado'); e.status = 404; throw e; }
+        const [materiales, analisis] = await Promise.all([
+            this.repo.obtenerMaterialesDeLote(id),
+            this.repo.obtenerAnalisisDeLote(id)
+        ]);
+        return { ...lote, num_materiales: materiales.length, materiales, analisis };
+    }
+
+    // Lista plana de materiales procesados, con sus análisis embebidos.
+    async listarProcesamiento(filtros: any): Promise<any[]> {
+        const filas = await this.repo.listarProcesamiento(filtros);
+        if (filas.length === 0) return [];
+        const ids = filas.map(f => Number(f.id_entrada));
+        const analisis = await this.repo.obtenerAnalisisPorEntradas(ids);
+        const porEntrada = new Map<number, any[]>();
+        for (const a of analisis) {
+            const tipo = a.id_tipo_analisis === 1 ? 'cabeza'
+                       : a.id_tipo_analisis === 2 ? 'concentrado' : null;
+            const item = {
+                id: a.id, tipo, numero_analisis: a.numero_analisis,
+                toneladas_secas: a.toneladas_secas, au_gr_x_ton: a.au_gr_x_ton,
+                ag_gr_x_ton: a.ag_gr_x_ton, au_concentrado: a.au_concentrado
+            };
+            const key = Number(a.id_entrada);
+            if (!porEntrada.has(key)) porEntrada.set(key, []);
+            porEntrada.get(key)!.push(item);
+        }
+        return filas.map(f => ({ ...f, analisis: porEntrada.get(Number(f.id_entrada)) || [] }));
+    }
+
+    // KPIs: conteo por estado + toneladas disponibles totales.
+    async resumenProcesamiento(): Promise<any> {
+        const rows = await this.repo.resumenLotesPorEstado();
+        const out: any = {
+            en_proceso: 0, en_canoa: 0, parcialmente_enviado: 0, enviado_completo: 0,
+            toneladas_disponibles_total: 0
+        };
+        let total = 0;
+        for (const r of rows) {
+            if (r.estado in out) out[r.estado] = Number(r.n) || 0;
+            total += Number(r.disponibles) || 0;
+        }
+        out.toneladas_disponibles_total = Math.round(total * 10000) / 10000;
+        return out;
+    }
+
     async procesarLote(id_lote: number, id_entradas: number[], toneladas_procesadas_seco: number): Promise<any> {
         const conn = await this.db.getConnection();
         await conn.beginTransaction();
@@ -95,6 +151,80 @@ export class ConcentradoService {
 
             await conn.commit();
             return id;
+        } catch (error) {
+            await conn.rollback();
+            throw error;
+        } finally {
+            conn.release();
+        }
+    }
+
+    // Editar campos básicos del lote (whitelist). No toca estado ni toneladas.
+    async editarLote(id: number, data: any): Promise<void> {
+        const lote = await this.repo.obtenerLotePorId(id);
+        if (!lote) { const e: any = new Error('Lote no encontrado'); e.status = 404; throw e; }
+
+        const permitidos = ['codigo', 'fecha_inicio', 'comentarios', 'hizo_molienda', 'hizo_flotacion',
+            'hizo_relave', 'hizo_filtroprensa', 'ubicacion_canoa', 'precio_maquila_por_ton'];
+        const payload: any = {};
+        for (const k of permitidos) if (data[k] !== undefined) payload[k] = data[k];
+        if (Object.keys(payload).length === 0) throw new Error('No hay campos válidos para actualizar');
+
+        await this.repo.actualizarLote(id, payload);
+    }
+
+    // Desvincular un material (entrada) de un lote en proceso; devuelve su stock al inventario.
+    async desvincularMaterialTx(idLote: number, idEntrada: number): Promise<void> {
+        const conn = await this.db.getConnection();
+        await conn.beginTransaction();
+        try {
+            const lote = await this.repo.obtenerLotePorId(idLote, conn);
+            if (!lote) { const e: any = new Error('Lote no encontrado'); e.status = 404; throw e; }
+            if (lote.estado !== 'en_proceso') {
+                const e: any = new Error('Solo se puede desvincular material de un lote en proceso');
+                e.status = 409; throw e;
+            }
+            const proc = await this.repo.obtenerProcesamientoPorLoteYEntrada(idLote, idEntrada, conn);
+            if (!proc) { const e: any = new Error('Ese material no está vinculado al lote'); e.status = 404; throw e; }
+
+            await this.repo.restaurarInventarioDeEntrada(idEntrada, Number(proc.toneladas_aportadas) || 0, idLote, conn);
+            await this.repo.eliminarProcesamiento(proc.id, conn);
+
+            await conn.commit();
+        } catch (error) {
+            await conn.rollback();
+            throw error;
+        } finally {
+            conn.release();
+        }
+    }
+
+    // Eliminar un lote en proceso: devuelve todo el material, borra sus análisis y el lote.
+    async eliminarLoteTx(idLote: number): Promise<void> {
+        const conn = await this.db.getConnection();
+        await conn.beginTransaction();
+        try {
+            const lote = await this.repo.obtenerLotePorId(idLote, conn);
+            if (!lote) { const e: any = new Error('Lote no encontrado'); e.status = 404; throw e; }
+            if (lote.estado !== 'en_proceso') {
+                const e: any = new Error('Solo se puede eliminar un lote en proceso (aún no cerrado ni despachado)');
+                e.status = 409; throw e;
+            }
+            const enViajes = await this.repo.contarLineasViajeDeLote(idLote, conn);
+            if (enViajes > 0) {
+                const e: any = new Error('El lote ya está incluido en viajes; no se puede eliminar');
+                e.status = 409; throw e;
+            }
+
+            const procesamientos = await this.repo.obtenerProcesamientos(idLote, conn);
+            for (const p of procesamientos) {
+                await this.repo.restaurarInventarioDeEntrada(p.id_entrada, Number(p.toneladas_aportadas) || 0, idLote, conn);
+                await this.repo.eliminarProcesamiento(p.id, conn);
+            }
+            await this.repo.eliminarAnalisisDeLote(idLote, conn);
+            await this.repo.eliminarLote(idLote, conn);
+
+            await conn.commit();
         } catch (error) {
             await conn.rollback();
             throw error;

@@ -91,6 +91,33 @@ export class MaterialEntradaController {
         } catch (e) { err(res, e); }
     };
 
+    // PATCH /material/entradas/:id/precio — Fase 3: asignar precio manual (por_gramo | por_tonelada).
+    public asignarPrecio = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { precio_por_gramo, precio_por_tonelada } = req.body;
+            const entrada = await this.service.asignarPrecio(Number(req.params.id), { precio_por_gramo, precio_por_tonelada });
+            ok(res, entrada);
+        } catch (e) { err(res, e); }
+    };
+
+    // GET /material/entradas/:id/gastos-operativos — desglose de costos + totales.
+    public obtenerGastosOperativos = async (req: Request, res: Response): Promise<void> => {
+        try {
+            ok(res, await this.service.obtenerGastosOperativos(Number(req.params.id)));
+        } catch (e) { err(res, e); }
+    };
+
+    // PATCH /material/entradas/:id/gastos-operativos — edita los costos y recalcula totales.
+    public actualizarGastosOperativos = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { costo_cargue, costo_bascula, costo_maquila, costo_adicional, costo_volqueta } = req.body;
+            const entrada = await this.service.actualizarGastosOperativos(Number(req.params.id), {
+                costo_cargue, costo_bascula, costo_maquila, costo_adicional, costo_volqueta
+            });
+            ok(res, entrada);
+        } catch (e) { err(res, e); }
+    };
+
     public cancelar = async (req: Request, res: Response): Promise<void> => {
         try {
             if (!req.body.motivo) { res.status(400).json({ success: false, error: 'motivo es requerido' }); return; }
@@ -121,7 +148,11 @@ export class MaterialEntradaController {
 export class TipoMaterialController {
     private service: ITipoMaterialService;
     constructor(service: ITipoMaterialService) { this.service = service; }
-    // basic CRUD implementation...
+
+    // GET /material/tipos-material — catálogo para el selector (cacheable en el front).
+    public listar = async (_req: Request, res: Response): Promise<void> => {
+        try { ok(res, await this.service.list()); } catch (e) { err(res, e); }
+    };
 }
 
 export class PrecioMaterialController {

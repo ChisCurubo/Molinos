@@ -6,7 +6,7 @@ import { ProveedorSQL } from '../../../models/pagos/sql/proveedor.sql';
 
 import { PoolConnection } from 'mysql2/promise';
 
-import { CreateMaterialEntradaDTO, UpdateDesdeAnalisisDTO, UpdatePrecioDTO, UpdateCostosDTO, UpdateCompletoDTO, EntradaMaterial, EstadoEntrada, EstadoPagoFlete } from '../../../models/material/sql/material_planta_entrada.sql';
+import { CreateMaterialEntradaDTO, UpdateDesdeAnalisisDTO, UpdatePrecioDTO, PrecioManualCalculadoDTO, GastosOperativosCalculadoDTO, UpdateCostosDTO, UpdateCompletoDTO, EntradaMaterial, EstadoEntrada, EstadoPagoFlete } from '../../../models/material/sql/material_planta_entrada.sql';
 
 // --- Original: material_planta_entrada ---
 export interface IMaterialEntradaRepository {
@@ -16,7 +16,10 @@ export interface IMaterialEntradaRepository {
     listarPendientesAnalisis(conn?: PoolConnection): Promise<any[]>;
     actualizarDesdeAnalisis(id: number, data: UpdateDesdeAnalisisDTO, conn?: PoolConnection): Promise<void>;
     actualizarPrecio(id: number, data: UpdatePrecioDTO, conn?: PoolConnection): Promise<void>;
+    asignarPrecioManual(id: number, data: PrecioManualCalculadoDTO, conn?: PoolConnection): Promise<void>;
+    actualizarGastosOperativos(id: number, data: GastosOperativosCalculadoDTO, conn?: PoolConnection): Promise<void>;
     actualizarCostos(id: number, data: UpdateCostosDTO, conn?: PoolConnection): Promise<void>;
+    actualizarExcedente(id: number, excedente_calculado: number, total_material: number, conn?: PoolConnection): Promise<void>;
     actualizarCompleto(id: number, data: UpdateCompletoDTO, conn?: PoolConnection): Promise<void>;
     resetearCalculos(id: number, conn?: PoolConnection): Promise<void>;
     actualizarEstado(id: number, estado: EstadoEntrada, conn?: PoolConnection): Promise<void>;

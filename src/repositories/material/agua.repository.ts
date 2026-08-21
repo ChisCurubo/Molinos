@@ -1,5 +1,5 @@
 import { Pool, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
-import { IAguaPlantaRepository, CreateAguaPlantaDTO, AguaPlantaSQL } from '../../ports/material/repository_port/agua.repository.interface';
+import { IAguaPlantaRepository, CreateAguaPlantaDTO, AguaPlantaSQL, AguaViajeReporteRow } from '../../ports/material/repository_port/agua.repository.interface';
 
 export class AguaPlantaRepository implements IAguaPlantaRepository {
     constructor(private pool: Pool) {}
@@ -102,6 +102,48 @@ export class AguaPlantaRepository implements IAguaPlantaRepository {
         `;
         const [rows] = await this.pool.execute<RowDataPacket[]>(query, [fechaDesde, fechaHasta]);
         return rows as any[];
+    }
+
+    // 5.4 Obtener un viaje de agua específico por ID
+    async obtenerPorId(id: number): Promise<AguaPlantaSQL | null> {
+        const query = `
+            SELECT
+                ap.id, ap.fecha, dv.id AS id_dueno, dv.nombre AS dueno, dv.alias,
+                ap.valor_viaje, ap.cantidad_viajes, ap.acpm,
+                ap.valor_total, ap.comprobante_url, ap.created_at
+            FROM agua_planta ap
+            JOIN dueno_volqueta dv ON dv.id = ap.id_dueno_volqueta
+            WHERE ap.id = ?
+        `;
+        const [rows] = await this.pool.execute<RowDataPacket[]>(query, [id]);
+        return rows.length > 0 ? (rows[0] as AguaPlantaSQL) : null;
+    }
+
+    // 5.5 Viajes de un período (para el reporte mensual agrupado por dueño)
+    async obtenerViajesPeriodo(fechaDesde: string, fechaHasta: string): Promise<AguaViajeReporteRow[]> {
+        const query = `
+            SELECT
+                ap.id, ap.fecha, dv.id AS id_dueno, dv.nombre AS dueno, dv.alias,
+                ap.valor_viaje, ap.cantidad_viajes, ap.acpm, ap.valor_total
+            FROM agua_planta ap
+            JOIN dueno_volqueta dv ON dv.id = ap.id_dueno_volqueta
+            WHERE ap.fecha BETWEEN ? AND ?
+            ORDER BY dv.nombre, ap.fecha
+        `;
+        const [rows] = await this.pool.execute<RowDataPacket[]>(query, [fechaDesde, fechaHasta]);
+        return rows as AguaViajeReporteRow[];
+    }
+
+    // 5.6 Saldo acumulado (neto) por dueño ANTES de una fecha — arrastre de meses previos
+    async obtenerSaldosInicio(fechaDesde: string): Promise<{ id_dueno: number; saldo_inicio: number }[]> {
+        const query = `
+            SELECT ap.id_dueno_volqueta AS id_dueno, SUM(ap.valor_total) AS saldo_inicio
+            FROM agua_planta ap
+            WHERE ap.fecha < ?
+            GROUP BY ap.id_dueno_volqueta
+        `;
+        const [rows] = await this.pool.execute<RowDataPacket[]>(query, [fechaDesde]);
+        return rows as { id_dueno: number; saldo_inicio: number }[];
     }
 
     // 5.3.1 Resumen total por ID de dueño

@@ -10,16 +10,17 @@ import { IZonaService } from '../../ports/material/service_port/mina.service.int
 import { IZonaRepository } from '../../ports/material/repository_port/mina.repository.interface';
 import { ZonaRepository } from '../../repositories/material/mina.repository';
 import { ZonaSQL } from '../../models/material/sql/zona.sql';
-import { ITarifaZonaService } from '../../ports/material/service_port/mina.service.interface';
-import { ITarifaZonaRepository } from '../../ports/material/repository_port/mina.repository.interface';
+import { ITarifaZonaService, IMinaPrecioMaterialService } from '../../ports/material/service_port/mina.service.interface';
+import { ITarifaZonaRepository, IMinaPrecioMaterialRepository } from '../../ports/material/repository_port/mina.repository.interface';
 import { TarifaZonaRepository } from '../../repositories/material/mina.repository';
 import { TarifaZonaSQL } from '../../models/material/sql/tarifa_zona.sql';
+import { MinaPrecioMaterialRepository } from '../../repositories/material/mina.repository';
 
 // --- Original: mina ---
 export class MinaService implements IMinaService {
-    private repository: MinaRepository;
+    private repository: IMinaRepository;
 
-    constructor(repository: MinaRepository) {
+    constructor(repository: IMinaRepository) {
         this.repository = repository;
     }
 
@@ -49,9 +50,9 @@ export class MinaService implements IMinaService {
 
 // --- Original: minero ---
 export class MineroService implements IMineroService {
-    private repository: MineroRepository;
+    private repository: IMineroRepository;
 
-    constructor(repository: MineroRepository) {
+    constructor(repository: IMineroRepository) {
         this.repository = repository;
     }
 
@@ -93,9 +94,9 @@ export class MineroService implements IMineroService {
 
 // --- Original: zona ---
 export class ZonaService implements IZonaService {
-    private repository: ZonaRepository;
+    private repository: IZonaRepository;
 
-    constructor(repository: ZonaRepository) {
+    constructor(repository: IZonaRepository) {
         this.repository = repository;
     }
 
@@ -125,9 +126,9 @@ export class ZonaService implements IZonaService {
 
 // --- Original: tarifa_zona ---
 export class TarifaZonaService implements ITarifaZonaService {
-    private repository: TarifaZonaRepository;
+    private repository: ITarifaZonaRepository;
 
-    constructor(repository: TarifaZonaRepository) {
+    constructor(repository: ITarifaZonaRepository) {
         this.repository = repository;
     }
 
@@ -151,6 +152,37 @@ export class TarifaZonaService implements ITarifaZonaService {
     }
 
     async list(): Promise<TarifaZonaSQL[]> {
+        return this.repository.list();
+    }
+}
+
+// --- Original: precio_material (tabla de referencia editable) ---
+export class MinaPrecioMaterialService implements IMinaPrecioMaterialService {
+    private repository: IMinaPrecioMaterialRepository;
+
+    constructor(repository: IMinaPrecioMaterialRepository) {
+        this.repository = repository;
+    }
+
+    async create(data: any): Promise<any> {
+        const id = await this.repository.create(data);
+        return this.repository.getById(id);
+    }
+
+    async getById(id: number): Promise<any | null> {
+        return this.repository.getById(id);
+    }
+
+    async update(id: number, data: any): Promise<any | null> {
+        await this.repository.update(id, data);
+        return this.repository.getById(id);
+    }
+
+    async delete(id: number): Promise<boolean> {
+        return this.repository.delete(id);
+    }
+
+    async list(): Promise<any[]> {
         return this.repository.list();
     }
 }

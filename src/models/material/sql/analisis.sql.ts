@@ -49,6 +49,8 @@ export interface CreateAnalisisDTO {
   ag_concentrado: number;
   au_falso: number;
   comentarios?: string;
+  // Tarifa de excedente por tonelada seca (cobro por ton). Default 100000 si se omite.
+  tarifa_excedente_por_ton?: number;
   // Calculated fields populated by service
   toneladas_humedas?: number;
   toneladas_secas?: number;
@@ -68,6 +70,8 @@ export interface UpdateAnalisisDTO {
   ag_concentrado?: number;
   au_falso?: number;
   comentarios?: string;
+  // Tarifa de excedente por tonelada seca (cobro por ton). Default 100000 si se omite.
+  tarifa_excedente_por_ton?: number;
   // Calculated fields populated by service
   toneladas_humedas?: number;
   toneladas_secas?: number;

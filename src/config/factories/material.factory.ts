@@ -2,13 +2,13 @@ import { Pool } from 'mysql2/promise';
 import { TipoMaterialRepository, PrecioMaterialRepository, TarifaCalculoRepository, ProveedorRepository as MaterialProveedorRepository } from '../../repositories/material/material.repository';
 import { MaterialEntradaRepository } from '../../repositories/material/material.repository';
 import { MinaRepository } from '../../repositories/material/mina.repository';
-import { MineroRepository, ZonaRepository, TarifaZonaRepository } from '../../repositories/material/mina.repository';
+import { MineroRepository, ZonaRepository, TarifaZonaRepository, MinaPrecioMaterialRepository } from '../../repositories/material/mina.repository';
 import { DuenoVolquetaRepository } from '../../repositories/material/volqueta.repository';
 import { AguaPlantaRepository } from '../../repositories/material/agua.repository';
 import { AnalisisRepository, TipoAnalisisRepository } from '../../repositories/material/analisis.repository';
 import { VehiculoRepository } from '../../repositories/material/vehiculo.repository';
 import { VEstadoPagoMaterialRepository, VEstadoPagoFleteRepository, VExcedenteEmpresaRepository, VExcedentePorVehiculoRepository, VAnalisisCompletoRepository, VEstadoAguaRepository } from '../../repositories/material/views/vistas.material.repository';
-import { MinaService, MineroService, ZonaService, TarifaZonaService } from '../../services/material/mina.service';
+import { MinaService, MineroService, ZonaService, TarifaZonaService, MinaPrecioMaterialService } from '../../services/material/mina.service';
 import { DuenoVolquetaService, VehiculoService } from '../../services/material/volqueta.service';
 import { AguaPlantaService } from '../../services/material/agua.service';
 import { AnalisisService, TipoAnalisisService } from '../../services/material/analisis.service';
@@ -33,6 +33,9 @@ import { ViajesController } from '../../controllers/material/viajes.controller';
 import { InventarioRepository } from '../../repositories/material/inventario.repository';
 import { InventarioService } from '../../services/material/inventario.service';
 import { InventarioController } from '../../controllers/material/inventario.controller';
+import { ExcedenteRepository } from '../../repositories/material/excedente.repository';
+import { ExcedenteService } from '../../services/material/excedente.service';
+import { ExcedenteController } from '../../controllers/material/excedente.controller';
 
 export class MaterialFactory {
     constructor(private db: Pool) {}
@@ -48,6 +51,7 @@ export class MaterialFactory {
     private mineroRepo?: MineroRepository;
     private zonaRepo?: ZonaRepository;
     private tarifaZonaRepo?: TarifaZonaRepository;
+    private minaPrecioMaterialRepo?: MinaPrecioMaterialRepository;
     private duenoVolquetaRepo?: DuenoVolquetaRepository;
     private aguaPlantaRepo?: AguaPlantaRepository;
     private analisisRepo?: AnalisisRepository;
@@ -63,6 +67,7 @@ export class MaterialFactory {
     private concentradoRepo?: ConcentradoRepository;
     private viajesRepo?: ViajesRepository;
     private inventarioRepo?: InventarioRepository;
+    private excedenteRepo?: ExcedenteRepository;
 
     private materialPlantaEntradaService?: MaterialPlantaEntradaService;
     private tipoMaterialService?: TipoMaterialService;
@@ -73,6 +78,7 @@ export class MaterialFactory {
     private mineroService?: MineroService;
     private zonaService?: ZonaService;
     private tarifaZonaService?: TarifaZonaService;
+    private minaPrecioMaterialService?: MinaPrecioMaterialService;
     private duenoVolquetaService?: DuenoVolquetaService;
     private vehiculoService?: VehiculoService;
     private aguaPlantaService?: AguaPlantaService;
@@ -81,6 +87,7 @@ export class MaterialFactory {
     private concentradoService?: ConcentradoService;
     private viajesService?: ViajesService;
     private inventarioService?: InventarioService;
+    private excedenteService?: ExcedenteService;
 
     private materialEntradaController?: MaterialEntradaController;
     private tipoMaterialController?: TipoMaterialController;
@@ -95,6 +102,7 @@ export class MaterialFactory {
     private concentradoController?: ConcentradoController;
     private viajesController?: ViajesController;
     private inventarioController?: InventarioController;
+    private excedenteController?: ExcedenteController;
 
     // Repos
     public getTriggerLogicRepo(): TriggerLogicRepositoryImpl {
@@ -137,6 +145,10 @@ export class MaterialFactory {
     public getTarifaZonaRepo(): TarifaZonaRepository {
         if (!this.tarifaZonaRepo) this.tarifaZonaRepo = new TarifaZonaRepository(this.db);
         return this.tarifaZonaRepo;
+    }
+    public getMinaPrecioMaterialRepo(): MinaPrecioMaterialRepository {
+        if (!this.minaPrecioMaterialRepo) this.minaPrecioMaterialRepo = new MinaPrecioMaterialRepository(this.db);
+        return this.minaPrecioMaterialRepo;
     }
     public getDuenoVolquetaRepo(): DuenoVolquetaRepository {
         if (!this.duenoVolquetaRepo) this.duenoVolquetaRepo = new DuenoVolquetaRepository(this.db);
@@ -196,13 +208,17 @@ export class MaterialFactory {
         if (!this.inventarioRepo) this.inventarioRepo = new InventarioRepository(this.db);
         return this.inventarioRepo;
     }
+    public getExcedenteRepo(): ExcedenteRepository {
+        if (!this.excedenteRepo) this.excedenteRepo = new ExcedenteRepository(this.db);
+        return this.excedenteRepo;
+    }
 
     // Services
     public getMaterialPlantaEntradaService(): MaterialPlantaEntradaService {
         if (!this.materialPlantaEntradaService) this.materialPlantaEntradaService = new MaterialPlantaEntradaService(
             this.getMaterialEntradaRepo(),
             this.db,
-            this.getTriggerLogicRepo(),
+            this.getInventarioService(),
             this.getVehiculoRepo(),
             this.getMinaRepo(),
             this.getTarifaCalculoRepo(),
@@ -242,6 +258,10 @@ export class MaterialFactory {
         if (!this.tarifaZonaService) this.tarifaZonaService = new TarifaZonaService(this.getTarifaZonaRepo());
         return this.tarifaZonaService;
     }
+    public getMinaPrecioMaterialService(): MinaPrecioMaterialService {
+        if (!this.minaPrecioMaterialService) this.minaPrecioMaterialService = new MinaPrecioMaterialService(this.getMinaPrecioMaterialRepo());
+        return this.minaPrecioMaterialService;
+    }
     public getDuenoVolquetaService(): DuenoVolquetaService {
         if (!this.duenoVolquetaService) this.duenoVolquetaService = new DuenoVolquetaService(this.getDuenoVolquetaRepo());
         return this.duenoVolquetaService;
@@ -260,8 +280,9 @@ export class MaterialFactory {
             this.getMaterialEntradaRepo(),
             this.getPrecioMaterialRepo(),
             this.getTarifaCalculoRepo(),
-            this.getTriggerLogicRepo(),
-            this.getConcentradoRepo()
+            this.getInventarioService(),
+            this.getConcentradoRepo(),
+            this.getExcedenteRepo()
         );
         return this.analisisService;
     }
@@ -290,6 +311,14 @@ export class MaterialFactory {
             this.getInventarioRepo()
         );
         return this.inventarioService;
+    }
+    public getExcedenteService(): ExcedenteService {
+        if (!this.excedenteService) this.excedenteService = new ExcedenteService(
+            this.getExcedenteRepo(),
+            this.getMaterialEntradaRepo(),
+            this.db
+        );
+        return this.excedenteService;
     }
 
     // Controllers
@@ -320,7 +349,9 @@ export class MaterialFactory {
             this.getMinaService(),
             this.getMineroService(),
             this.getZonaService(),
-            this.getMinaRepo()
+            this.getMinaRepo(),
+            this.getTarifaZonaService(),
+            this.getMinaPrecioMaterialService()
         );
         return this.minaController;
     }
@@ -371,6 +402,12 @@ export class MaterialFactory {
             this.getInventarioService()
         );
         return this.inventarioController;
+    }
+    public getExcedenteController(): ExcedenteController {
+        if (!this.excedenteController) this.excedenteController = new ExcedenteController(
+            this.getExcedenteService()
+        );
+        return this.excedenteController;
     }
 
 }

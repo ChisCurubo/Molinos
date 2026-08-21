@@ -24,4 +24,5 @@ export interface IAnalisisRepository {
     listarPorMinero(id_minero: number, conn?: PoolConnection): Promise<any[]>;
     listarPorMina(id_mina: number, conn?: PoolConnection): Promise<any[]>;
     listarPorFecha(fecha: string, conn?: PoolConnection): Promise<any[]>;
+    obtenerAnalisisDeConcentrado(id_lote: number, conn?: PoolConnection): Promise<any[]>;
 }

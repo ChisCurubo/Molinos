@@ -580,8 +580,7 @@ CREATE TABLE material_planta_entrada (
     id_mina                 INT           NOT NULL                    COMMENT 'Mina de origen del material — ver Mina. El minero se deriva: id_mina → Mina.id_minero',
     id_vehiculo             INT           NULL                        COMMENT 'Vehículo que llegó y descargó. El dueño del flete se deriva: id_vehiculo → Volqueta_Vehiculo.id_dueno_volqueta',
     id_tipo_material        INT           NOT NULL                    COMMENT 'Tipo de material recibido (Concentrado, Roca, Lamas, Relave, Lodos) — ver Tipos_Material',
-    id_precio               INT           NULL                        COMMENT 'Precio aplicado según tenor — ver Precio_Material. NULL si no se ha asignado aún.',
-
+  
     fecha_llegada           DATE          NOT NULL                    COMMENT 'Fecha en que el vehículo llegó a la planta, descargó y se realizó el pesaje inicial',
     peso_llegada_planta     DECIMAL(10,4) NOT NULL                    COMMENT 'Peso bruto del material al llegar a la planta en toneladas métricas (incluye la humedad)',
     porcentaje_humedad      DECIMAL(6,4)  NOT NULL                    COMMENT 'Porcentaje de humedad del material en decimal (Ej: 0.0800 = 8.00%)',
@@ -615,7 +614,6 @@ CREATE TABLE material_planta_entrada (
     FOREIGN KEY (id_mina)          REFERENCES Mina(id),
     FOREIGN KEY (id_vehiculo)      REFERENCES Volqueta_Vehiculo(id),
     FOREIGN KEY (id_tipo_material) REFERENCES Tipos_Material(id),
-    FOREIGN KEY (id_precio)        REFERENCES Precio_Material(id),
     INDEX idx_mpe_mina     (id_mina),
     INDEX idx_mpe_vehiculo (id_vehiculo),
     INDEX idx_mpe_fecha    (fecha_llegada),
