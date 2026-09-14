@@ -1,0 +1,5305 @@
+{
+  "info": {
+    "_postman_id": "6b1b0c2b-0e60-47db-beb5-2f4f37a87ecc",
+    "name": "Molinos ERP v4 API (unificada) v1.0.0",
+    "description": "API del sistema ERP para empresa minera Molinos de Colombia\n\nGENERADA automaticamente desde /info (API_MAP) por scripts/build-postman.js.\nNo editar a mano: al cambiar endpoints en info.controller.ts, re-ejecuta el script.\nConfigura la variable base_url (por defecto http://localhost:3005/api/v1). El login auto-guarda {{token}}; el resto hereda Bearer {{token}} a nivel de coleccion.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3005/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "auth  (/api/v1/auth)",
+      "description": "",
+      "item": [
+        {
+          "name": "Sesión",
+          "item": [
+            {
+              "name": "POST /login",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "description": "Autenticar usuario",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"david\",\n  \"password\": \"123\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const j = pm.response.json();",
+                      "const tk = (j && j.data && (j.data.token || j.data.accessToken)) || j.token;",
+                      "if (tk) { pm.collectionVariables.set('token', tk); console.log('token guardado'); }",
+                      "pm.test('login 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GET /verify",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/auth/verify",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "verify"
+                  ]
+                },
+                "description": "Verificar token JWT activo"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Contraseña",
+          "item": [
+            {
+              "name": "POST /forgot-password",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/forgot-password",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "forgot-password"
+                  ]
+                },
+                "description": "Generar contraseña temporal (DEV: retorna en body)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"david\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "POST /reset-password",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/reset-password",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "reset-password"
+                  ]
+                },
+                "description": "Cambiar contraseña usando la temporal",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"david\",\n  \"tempPassword\": \"<temp>\",\n  \"nuevaPassword\": \"nueva123\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Usuarios",
+          "item": [
+            {
+              "name": "GET /usuarios",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/auth/usuarios",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "usuarios"
+                  ]
+                },
+                "description": "Listar todos los usuarios"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /usuarios",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/usuarios",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "usuarios"
+                  ]
+                },
+                "description": "Crear usuario",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"nuevo_usuario\",\n  \"password\": \"pass\",\n  \"id_rol\": 1\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /usuarios/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/auth/usuarios/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "usuarios",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle de un usuario"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /usuarios/:id",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/auth/usuarios/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "usuarios",
+                    ":id"
+                  ]
+                },
+                "description": "Actualizar usuario"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /usuarios/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/auth/usuarios/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "usuarios",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar usuario"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "material  (/api/v1/material)",
+      "description": "Requiere token (Bearer heredado).",
+      "item": [
+        {
+          "name": "Entradas MPE",
+          "item": [
+            {
+              "name": "POST /entrada",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/entrada",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entrada"
+                  ]
+                },
+                "description": "FASE 1: Registrar llegada de volqueta",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"numero_volqueta\": 100,\n  \"id_mina\": 1,\n  \"id_vehiculo\": 1,\n  \"id_tipo_material\": 1,\n  \"fecha_llegada\": \"2026-07-01\",\n  \"peso_llegada_planta\": 12000.5\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /entradas",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/entradas?desde=2026-01-01&hasta=2026-12-31&estado=&id_mina=&id_minero=&limit=50&offset=0",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entradas"
+                  ],
+                  "query": [
+                    {
+                      "key": "desde",
+                      "value": "2026-01-01"
+                    },
+                    {
+                      "key": "hasta",
+                      "value": "2026-12-31"
+                    },
+                    {
+                      "key": "estado",
+                      "value": ""
+                    },
+                    {
+                      "key": "id_mina",
+                      "value": ""
+                    },
+                    {
+                      "key": "id_minero",
+                      "value": ""
+                    },
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0"
+                    }
+                  ]
+                },
+                "description": "Listar entradas"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /entradas/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/entradas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entradas",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle completo de una entrada"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /entradas/minero/:id_minero",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/entradas/minero/:id_minero",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entradas",
+                    "minero",
+                    ":id_minero"
+                  ]
+                },
+                "description": "Entradas de un minero"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /entradas/mina/:id_mina",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/entradas/mina/:id_mina",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entradas",
+                    "mina",
+                    ":id_mina"
+                  ]
+                },
+                "description": "Entradas de una mina"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /entradas/vehiculo/:id_vehiculo",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/entradas/vehiculo/:id_vehiculo",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entradas",
+                    "vehiculo",
+                    ":id_vehiculo"
+                  ]
+                },
+                "description": "Entradas de un vehículo"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /entradas/dueno/:id_dueno",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/entradas/dueno/:id_dueno",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entradas",
+                    "dueno",
+                    ":id_dueno"
+                  ]
+                },
+                "description": "Entradas del dueño de volqueta"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /entradas/fecha/:fecha",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/entradas/fecha/:fecha",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entradas",
+                    "fecha",
+                    ":fecha"
+                  ]
+                },
+                "description": "Entradas de una fecha exacta (YYYY-MM-DD)"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /entradas/pendientes-analisis",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/entradas/pendientes-analisis",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entradas",
+                    "pendientes-analisis"
+                  ]
+                },
+                "description": "Entradas sin humedad/tenor"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /entradas/stats",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/entradas/stats",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entradas",
+                    "stats"
+                  ]
+                },
+                "description": "KPIs del tablero (total_registros, sin_procesar, ton_humedo_pendiente, volquetas_activas)"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /entradas/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/entradas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entradas",
+                    ":id"
+                  ]
+                },
+                "description": "Editar entrada (recalcula flete)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"peso_llegada_planta\": 13000,\n  \"id_mina\": 1\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /entradas/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/entradas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entradas",
+                    ":id"
+                  ]
+                },
+                "description": "Borrar entrada (limpia inventario si no hay análisis; 409 si no)"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /entradas/:id/estado",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/entradas/:id/estado",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entradas",
+                    ":id",
+                    "estado"
+                  ]
+                },
+                "description": "Cambiar estado",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"estado\": \"pagada\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /entradas/:id/cancelar",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/entradas/:id/cancelar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entradas",
+                    ":id",
+                    "cancelar"
+                  ]
+                },
+                "description": "Cancelar entrada",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"motivo\": \"Error de registro\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Análisis",
+          "item": [
+            {
+              "name": "POST /analisis",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/analisis",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "analisis"
+                  ]
+                },
+                "description": "FASES 2-5: Registrar análisis y recalcular",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_entrada\": 1,\n  \"id_tipo_analisis\": 1,\n  \"numero_analisis\": \"AN-002\",\n  \"toneladas\": 10.2,\n  \"porcentaje_humedad\": 15,\n  \"au_concentrado\": 14,\n  \"ag_concentrado\": 12,\n  \"au_falso\": 15.5\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "POST /analisis/cabeza",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/analisis/cabeza",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "analisis",
+                    "cabeza"
+                  ]
+                },
+                "description": "Registrar análisis de Cabeza (tipo 1). Sin numero_analisis → AN-{mina}-{numero_volqueta}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_entrada\": 1,\n  \"numero_analisis\": null,\n  \"porcentaje_humedad\": 50,\n  \"au_concentrado\": 120,\n  \"au_falso\": 8,\n  \"ag_concentrado\": 0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "POST /analisis",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/analisis",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "analisis"
+                  ]
+                },
+                "description": "Análisis del CONCENTRADO de un lote (tipo 2). Se pasa id_material_concentrado (NO id_entrada); solo requiere humedad + au + nombre. El backend calcula toneladas_seco y tenores sobre el lote",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_material_concentrado\": 1,\n  \"numero_analisis\": \"AN-LOTE-1\",\n  \"porcentaje_humedad\": 0.13,\n  \"au_concentrado\": 120,\n  \"ag_concentrado\": 500\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /analisis/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/analisis/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "analisis",
+                    ":id"
+                  ]
+                },
+                "description": "Análisis por ID propio"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /analisis/entrada/:id_entrada",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/analisis/entrada/:id_entrada",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "analisis",
+                    "entrada",
+                    ":id_entrada"
+                  ]
+                },
+                "description": "Todos los análisis de una entrada"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /analisis/entrada/:id_entrada/cabeza",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/analisis/entrada/:id_entrada/cabeza",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "analisis",
+                    "entrada",
+                    ":id_entrada",
+                    "cabeza"
+                  ]
+                },
+                "description": "Solo el análisis Cabeza"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /analisis/minero/:id_minero",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/analisis/minero/:id_minero",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "analisis",
+                    "minero",
+                    ":id_minero"
+                  ]
+                },
+                "description": "Análisis históricos de un minero"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /analisis/mina/:id_mina",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/analisis/mina/:id_mina",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "analisis",
+                    "mina",
+                    ":id_mina"
+                  ]
+                },
+                "description": "Análisis históricos de una mina"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /analisis/fecha/:fecha",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/analisis/fecha/:fecha",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "analisis",
+                    "fecha",
+                    ":fecha"
+                  ]
+                },
+                "description": "Análisis por fecha de la entrada"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /analisis/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/analisis/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "analisis",
+                    ":id"
+                  ]
+                },
+                "description": "Corregir análisis (recalcula MPE)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_entrada\": 180,\n  \"porcentaje_humedad\": 20,\n  \"au_falso\": 18,\n  \"au_concentrado\": 20,\n  \"ag_concentrado\": 15\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /analisis/:id/pago",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/analisis/:id/pago",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "analisis",
+                    ":id",
+                    "pago"
+                  ]
+                },
+                "description": "Marcar análisis como pagado",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"estado\": \"pagado\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /analisis/:id/valor",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/analisis/:id/valor",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "analisis",
+                    ":id",
+                    "valor"
+                  ]
+                },
+                "description": "Registrar el valor cobrado del análisis",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor_analisis\": 150000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /analisis/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/analisis/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "analisis",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar análisis (revierte entrada a pendiente; 409 si viaje/pagada)"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Volqueta",
+          "item": [
+            {
+              "name": "GET /volqueta",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/volqueta",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "volqueta"
+                  ]
+                },
+                "description": "Lista de vehículos con dueño"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /volqueta/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/volqueta/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "volqueta",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle de vehículo"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /volqueta/dueno/:id_dueno",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/volqueta/dueno/:id_dueno",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "volqueta",
+                    "dueno",
+                    ":id_dueno"
+                  ]
+                },
+                "description": "Vehículos de un dueño"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /volqueta/:id/entradas",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/volqueta/:id/entradas",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "volqueta",
+                    ":id",
+                    "entradas"
+                  ]
+                },
+                "description": "Historial de entradas del vehículo"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /volqueta/:id/entradas/pendientes",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/volqueta/:id/entradas/pendientes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "volqueta",
+                    ":id",
+                    "entradas",
+                    "pendientes"
+                  ]
+                },
+                "description": "Entradas con flete pendiente"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /volqueta",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/volqueta",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "volqueta"
+                  ]
+                },
+                "description": "Crear volqueta",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_dueno_volqueta\": 1,\n  \"placa\": \"ABC-123\",\n  \"tipo_vehiculo\": \"Doble troque\",\n  \"conductor\": \"Pedro\",\n  \"conductor_cc\": \"80111222\",\n  \"capacidad_ton\": 30,\n  \"activo\": 1\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /volqueta/:id",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/volqueta/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "volqueta",
+                    ":id"
+                  ]
+                },
+                "description": "Actualizar volqueta"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /volqueta/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/volqueta/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "volqueta",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar volqueta"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Dueños",
+          "item": [
+            {
+              "name": "GET /volqueta/dueno",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/volqueta/dueno",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "volqueta",
+                    "dueno"
+                  ]
+                },
+                "description": "Listar dueños de volqueta"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /volqueta/dueno",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/volqueta/dueno",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "volqueta",
+                    "dueno"
+                  ]
+                },
+                "description": "Crear dueño",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"ANIBAL\",\n  \"titular\": \"Anibal Perez\",\n  \"cc\": \"71234567\",\n  \"banco\": \"Bancolombia\",\n  \"numero_cuenta\": \"123456789\",\n  \"alias\": \"Amarilla\",\n  \"telefono\": \"3001234567\",\n  \"nequi\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /volqueta/dueno/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/volqueta/dueno/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "volqueta",
+                    "dueno",
+                    ":id"
+                  ]
+                },
+                "description": "Actualizar dueño",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"banco\": \"Davivienda\",\n  \"numero_cuenta\": \"987654321\",\n  \"nequi\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /volqueta/dueno/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/volqueta/dueno/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "volqueta",
+                    "dueno",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar dueño"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Mina",
+          "item": [
+            {
+              "name": "GET /mina/catalogo/mineros",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/catalogo/mineros",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "catalogo",
+                    "mineros"
+                  ]
+                },
+                "description": "Catálogo de mineros activos"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /mina/catalogo/mineros-con-minas",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/catalogo/mineros-con-minas",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "catalogo",
+                    "mineros-con-minas"
+                  ]
+                },
+                "description": "Mineros con sus minas anidadas"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /mina/catalogo/zonas",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/catalogo/zonas",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "catalogo",
+                    "zonas"
+                  ]
+                },
+                "description": "Catálogo de zonas con su tarifa de flete vigente"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /mina/minero",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/minero",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "minero"
+                  ]
+                },
+                "description": "Registrar un minero",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"Juan Perez\",\n  \"alias\": \"Juancho\",\n  \"metodo_calculo\": \"por_gramo\",\n  \"estado\": \"activo\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /mina/minero/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/minero/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "minero",
+                    ":id"
+                  ]
+                },
+                "description": "Actualizar minero",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"alias\": \"Juancho\",\n  \"metodo_calculo\": \"por_tonelada\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /mina/minero/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/minero/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "minero",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar minero"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /mina/zona",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/zona",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "zona"
+                  ]
+                },
+                "description": "Registrar una zona (valor_tonelada = tarifa de flete)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"Zona Norte\",\n  \"descripcion\": \"\",\n  \"valor_tonelada\": 100000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /mina/zona/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/zona/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "zona",
+                    ":id"
+                  ]
+                },
+                "description": "Actualizar zona / versionar su tarifa",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"Zona Norte\",\n  \"valor_tonelada\": 120000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /mina/zona/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/zona/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "zona",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar zona + historial de tarifas (409 ZONA_EN_USO si hay minas)"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /mina",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/mina",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina"
+                  ]
+                },
+                "description": "Registrar una mina",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"Mina El Tesoro\",\n  \"id_minero\": 1,\n  \"id_zona\": 1,\n  \"ubicacion\": \"Zaragoza\",\n  \"estado\": \"activa\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /mina",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/mina",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina"
+                  ]
+                },
+                "description": "Todas las minas"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /mina/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle de una mina (incluye tarifa_flete_tonelada)"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /mina/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    ":id"
+                  ]
+                },
+                "description": "Actualizar mina (parcial)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"ubicacion\": \"Vereda Y\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /mina/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar mina"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /mina/:id/entradas",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/:id/entradas",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    ":id",
+                    "entradas"
+                  ]
+                },
+                "description": "Entradas históricas de la mina"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /mina/:id/resumen",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/:id/resumen",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    ":id",
+                    "resumen"
+                  ]
+                },
+                "description": "Resumen/KPIs agregados de la mina"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Tarifa Zona",
+          "item": [
+            {
+              "name": "GET /mina/tarifa-zona",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/tarifa-zona",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "tarifa-zona"
+                  ]
+                },
+                "description": "Listar tarifas de flete por zona (con historial)"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /mina/tarifa-zona/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/tarifa-zona/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "tarifa-zona",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle de una tarifa de zona"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /mina/tarifa-zona",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/tarifa-zona",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "tarifa-zona"
+                  ]
+                },
+                "description": "Crear tarifa de flete (versiona la vigente de la zona si entra activa). Acepta valor_tonelada | tarifa",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_zona\": 1,\n  \"valor_tonelada\": 130000,\n  \"vigente_desde\": null,\n  \"activo\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /mina/tarifa-zona/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/tarifa-zona/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "tarifa-zona",
+                    ":id"
+                  ]
+                },
+                "description": "Editar tarifa de zona",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor_tonelada\": 140000,\n  \"activo\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /mina/tarifa-zona/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/tarifa-zona/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "tarifa-zona",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar tarifa de zona"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Agua",
+          "item": [
+            {
+              "name": "POST /agua",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/agua",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "agua"
+                  ]
+                },
+                "description": "Registrar viaje de agua",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_vehiculo\": 1,\n  \"fecha\": \"2026-07-03\",\n  \"valor_viaje\": 50000,\n  \"cantidad_viajes\": 1,\n  \"acpm\": 0,\n  \"comprobante_url\": \"https://ejemplo.com/recibo.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /agua/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/agua/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "agua",
+                    ":id"
+                  ]
+                },
+                "description": "Actualizar viaje de agua",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor_viaje\": 60000,\n  \"cantidad_viajes\": 2,\n  \"acpm\": 10000,\n  \"comprobante_url\": \"https://ejemplo.com/nuevo_recibo.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /agua/viajes",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/agua/viajes?desde=YYYY-MM-DD&hasta=YYYY-MM-DD",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "agua",
+                    "viajes"
+                  ],
+                  "query": [
+                    {
+                      "key": "desde",
+                      "value": "YYYY-MM-DD"
+                    },
+                    {
+                      "key": "hasta",
+                      "value": "YYYY-MM-DD"
+                    }
+                  ]
+                },
+                "description": "Listar viajes de agua"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /agua/resumen",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/agua/resumen?desde=YYYY-MM-DD&hasta=YYYY-MM-DD",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "agua",
+                    "resumen"
+                  ],
+                  "query": [
+                    {
+                      "key": "desde",
+                      "value": "YYYY-MM-DD"
+                    },
+                    {
+                      "key": "hasta",
+                      "value": "YYYY-MM-DD"
+                    }
+                  ]
+                },
+                "description": "Resumen por dueño"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /agua/dueno/:id_dueno",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/agua/dueno/:id_dueno",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "agua",
+                    "dueno",
+                    ":id_dueno"
+                  ]
+                },
+                "description": "Resumen total y lista de viajes de un dueño específico"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /agua/reporte-mensual",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/agua/reporte-mensual?mes=8&anio=2026",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "agua",
+                    "reporte-mensual"
+                  ],
+                  "query": [
+                    {
+                      "key": "mes",
+                      "value": "8"
+                    },
+                    {
+                      "key": "anio",
+                      "value": "2026"
+                    }
+                  ]
+                },
+                "description": "Reporte del período agrupado por dueño con arrastre de saldo (saldo_inicio + neto_mes - abonado = saldo_fin). Acepta desde/hasta o mes/anio"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /agua/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/agua/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "agua",
+                    ":id"
+                  ]
+                },
+                "description": "Obtener un viaje de agua específico por ID"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Procesamiento",
+          "item": [
+            {
+              "name": "POST /concentrado",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/concentrado",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "concentrado"
+                  ]
+                },
+                "description": "Iniciar un lote de concentrado (en_proceso)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"codigo\": \"LOTE-001\",\n  \"fecha_inicio\": \"2026-08-01\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "POST /concentrado/:id/procesar",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/concentrado/:id/procesar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "concentrado",
+                    ":id",
+                    "procesar"
+                  ]
+                },
+                "description": "Agregar material al molino. id_entradas es un ARREGLO; distribuye toneladas_procesadas_seco proporcionalmente",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_entradas\": [\n    1\n  ],\n  \"toneladas_procesadas_seco\": 8.5\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /concentrado/:id/cerrar",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/concentrado/:id/cerrar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "concentrado",
+                    ":id",
+                    "cerrar"
+                  ]
+                },
+                "description": "Cerrar lote y enviarlo a canoa (calcula seco, maquila y crea Inventario_Lote)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"toneladas_humedo\": 5,\n  \"porcentaje_humedad\": 0.1,\n  \"fecha_fin\": \"2026-08-05\",\n  \"hizo_molienda\": 1,\n  \"hizo_flotacion\": 0,\n  \"hizo_relave\": 0,\n  \"hizo_filtroprensa\": 1,\n  \"ubicacion_canoa\": \"Canoa 1\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /concentrado/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/concentrado/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "concentrado",
+                    ":id"
+                  ]
+                },
+                "description": "Editar campos básicos del lote (whitelist: codigo, procesos, ubicacion_canoa, precio_maquila_por_ton)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"codigo\": \"LOTE-001B\",\n  \"comentarios\": \"Editado\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /concentrado/:id/material/:idEntrada",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/concentrado/:id/material/:idEntrada",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "concentrado",
+                    ":id",
+                    "material",
+                    ":idEntrada"
+                  ]
+                },
+                "description": "Desvincular una entrada de un lote en_proceso (devuelve su stock al inventario)"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /concentrado/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/concentrado/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "concentrado",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar un lote en_proceso (devuelve todo el material y borra sus análisis). 409 si cerrado o en viajes"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Viajes",
+          "item": [
+            {
+              "name": "POST /viajes",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/viajes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "viajes"
+                  ]
+                },
+                "description": "Crear la cabecera de un viaje",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"numero_viaje\": \"13-1\",\n  \"fecha\": \"2026-08-10\",\n  \"comentarios\": \"Viaje 13-1\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "POST /viajes/:id/lineas",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/viajes/:id/lineas",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "viajes",
+                    ":id",
+                    "lineas"
+                  ]
+                },
+                "description": "Asignar un lote al viaje. Solo se envía id_material_concentrado; el backend deriva humedad/seco/peso/tenores/gramos del lote y su análisis. total_concentrado_humedo opcional (si se omite despacha todo lo disponible); valor_total y concepto opcionales. El trigger descuenta stock y fija costo_maquila",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_material_concentrado\": 1,\n  \"total_concentrado_humedo\": 5,\n  \"valor_total\": 0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /viajes/:idViaje/lineas/:idLinea",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/viajes/:idViaje/lineas/:idLinea",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "viajes",
+                    ":idViaje",
+                    "lineas",
+                    ":idLinea"
+                  ]
+                },
+                "description": "Eliminar una línea del viaje (el trigger devuelve stock al lote)"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /viajes/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/viajes/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "viajes",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar un viaje completo (borra sus líneas devolviendo stock y luego la cabecera)"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Precios",
+          "item": [
+            {
+              "name": "GET /precios",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/precios?id_minero=&id_zona=&alcance=general&activo=true",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "precios"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_minero",
+                      "value": ""
+                    },
+                    {
+                      "key": "id_zona",
+                      "value": ""
+                    },
+                    {
+                      "key": "alcance",
+                      "value": "general"
+                    },
+                    {
+                      "key": "activo",
+                      "value": "true"
+                    }
+                  ]
+                },
+                "description": "Listar precios con filtros (id_minero | id_zona | alcance=general | activo). Cada fila trae alcance"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /precio/calcular",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/precio/calcular?idMinero=1&metodo=por_gramo&tenorFalso=10&fechaEntrada=2026-08-01",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "precio",
+                    "calcular"
+                  ],
+                  "query": [
+                    {
+                      "key": "idMinero",
+                      "value": "1"
+                    },
+                    {
+                      "key": "metodo",
+                      "value": "por_gramo"
+                    },
+                    {
+                      "key": "tenorFalso",
+                      "value": "10"
+                    },
+                    {
+                      "key": "fechaEntrada",
+                      "value": "2026-08-01"
+                    }
+                  ]
+                },
+                "description": "Simular precio aplicable"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /precios/lote",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/precios/lote",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "precios",
+                    "lote"
+                  ]
+                },
+                "description": "Registrar tarifas por lotes con versionado por alcance (minero/zona/general)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_minero\": 1,\n  \"metodo\": \"por_gramo\",\n  \"fecha_inicio\": \"2026-07-03\",\n  \"intervalos\": [\n    {\n      \"min\": 0,\n      \"max\": 10,\n      \"precio_por_gramo\": 150000,\n      \"precio_por_tonelada\": 0\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /precios/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/precios/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "precios",
+                    ":id"
+                  ]
+                },
+                "description": "Editar un intervalo (inactiva el actual, inserta reemplazo activo)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"min\": 0,\n  \"max\": 12,\n  \"precio_por_gramo\": 210000,\n  \"precio_por_tonelada\": 0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Precio Material",
+          "item": [
+            {
+              "name": "GET /mina/precio-material",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/precio-material",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "precio-material"
+                  ]
+                },
+                "description": "Listar precios de material (tabla de referencia)"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /mina/precio-material/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/precio-material/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "precio-material",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle de un precio de material"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /mina/precio-material",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/precio-material",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "precio-material"
+                  ]
+                },
+                "description": "Crear precio de material (referencia)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_minero\": null,\n  \"id_zona\": null,\n  \"metodo\": \"por_tonelada\",\n  \"precio_por_gramo\": null,\n  \"precio_por_tonelada\": 650000,\n  \"intervalo_tenor_min\": 0,\n  \"intervalo_tenor_max\": 9999,\n  \"fecha_inicio\": \"2026-08-01\",\n  \"fecha_fin\": null,\n  \"activo\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /mina/precio-material/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/precio-material/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "precio-material",
+                    ":id"
+                  ]
+                },
+                "description": "Editar precio de material",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"precio_por_tonelada\": 700000,\n  \"activo\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /mina/precio-material/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/mina/precio-material/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "mina",
+                    "precio-material",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar precio de material"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Vistas",
+          "item": [
+            {
+              "name": "GET /vistas/estado-pago-material",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/vistas/estado-pago-material?estado=pendiente%7Cparcial%7Cpagado",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "vistas",
+                    "estado-pago-material"
+                  ],
+                  "query": [
+                    {
+                      "key": "estado",
+                      "value": "pendiente|parcial|pagado"
+                    }
+                  ]
+                },
+                "description": "Estado de pago al minero"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/estado-pago-material/:id_entrada",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/vistas/estado-pago-material/:id_entrada",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "vistas",
+                    "estado-pago-material",
+                    ":id_entrada"
+                  ]
+                },
+                "description": "Estado de pago de una entrada específica"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/estado-pago-flete",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/vistas/estado-pago-flete?estado=pendiente%7Cparcial%7Cpagado",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "vistas",
+                    "estado-pago-flete"
+                  ],
+                  "query": [
+                    {
+                      "key": "estado",
+                      "value": "pendiente|parcial|pagado"
+                    }
+                  ]
+                },
+                "description": "Estado de pago del flete"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/estado-pago-flete/:id_entrada",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/vistas/estado-pago-flete/:id_entrada",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "vistas",
+                    "estado-pago-flete",
+                    ":id_entrada"
+                  ]
+                },
+                "description": "Estado flete de una entrada"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/excedente-empresa",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/vistas/excedente-empresa?estado_distribucion=pendiente%7Cparcial%7Cdistribuido",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "vistas",
+                    "excedente-empresa"
+                  ],
+                  "query": [
+                    {
+                      "key": "estado_distribucion",
+                      "value": "pendiente|parcial|distribuido"
+                    }
+                  ]
+                },
+                "description": "Excedente por entrada"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/excedente-por-vehiculo",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/vistas/excedente-por-vehiculo",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "vistas",
+                    "excedente-por-vehiculo"
+                  ]
+                },
+                "description": "Excedente agrupado por vehículo"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/excedente-por-vehiculo/:id_vehiculo",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/vistas/excedente-por-vehiculo/:id_vehiculo",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "vistas",
+                    "excedente-por-vehiculo",
+                    ":id_vehiculo"
+                  ]
+                },
+                "description": "Excedente de un vehículo"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/analisis-completo",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/vistas/analisis-completo?id_minero=&id_mina=&desde=&hasta=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "vistas",
+                    "analisis-completo"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_minero",
+                      "value": ""
+                    },
+                    {
+                      "key": "id_mina",
+                      "value": ""
+                    },
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Análisis con referencias resueltas"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/estado-agua",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/vistas/estado-agua?estado=pendiente%7Cpagado",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "vistas",
+                    "estado-agua"
+                  ],
+                  "query": [
+                    {
+                      "key": "estado",
+                      "value": "pendiente|pagado"
+                    }
+                  ]
+                },
+                "description": "Estado de pago agua"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pagos  (/api/v1/pagos)",
+      "description": "Requiere token (Bearer heredado).",
+      "item": [
+        {
+          "name": "Deuda Material",
+          "item": [
+            {
+              "name": "GET /deuda/material",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/deuda/material",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "deuda",
+                    "material"
+                  ]
+                },
+                "description": "Deuda total con mineros"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /deuda/material/minero/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/deuda/material/minero/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "deuda",
+                    "material",
+                    "minero",
+                    ":id"
+                  ]
+                },
+                "description": "Deuda con un minero específico"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Deuda Flete",
+          "item": [
+            {
+              "name": "GET /deuda/flete",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/deuda/flete",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "deuda",
+                    "flete"
+                  ]
+                },
+                "description": "Deuda total de fletes"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /deuda/flete/dueno/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/deuda/flete/dueno/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "deuda",
+                    "flete",
+                    "dueno",
+                    ":id"
+                  ]
+                },
+                "description": "Deuda de flete con un dueño"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Dashboard",
+          "item": [
+            {
+              "name": "GET /deuda/resumen-general",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/deuda/resumen-general",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "deuda",
+                    "resumen-general"
+                  ]
+                },
+                "description": "Dashboard: todos los totales pendientes"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Vistas Pagos",
+          "item": [
+            {
+              "name": "GET /vistas/estado-alquileres",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/vistas/estado-alquileres?estado=pendiente%7Cparcial%7Cpagado",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "vistas",
+                    "estado-alquileres"
+                  ],
+                  "query": [
+                    {
+                      "key": "estado",
+                      "value": "pendiente|parcial|pagado"
+                    }
+                  ]
+                },
+                "description": "Estado de alquileres"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/estado-combustible",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/vistas/estado-combustible",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "vistas",
+                    "estado-combustible"
+                  ]
+                },
+                "description": "Estado de combustible"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/estado-mulas",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/vistas/estado-mulas",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "vistas",
+                    "estado-mulas"
+                  ]
+                },
+                "description": "Estado de mulas (Barranquilla)"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/saldos-a-favor",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/vistas/saldos-a-favor",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "vistas",
+                    "saldos-a-favor"
+                  ]
+                },
+                "description": "Saldos disponibles por sobrepago"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Préstamos Financieros",
+          "item": [
+            {
+              "name": "GET /prestamos-financieros",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/prestamos-financieros",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "prestamos-financieros"
+                  ]
+                },
+                "description": "Listar préstamos financieros"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /prestamos-financieros/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/prestamos-financieros/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "prestamos-financieros",
+                    ":id"
+                  ]
+                },
+                "description": "Ver préstamo financiero"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /prestamos-financieros",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/prestamos-financieros",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "prestamos-financieros"
+                  ]
+                },
+                "description": "Crear préstamo financiero"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /prestamos-financieros/:id",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/prestamos-financieros/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "prestamos-financieros",
+                    ":id"
+                  ]
+                },
+                "description": "Actualizar préstamo financiero"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Pago Material",
+          "item": [
+            {
+              "name": "POST /material",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material"
+                  ]
+                },
+                "description": "Agrupar volquetas de un minero en una cuenta por pagar",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"entradas\": [\n    1,\n    2\n  ],\n  \"concepto\": \"Material Julio\",\n  \"fecha_limite\": \"2026-08-31\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /material",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material?id_minero=&estado=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_minero",
+                      "value": ""
+                    },
+                    {
+                      "key": "estado",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Tablero de cuentas de material"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /material/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle de la cuenta (volquetas prorrateadas + abonos)"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /material/:id",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    ":id"
+                  ]
+                },
+                "description": "Agregar/quitar volquetas, concepto o fecha_limite",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"agregar_entradas\": [],\n  \"quitar_entradas\": []\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /material/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    ":id"
+                  ]
+                },
+                "description": "Anular la cuenta (409 si ya tiene abonos)"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /material/:id/abonos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/:id/abonos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    ":id",
+                    "abonos"
+                  ]
+                },
+                "description": "Registrar un abono (o pagar con saldo_a_favor)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor\": 2000000,\n  \"fecha_abono\": \"2026-08-09\",\n  \"metodo_pago\": \"transferencia\",\n  \"comprobante_url\": \"https://ejemplo.com/comprobante.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /material/abonos/:idAbono",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/abonos/:idAbono",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    "abonos",
+                    ":idAbono"
+                  ]
+                },
+                "description": "Corregir un abono"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /material/abonos/:idAbono",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/abonos/:idAbono",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    "abonos",
+                    ":idAbono"
+                  ]
+                },
+                "description": "Eliminar un abono"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /material/abonos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/abonos?id_minero=&desde=&hasta=&metodo_pago=&page=1&limit=50",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    "abonos"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_minero",
+                      "value": ""
+                    },
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    },
+                    {
+                      "key": "metodo_pago",
+                      "value": ""
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    }
+                  ]
+                },
+                "description": "Todos los abonos de material (todas las cuentas), paginados de a 50"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Pago Flete",
+          "item": [
+            {
+              "name": "GET /flete/deuda",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/flete/deuda",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "flete",
+                    "deuda"
+                  ]
+                },
+                "description": "Dashboard: deuda de flete por dueño (con positivos de gasolina)"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /flete/dueno/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/flete/dueno/:id?mes=&anio=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "flete",
+                    "dueno",
+                    ":id"
+                  ],
+                  "query": [
+                    {
+                      "key": "mes",
+                      "value": ""
+                    },
+                    {
+                      "key": "anio",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Estado de cuenta del dueño (meses + viajes + abonos)"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /flete/dueno/:id/abonos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/flete/dueno/:id/abonos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "flete",
+                    "dueno",
+                    ":id",
+                    "abonos"
+                  ]
+                },
+                "description": "Abonar en cascada (mes más viejo primero)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor\": 500000,\n  \"fecha_abono\": \"2026-09-05\",\n  \"comprobante_url\": \"https://ejemplo.com/comprobante.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /flete/abonos/:idAbono",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/flete/abonos/:idAbono",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "flete",
+                    "abonos",
+                    ":idAbono"
+                  ]
+                },
+                "description": "Corregir un abono de flete"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /flete/abonos/:idAbono",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/flete/abonos/:idAbono",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "flete",
+                    "abonos",
+                    ":idAbono"
+                  ]
+                },
+                "description": "Eliminar un abono de flete"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /flete/abonos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/flete/abonos?id_dueno_volqueta=&desde=&hasta=&metodo_pago=&page=1&limit=50",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "flete",
+                    "abonos"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_dueno_volqueta",
+                      "value": ""
+                    },
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    },
+                    {
+                      "key": "metodo_pago",
+                      "value": ""
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    }
+                  ]
+                },
+                "description": "Todos los abonos de flete (todas las cuentas), paginados de a 50"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Pago Agua",
+          "item": [
+            {
+              "name": "GET /agua/deuda",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/agua/deuda",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "agua",
+                    "deuda"
+                  ]
+                },
+                "description": "Dashboard: deuda de agua por dueño (con positivos de gasolina)"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /agua/dueno/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/agua/dueno/:id?mes=&anio=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "agua",
+                    "dueno",
+                    ":id"
+                  ],
+                  "query": [
+                    {
+                      "key": "mes",
+                      "value": ""
+                    },
+                    {
+                      "key": "anio",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Estado de cuenta del dueño (meses + registros + abonos)"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /agua/dueno/:id/abonos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/agua/dueno/:id/abonos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "agua",
+                    "dueno",
+                    ":id",
+                    "abonos"
+                  ]
+                },
+                "description": "Abonar en cascada (mes más viejo primero)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor\": 100000,\n  \"fecha_abono\": \"2026-09-05\",\n  \"comprobante_url\": \"https://ejemplo.com/comprobante.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /agua/abonos/:idAbono",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/agua/abonos/:idAbono",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "agua",
+                    "abonos",
+                    ":idAbono"
+                  ]
+                },
+                "description": "Corregir un abono de agua"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /agua/abonos/:idAbono",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/agua/abonos/:idAbono",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "agua",
+                    "abonos",
+                    ":idAbono"
+                  ]
+                },
+                "description": "Eliminar un abono de agua"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /agua/abonos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/agua/abonos?id_dueno_volqueta=&desde=&hasta=&metodo_pago=&page=1&limit=50",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "agua",
+                    "abonos"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_dueno_volqueta",
+                      "value": ""
+                    },
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    },
+                    {
+                      "key": "metodo_pago",
+                      "value": ""
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    }
+                  ]
+                },
+                "description": "Todos los abonos de agua (todas las cuentas), paginados de a 50"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Combustible",
+          "item": [
+            {
+              "name": "GET /combustible",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/combustible?desde=&hasta=&id_gasolinera=&id_dueno_volqueta=&tipo_consumo=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "combustible"
+                  ],
+                  "query": [
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    },
+                    {
+                      "key": "id_gasolinera",
+                      "value": ""
+                    },
+                    {
+                      "key": "id_dueno_volqueta",
+                      "value": ""
+                    },
+                    {
+                      "key": "tipo_consumo",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Listar consumos/adelantos de ACPM"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /combustible/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/combustible/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "combustible",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle de un registro de combustible"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /combustible/dueno/:id/neto-flete",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/combustible/dueno/:id/neto-flete",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "combustible",
+                    "dueno",
+                    ":id",
+                    "neto-flete"
+                  ]
+                },
+                "description": "Flete neto del dueño con arrastre de ACPM"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "nomina  (/api/v1/nomina)",
+      "description": "Requiere token (Bearer heredado).",
+      "item": [
+        {
+          "name": "Empleados",
+          "item": [
+            {
+              "name": "GET /empleados",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados"
+                  ]
+                },
+                "description": "Lista de empleados"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /empleados/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle de empleado"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /empleados",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados"
+                  ]
+                },
+                "description": "Crear empleado"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /empleados/:id",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    ":id"
+                  ]
+                },
+                "description": "Actualizar empleado"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /empleados/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar empleado"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Plantas",
+          "item": [
+            {
+              "name": "GET /plantas",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/plantas",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "plantas"
+                  ]
+                },
+                "description": "Lista de plantas"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /plantas",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/plantas",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "plantas"
+                  ]
+                },
+                "description": "Crear planta"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /plantas/:id",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/plantas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "plantas",
+                    ":id"
+                  ]
+                },
+                "description": "Actualizar planta"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /plantas/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/plantas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "plantas",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar planta"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Turnos",
+          "item": [
+            {
+              "name": "GET /turnos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/turnos?desde=&hasta=&id_empleado=&mes=&anio=&quincena=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "turnos"
+                  ],
+                  "query": [
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    },
+                    {
+                      "key": "id_empleado",
+                      "value": ""
+                    },
+                    {
+                      "key": "mes",
+                      "value": ""
+                    },
+                    {
+                      "key": "anio",
+                      "value": ""
+                    },
+                    {
+                      "key": "quincena",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Turnos/asistencias"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /turnos",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/turnos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "turnos"
+                  ]
+                },
+                "description": "Crear turno"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /turnos/:id",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/turnos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "turnos",
+                    ":id"
+                  ]
+                },
+                "description": "Actualizar turno"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /turnos/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/turnos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "turnos",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar turno"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Préstamos",
+          "item": [
+            {
+              "name": "POST /empleados/prestamos",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/prestamos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "prestamos"
+                  ]
+                },
+                "description": "Crear préstamo a empleado"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /empleados/prestamos/:idEmpleado",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/prestamos/:idEmpleado",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "prestamos",
+                    ":idEmpleado"
+                  ]
+                },
+                "description": "Ver préstamos del empleado"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /empleados/prestamos/:id",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/prestamos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "prestamos",
+                    ":id"
+                  ]
+                },
+                "description": "Actualizar préstamo del empleado"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/saldo-prestamos-empleado",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/vistas/saldo-prestamos-empleado",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "vistas",
+                    "saldo-prestamos-empleado"
+                  ]
+                },
+                "description": "Saldo de préstamos de todos los empleados"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/saldo-prestamos-empleado/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/vistas/saldo-prestamos-empleado/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "vistas",
+                    "saldo-prestamos-empleado",
+                    ":id"
+                  ]
+                },
+                "description": "Saldo de préstamos de un empleado"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "info  (/api/v1/info)",
+      "description": "Requiere token (Bearer heredado).",
+      "item": [
+        {
+          "name": "General",
+          "item": [
+            {
+              "name": "GET /",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/info",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "info"
+                  ]
+                },
+                "description": "Mapa completo de la API (este endpoint)"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /estadisticas",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/info/estadisticas",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "info",
+                    "estadisticas"
+                  ]
+                },
+                "description": "Conteo de registros de las tablas principales"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /health",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/info/health",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "info",
+                    "health"
+                  ]
+                },
+                "description": "Estado del servidor y conexión a BD"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /catalogos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/info/catalogos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "info",
+                    "catalogos"
+                  ]
+                },
+                "description": "Catálogos en memoria (minas, mineros, zonas, dueños de volqueta)"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "flujo_completo  (/api/v1)",
+      "description": "Requiere token (Bearer heredado).",
+      "item": [
+        {
+          "name": "1. Recepción",
+          "item": [
+            {
+              "name": "POST /material/entrada",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/entrada",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entrada"
+                  ]
+                },
+                "description": "1. Insertar nuevo material",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"numero_volqueta\": 100,\n  \"id_mina\": 1,\n  \"id_vehiculo\": 1,\n  \"id_tipo_material\": 1,\n  \"fecha_llegada\": \"2026-07-02\",\n  \"peso_llegada_planta\": 15000.5\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /material/entradas/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/entradas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entradas",
+                    ":id"
+                  ]
+                },
+                "description": "2. Ver material recién ingresado"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /material/entradas",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/entradas?limit=10&offset=0",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entradas"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "10"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0"
+                    }
+                  ]
+                },
+                "description": "3. Ver inventario general (todas las entradas)"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "2. Análisis",
+          "item": [
+            {
+              "name": "POST /material/analisis",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/analisis",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "analisis"
+                  ]
+                },
+                "description": "4. Insertar análisis (relacionarlo a la entrada)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_entrada\": 1,\n  \"id_tipo_analisis\": 1,\n  \"numero_analisis\": \"AN-001\",\n  \"toneladas\": 15,\n  \"porcentaje_humedad\": 12,\n  \"au_concentrado\": 20,\n  \"ag_concentrado\": 15,\n  \"au_falso\": 18\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /material/entradas/:id/estado",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/entradas/:id/estado",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "entradas",
+                    ":id",
+                    "estado"
+                  ]
+                },
+                "description": "5. Actualizar estado del material (ej. procesada)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"estado\": \"procesada\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "3. Procesamiento",
+          "item": [
+            {
+              "name": "POST /material/concentrado",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/concentrado",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "concentrado"
+                  ]
+                },
+                "description": "6. Iniciar un lote de concentrado (materia prima procesada)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"codigo\": \"LOTE-001\",\n  \"fecha_inicio\": \"2026-07-04\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "POST /material/concentrado/:id/procesar",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/concentrado/:id/procesar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "concentrado",
+                    ":id",
+                    "procesar"
+                  ]
+                },
+                "description": "7. Agregar material al molino (distribuye proporcionalmente entre las entradas)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_entradas\": [\n    1\n  ],\n  \"toneladas_procesadas_seco\": 8.5\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /material/concentrado/:id/cerrar",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/concentrado/:id/cerrar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "concentrado",
+                    ":id",
+                    "cerrar"
+                  ]
+                },
+                "description": "8. Cerrar lote y enviarlo a canoa (calcula maquila)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"toneladas_humedo\": 5,\n  \"porcentaje_humedad\": 0.1,\n  \"fecha_fin\": \"2026-07-05\",\n  \"hizo_molienda\": 1,\n  \"hizo_flotacion\": 0,\n  \"hizo_relave\": 0,\n  \"hizo_filtroprensa\": 1,\n  \"ubicacion_canoa\": \"Canoa 1\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "4. Análisis del lote",
+          "item": [
+            {
+              "name": "POST /material/analisis",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/analisis",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "analisis"
+                  ]
+                },
+                "description": "8b. Análisis del concentrado del lote (DESPUÉS de cerrar). id_material_concentrado + humedad + au + ag + nombre",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_material_concentrado\": 1,\n  \"numero_analisis\": \"AN-LOTE-1\",\n  \"porcentaje_humedad\": 0.13,\n  \"au_concentrado\": 120,\n  \"ag_concentrado\": 500\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "5. Viajes/Despachos",
+          "item": [
+            {
+              "name": "POST /material/viajes",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/viajes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "viajes"
+                  ]
+                },
+                "description": "9. Crear cabecera de viaje",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"numero_viaje\": \"13-1\",\n  \"fecha\": \"2026-02-10\",\n  \"comentarios\": \"Viaje 13-1\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "POST /material/viajes/:id/lineas",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/viajes/:id/lineas",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "viajes",
+                    ":id",
+                    "lineas"
+                  ]
+                },
+                "description": "10. Asignar lote al viaje (solo id; el resto se deriva del lote+análisis)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_material_concentrado\": 1,\n  \"total_concentrado_humedo\": 5,\n  \"valor_total\": 0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "6. Servicios",
+          "item": [
+            {
+              "name": "POST /material/agua",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/material/agua",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "agua"
+                  ]
+                },
+                "description": "11. Insertar viaje de agua",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_vehiculo\": 1,\n  \"fecha\": \"2026-07-03\",\n  \"valor_viaje\": 60000,\n  \"cantidad_viajes\": 1,\n  \"acpm\": 0,\n  \"comprobante_url\": \"https://ejemplo.com/recibo.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "7. Finanzas",
+          "item": [
+            {
+              "name": "GET /pagos/deuda/material/minero/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/deuda/material/minero/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "deuda",
+                    "material",
+                    "minero",
+                    ":id"
+                  ]
+                },
+                "description": "12. Ver cuánto debo al minero"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /pagos/deuda/flete/dueno/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/deuda/flete/dueno/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "deuda",
+                    "flete",
+                    "dueno",
+                    ":id"
+                  ]
+                },
+                "description": "13. Ver cuánto debo de flete (bus/volqueta)"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /material/vistas/excedente-empresa",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/material/vistas/excedente-empresa",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "material",
+                    "vistas",
+                    "excedente-empresa"
+                  ]
+                },
+                "description": "14. Ver excedente y costo de procesar el material"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "flujo_pago_material  (/api/v1/pagos)",
+      "description": "Requiere token (Bearer heredado).",
+      "item": [
+        {
+          "name": "1. Crear cuenta",
+          "item": [
+            {
+              "name": "POST /material",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material"
+                  ]
+                },
+                "description": "1. Agrupar volquetas de un minero en una cuenta por pagar (todas deben tener precio_total > 0)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"entradas\": [\n    1,\n    2\n  ],\n  \"concepto\": \"Material Julio\",\n  \"fecha_limite\": \"2026-08-31\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "2. Ver prorrateo",
+          "item": [
+            {
+              "name": "GET /material/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    ":id"
+                  ]
+                },
+                "description": "2. Ver la cuenta recién creada: todas las volquetas en pendiente (pagado_volqueta = 0)"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "3. Abonar",
+          "item": [
+            {
+              "name": "POST /material/:id/abonos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/:id/abonos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    ":id",
+                    "abonos"
+                  ]
+                },
+                "description": "3. Primera transferencia de 2.000.000 (comprobante OBLIGATORIO). La cuenta pasa a parcial. Guarda el id del abono",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor\": 2000000,\n  \"fecha_abono\": \"2026-08-09\",\n  \"metodo_pago\": \"transferencia\",\n  \"comprobante_url\": \"https://ejemplo.com/transfer1.png\",\n  \"observaciones\": \"Primer abono\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "POST /material/:id/abonos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/:id/abonos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    ":id",
+                    "abonos"
+                  ]
+                },
+                "description": "3b. Segunda transferencia de 2.000.000 (otra fecha, mismo mes)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor\": 2000000,\n  \"fecha_abono\": \"2026-08-20\",\n  \"metodo_pago\": \"nequi\",\n  \"comprobante_url\": \"https://ejemplo.com/transfer2.png\",\n  \"observaciones\": \"Segundo abono\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "4. Ver prorrateo",
+          "item": [
+            {
+              "name": "GET /material/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    ":id"
+                  ]
+                },
+                "description": "4. Ver el prorrateo tras abonar: cada volqueta pagada al mismo % del grupo; num_abonos=2"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "5. Editar abono",
+          "item": [
+            {
+              "name": "PATCH /material/abonos/:idAbono",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/abonos/:idAbono",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    "abonos",
+                    ":idAbono"
+                  ]
+                },
+                "description": "5. Corregir un abono (ej. subirlo a 3.000.000). La cuenta se recalcula sola",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor\": 3000000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "6. Sobrepago",
+          "item": [
+            {
+              "name": "POST /material/:id/abonos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/:id/abonos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    ":id",
+                    "abonos"
+                  ]
+                },
+                "description": "6. Pagar de MÁS: abona más que el saldo → la cuenta queda pagada y el excedente se vuelve saldo a favor del minero (revisa saldo_a_favor_generado)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor\": 9999999,\n  \"fecha_abono\": \"2026-08-28\",\n  \"metodo_pago\": \"transferencia\",\n  \"comprobante_url\": \"https://ejemplo.com/transfer3.png\",\n  \"observaciones\": \"Sobrepago\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "6. Deuda minero",
+          "item": [
+            {
+              "name": "GET /deuda/material/minero/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/deuda/material/minero/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "deuda",
+                    "material",
+                    "minero",
+                    ":id"
+                  ]
+                },
+                "description": "6b. Ver la deuda del minero: trae saldo_a_favor, deuda_bruta y deuda_neta. El saldo a favor del sobrepago aparece aquí"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "6c. Usar crédito",
+          "item": [
+            {
+              "name": "POST /material/:idOtraCuenta/abonos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/:idOtraCuenta/abonos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    ":idOtraCuenta",
+                    "abonos"
+                  ]
+                },
+                "description": "6c. En OTRA cuenta del mismo minero, pagar con el crédito (sin comprobante)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"metodo_pago\": \"saldo_a_favor\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "7. Editar grupo",
+          "item": [
+            {
+              "name": "PATCH /material/:id",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    ":id"
+                  ]
+                },
+                "description": "7. (Opcional) Quitar una volqueta del grupo. Se bloquea si el nuevo total queda bajo lo ya abonado",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"quitar_entradas\": [\n    5\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "8. Eliminar abono",
+          "item": [
+            {
+              "name": "DELETE /material/abonos/:idAbono",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/abonos/:idAbono",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    "abonos",
+                    ":idAbono"
+                  ]
+                },
+                "description": "8. Eliminar un abono; la cuenta vuelve a parcial/pendiente"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "9. Anular grupo",
+          "item": [
+            {
+              "name": "DELETE /material/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/material/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "material",
+                    ":id"
+                  ]
+                },
+                "description": "9. Anular la cuenta. Ojo: si quedan abonos da 409 → primero elimina todos los abonos (paso 8) y luego anula"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

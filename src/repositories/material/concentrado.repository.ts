@@ -41,14 +41,19 @@ export class ConcentradoRepository implements IConcentradoRepository {
         const connection = this.getConn(conn);
         const query = `
             INSERT INTO material_concentrado (
-                codigo, fecha_inicio, estado
-            ) VALUES (?, ?, 'en_proceso')
+                codigo, fecha_inicio, estado,
+                hizo_molienda, hizo_flotacion, hizo_relave, hizo_filtroprensa
+            ) VALUES (?, ?, 'en_proceso', ?, ?, ?, ?)
         `;
         const values = [
             data.codigo || `LOTE-${Date.now()}`,
-            data.fecha_inicio || new Date()
+            data.fecha_inicio || new Date(),
+            data.hizo_molienda ?? 0,
+            data.hizo_flotacion ?? 0,
+            data.hizo_relave ?? 0,
+            data.hizo_filtroprensa ?? 0
         ];
-        
+
         const [result] = await connection.execute<ResultSetHeader>(query, values);
         return result.insertId;
     }
@@ -107,6 +112,19 @@ export class ConcentradoRepository implements IConcentradoRepository {
         await connection.execute(query, values);
     }
 
+    // Humedad del análisis de concentrado (tipo 2) del lote, si ya existe (para el cierre opcional).
+    async obtenerHumedadAnalisisConcentrado(idLote: number, conn?: PoolConnection): Promise<number | null> {
+        const connection = this.getConn(conn);
+        const [rows] = await connection.execute<any[]>(
+            `SELECT porcentaje_humedad FROM Analisis
+             WHERE id_material_concentrado = ? AND id_tipo_analisis = 2
+             ORDER BY id DESC LIMIT 1`,
+            [idLote]
+        );
+        const v = rows[0]?.porcentaje_humedad;
+        return v === null || v === undefined ? null : Number(v);
+    }
+
     async obtenerTotalSecoProcesado(idLote: number, conn?: PoolConnection): Promise<number> {
         const connection = this.getConn(conn);
         const [rows] = await connection.execute<any[]>(
@@ -118,9 +136,13 @@ export class ConcentradoRepository implements IConcentradoRepository {
 
     async obtenerTarifaMaquila(params: { fecha: string, hizo_molienda: number, hizo_flotacion: number, hizo_relave: number, hizo_filtroprensa: number }, conn?: PoolConnection): Promise<number> {
         const connection = this.getConn(conn);
+        // Regla de negocio: el relave (PROCESO_RELAVE = Molienda+Flotación+Relave+Filtroprensa)
+        // y el proceso normal (PROCESO_NORMAL = Molienda+Flotación+Filtroprensa) YA incluyen la
+        // filtroprensa; no se exige marcarla aparte. La filtroprensa sola solo aplica a
+        // concentrado comprado / de alta humedad (SOLO_FILTROPRENSA).
         let codigo = '';
-        if (params.hizo_relave && params.hizo_filtroprensa) codigo = 'PROCESO_RELAVE';
-        else if ((params.hizo_molienda || params.hizo_flotacion) && params.hizo_filtroprensa) codigo = 'PROCESO_NORMAL';
+        if (params.hizo_relave) codigo = 'PROCESO_RELAVE';
+        else if (params.hizo_molienda || params.hizo_flotacion) codigo = 'PROCESO_NORMAL';
         else if (params.hizo_filtroprensa) codigo = 'SOLO_FILTROPRENSA';
         else return 0;
 
@@ -140,6 +162,31 @@ export class ConcentradoRepository implements IConcentradoRepository {
         return result.insertId;
     }
 
+    // Lote de inventario (Inventario_Lotes) del concentrado de un lote dado (el vigente).
+    async obtenerInventarioLoteConcentrado(idLote: number, conn?: PoolConnection): Promise<any> {
+        const connection = this.getConn(conn);
+        const [rows] = await connection.execute<any[]>(
+            `SELECT id, toneladas_iniciales, toneladas_disponibles, estado
+             FROM Inventario_Lotes
+             WHERE id_material_concentrado = ? AND estado != 'agotado'
+             ORDER BY id DESC LIMIT 1`,
+            [idLote]
+        );
+        return rows.length > 0 ? rows[0] : null;
+    }
+
+    // Corrige el lote de inventario del concentrado (cuando aún no se ha despachado).
+    async actualizarInventarioLoteConcentrado(idInvLote: number, data: any, conn?: PoolConnection): Promise<void> {
+        const connection = this.getConn(conn);
+        await connection.execute(
+            `UPDATE Inventario_Lotes
+             SET toneladas_iniciales = ?, toneladas_disponibles = ?,
+                 porcentaje_humedad = ?, condicion_material = ?
+             WHERE id = ?`,
+            [data.toneladas_humedo, data.toneladas_humedo, data.porcentaje_humedad, data.condicion_material, idInvLote]
+        );
+    }
+
     async insertarKardexMovimiento(data: any, conn?: PoolConnection): Promise<void> {
         const connection = this.getConn(conn);
         await connection.execute(
@@ -154,6 +201,60 @@ export class ConcentradoRepository implements IConcentradoRepository {
         await connection.execute(
             `UPDATE procesamiento_material SET concentrado_proporcional = ROUND((toneladas_seco_aportadas / ?) * ?, 4), maquila_proporcional = ROUND((toneladas_seco_aportadas / ?) * ?, 2) WHERE id_material_concentrado = ?`,
             [total_seco, toneladas_seco, total_seco, maquila_total, idLote]
+        );
+    }
+
+    // --- Lógica migrada de triggers de BD (inventario + kardex) --------------
+
+    // Réplica FIEL de 'trg_after_insert_procesamiento_material' (#1).
+    // OJO: el trigger real solo marca el lote crudo 'en_proceso' y registra
+    // SALIDA_PROCESO en el kardex. NO descuenta toneladas_disponibles.
+    // (El método espejo antiguo en TriggerLogicRepository SÍ descontaba: quedó desfasado.)
+    async marcarCrudoEnProceso(idEntrada: number, idLoteConcentrado: number, toneladas: number, conn?: PoolConnection): Promise<void> {
+        const connection = this.getConn(conn);
+        const [rows] = await connection.execute<any[]>(
+            `SELECT id FROM Inventario_Lotes
+             WHERE id_entrada = ? AND estado IN ('almacenado', 'en_proceso')
+             ORDER BY id DESC LIMIT 1`,
+            [idEntrada]
+        );
+        if (rows.length === 0) return;
+        const idInvLote = rows[0].id;
+
+        await connection.execute(
+            `UPDATE Inventario_Lotes SET estado = 'en_proceso' WHERE id = ?`,
+            [idInvLote]
+        );
+        await connection.execute(
+            `INSERT INTO Kardex_Movimientos (id_lote, fecha, tipo_movimiento, toneladas_movidas, destino_referencia)
+             VALUES (?, NOW(), 'SALIDA_PROCESO', ?, ?)`,
+            [idInvLote, toneladas, `Concentrado #${idLoteConcentrado}`]
+        );
+    }
+
+    // Réplica de la parte de inventario de 'trg_after_update_material_concentrado' (#3):
+    // marca 'agotado' los lotes crudos que alimentaron este lote de concentrado.
+    async marcarCrudosAgotados(idLote: number, conn?: PoolConnection): Promise<void> {
+        const connection = this.getConn(conn);
+        await connection.execute(
+            `UPDATE Inventario_Lotes il
+             INNER JOIN procesamiento_material pm ON pm.id_entrada = il.id_entrada
+             SET il.estado = 'agotado'
+             WHERE pm.id_material_concentrado = ? AND il.id_entrada IS NOT NULL`,
+            [idLote]
+        );
+    }
+
+    // Réplica de la propagación de maquila a la MPE de 'trg_after_update_material_concentrado' (#3).
+    // DEBE llamarse DESPUÉS de distribuirMaquilaYConcentrado (usa pm.maquila_proporcional).
+    async propagarMaquilaAEntradas(idLote: number, conn?: PoolConnection): Promise<void> {
+        const connection = this.getConn(conn);
+        await connection.execute(
+            `UPDATE material_planta_entrada mpe
+             INNER JOIN procesamiento_material pm ON pm.id_entrada = mpe.id
+             SET mpe.costo_maquila = pm.maquila_proporcional
+             WHERE pm.id_material_concentrado = ?`,
+            [idLote]
         );
     }
 
@@ -211,6 +312,33 @@ export class ConcentradoRepository implements IConcentradoRepository {
         );
     }
 
+    // Revierte la maquila propagada a las entradas (costo_maquila) al eliminar un lote cerrado.
+    async revertirMaquilaEntradas(idLote: number, conn?: PoolConnection): Promise<void> {
+        const connection = this.getConn(conn);
+        await connection.execute(
+            `UPDATE material_planta_entrada mpe
+             INNER JOIN procesamiento_material pm ON pm.id_entrada = mpe.id
+             SET mpe.costo_maquila = 0
+             WHERE pm.id_material_concentrado = ?`,
+            [idLote]
+        );
+    }
+
+    // Elimina el/los lote(s) de Inventario_Lotes del concentrado + su kardex (al borrar un lote cerrado).
+    async eliminarInventarioConcentradoDeLote(idLote: number, conn?: PoolConnection): Promise<void> {
+        const connection = this.getConn(conn);
+        const [rows] = await connection.execute<any[]>(
+            `SELECT id FROM Inventario_Lotes WHERE id_material_concentrado = ?`,
+            [idLote]
+        );
+        const ids = rows.map(r => r.id);
+        if (ids.length > 0) {
+            const inClause = ids.map(() => '?').join(',');
+            await connection.execute(`DELETE FROM Kardex_Movimientos WHERE id_lote IN (${inClause})`, ids);
+            await connection.execute(`DELETE FROM Inventario_Lotes WHERE id IN (${inClause})`, ids);
+        }
+    }
+
     async eliminarProcesamiento(idProcesamiento: number, conn?: PoolConnection): Promise<void> {
         const connection = this.getConn(conn);
         await connection.execute(`DELETE FROM procesamiento_material WHERE id = ?`, [idProcesamiento]);
@@ -247,6 +375,10 @@ export class ConcentradoRepository implements IConcentradoRepository {
                 mc.toneladas_seco, mc.toneladas_disponibles, mc.ubicacion_canoa,
                 mc.precio_maquila_por_ton, mc.maquila_total, mc.comentarios,
                 (SELECT COUNT(*) FROM procesamiento_material pm WHERE pm.id_material_concentrado = mc.id) AS num_materiales,
+                (SELECT COALESCE(SUM(pm.toneladas_seco_aportadas / NULLIF(e.total_material_seco, 0) * e.precio_total), 0)
+                   FROM procesamiento_material pm
+                   JOIN material_planta_entrada e ON e.id = pm.id_entrada
+                  WHERE pm.id_material_concentrado = mc.id) AS precio_total_material,
                 an.numero_analisis, an.au_gr_x_ton, an.ag_gr_x_ton, an.au_concentrado, an.ag_concentrado
             FROM material_concentrado mc
             LEFT JOIN (
@@ -273,7 +405,10 @@ export class ConcentradoRepository implements IConcentradoRepository {
             SELECT mpe.id, mpe.numero_volqueta, mi.nombre AS mina,
                    mpe.fecha_llegada, mpe.peso_llegada_planta, mpe.porcentaje_humedad,
                    mpe.total_material_seco, mpe.tenor,
-                   pm.toneladas_aportadas, pm.toneladas_seco_aportadas
+                   pm.toneladas_aportadas, pm.toneladas_seco_aportadas,
+                   pm.concentrado_proporcional, pm.maquila_proporcional,
+                   mpe.costo_maquila,
+                   mpe.precio_total, mpe.total_material
             FROM procesamiento_material pm
             JOIN material_planta_entrada mpe ON mpe.id = pm.id_entrada
             LEFT JOIN mina mi ON mi.id = mpe.id_mina

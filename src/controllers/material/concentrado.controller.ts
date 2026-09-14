@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
-import { ConcentradoService } from '../../services/material/concentrado.service';
+import { IConcentradoService } from '../../ports/material/service_port/concentrado.service.interface';
 
 export class ConcentradoController {
-    constructor(private concentradoService: ConcentradoService) {}
+    constructor(private concentradoService: IConcentradoService) {}
 
     // --- LECTURA -------------------------------------------------------------
 
@@ -84,6 +84,36 @@ export class ConcentradoController {
             res.status(200).json({ success: true, message: 'Lote cerrado y enviado a canoa' });
         } catch (error: any) {
             res.status(500).json({ success: false, message: error.message });
+        }
+    };
+
+    public corregirConcentrado = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const id = parseInt(req.params.id as string);
+            await this.concentradoService.corregirConcentradoTx(id, req.body);
+            res.status(200).json({ success: true, message: 'Concentrado corregido' });
+        } catch (error: any) {
+            res.status(error.status || 500).json({ success: false, message: error.message });
+        }
+    };
+
+    public obtenerMerma = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const id = parseInt(req.params.id as string);
+            const data = await this.concentradoService.obtenerMerma(id);
+            res.status(200).json({ success: true, data });
+        } catch (error: any) {
+            res.status(error.status || 500).json({ success: false, message: error.message });
+        }
+    };
+
+    public actualizarMerma = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const id = parseInt(req.params.id as string);
+            const data = await this.concentradoService.actualizarMerma(id, req.body);
+            res.status(200).json({ success: true, message: 'Merma actualizada', data });
+        } catch (error: any) {
+            res.status(error.status || 500).json({ success: false, message: error.message });
         }
     };
 

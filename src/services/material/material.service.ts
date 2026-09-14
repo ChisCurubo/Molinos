@@ -24,6 +24,7 @@ import { IProveedorService } from '../../ports/material/service_port/material.se
 import { IProveedorRepository } from '../../ports/material/repository_port/material.repository.interface';
 import { ProveedorRepository } from '../../repositories/material/material.repository';
 import { ProveedorSQL } from '../../models/pagos/sql/proveedor.sql';
+import { CombustibleService } from '../../services/pagos/combustible.service';
 
 // --- Original: material_planta_entrada ---
 export class MaterialPlantaEntradaService implements IMaterialEntradaService {
@@ -34,6 +35,7 @@ export class MaterialPlantaEntradaService implements IMaterialEntradaService {
     private minaRepo: IMinaRepository;
     private tarifaRepo: ITarifaCalculoRepo;
     private analisisRepo: IAnalisisRepository;
+    private combustibleService: CombustibleService;
 
     constructor(
         repo: IMaterialEntradaRepository,
@@ -42,7 +44,8 @@ export class MaterialPlantaEntradaService implements IMaterialEntradaService {
         vehiculoRepo: IVehiculoRepository,
         minaRepo: IMinaRepository,
         tarifaRepo: ITarifaCalculoRepo,
-        analisisRepo: IAnalisisRepository
+        analisisRepo: IAnalisisRepository,
+        combustibleService: CombustibleService
     ) {
         this.repo = repo;
         this.db = db;
@@ -51,6 +54,7 @@ export class MaterialPlantaEntradaService implements IMaterialEntradaService {
         this.minaRepo = minaRepo;
         this.tarifaRepo = tarifaRepo;
         this.analisisRepo = analisisRepo;
+        this.combustibleService = combustibleService;
     }
 
     async registrarLlegada(data: CreateMaterialEntradaDTO): Promise<number> {
@@ -92,6 +96,19 @@ export class MaterialPlantaEntradaService implements IMaterialEntradaService {
             };
             await this.inventarioService.triggerAlCrearEntrada(nuevoLote, conn);
 
+            // ACPM (adelanto de combustible): se registra en Combustible y se descuenta del flete.
+            if (Number(data.acpm) > 0) {
+                const vehiculo = data.id_vehiculo ? await this.vehiculoRepo.getById(data.id_vehiculo) : null;
+                await this.combustibleService.sincronizarAcpmEntrada(id, {
+                    id_dueno_volqueta: vehiculo?.dueno_id ?? null,
+                    id_vehiculo: data.id_vehiculo ?? null,
+                    id_gasolinera: data.id_gasolinera ?? null,
+                    fecha: data.fecha_llegada,
+                    acpm: Number(data.acpm),
+                    comprobante_url: data.acpm_comprobante_url ?? null
+                }, conn);
+            }
+
             await conn.commit();
             return id;
         } catch (error) {
@@ -114,16 +131,23 @@ export class MaterialPlantaEntradaService implements IMaterialEntradaService {
             au_gr_t_real: a.tenor_real
         }));
 
+        // ACPM adelantado: Σ de las filas de Combustible atadas a esta entrada.
+        // El flete NETO (lo que se le paga al dueño por esta entrada) = costo_volqueta − acpm,
+        // con piso en 0 (el excedente de ACPM se arrastra al siguiente viaje del dueño, ver
+        // GET /pagos/combustible/dueno/:id/neto-flete).
+        const acpm_adelantado = await this.combustibleService.sumaAcpmEntrada(id);
+        const flete_bruto = Number(entrada.costo_volqueta ?? 0);
+        const flete_neto = Math.max(0, flete_bruto - acpm_adelantado);
+
         // Bloque "detalle" mapeado sobre columnas reales de la BD.
-        // NOTA: no existe columna acpm en material_planta_entrada (solo en Agua_Planta),
-        // por eso acpm_adelantado se expone como 0.
         const detalle = {
             peso_humedo: entrada.peso_llegada_planta,
             humedad_pct: entrada.porcentaje_humedad,
             ton_secas: entrada.total_material_seco,
             tenor_au: entrada.tenor,
             flete: entrada.costo_volqueta,
-            acpm_adelantado: 0,
+            acpm_adelantado,
+            flete_neto,
             // Gastos operativos: total + desglose (para el panel editable del front).
             gastos_operativos: entrada.total_costos_operativos,
             costo_cargue: entrada.costo_cargue,
@@ -179,6 +203,20 @@ export class MaterialPlantaEntradaService implements IMaterialEntradaService {
                 total_costos_operativos,
                 total_material
             }, conn);
+
+            // Sincronizar el ACPM si vino en el payload (0/omitido explícito ⇒ se borra la fila).
+            if (data.acpm !== undefined) {
+                const idVehiculo = data.id_vehiculo ?? entrada.vehiculo_id ?? undefined;
+                const vehiculo = idVehiculo ? await this.vehiculoRepo.getById(idVehiculo) : null;
+                await this.combustibleService.sincronizarAcpmEntrada(id, {
+                    id_dueno_volqueta: vehiculo?.dueno_id ?? entrada.dueno_id ?? null,
+                    id_vehiculo: idVehiculo ?? null,
+                    id_gasolinera: data.id_gasolinera ?? null,
+                    fecha: (data.fecha_llegada ?? entrada.fecha_llegada) as any,
+                    acpm: Number(data.acpm),
+                    comprobante_url: data.acpm_comprobante_url ?? undefined
+                }, conn);
+            }
 
             await conn.commit();
             return await this.repo.obtenerPorId(id);
@@ -354,7 +392,9 @@ export class MaterialPlantaEntradaService implements IMaterialEntradaService {
                 throw new HttpError(409, 'No se puede eliminar: el material ya tuvo movimientos de salida. Usa Cancelar.', 'ENTRADA_CON_SALIDAS');
             }
 
-            // Caso "me equivoqué": borra el inventario que creó el trigger y luego la entrada.
+            // Caso "me equivoqué": borra el ACPM (Combustible), el inventario que creó el
+            // trigger y luego la entrada.
+            await this.combustibleService.eliminarAcpmEntrada(id, conn);
             await this.repo.eliminarInventarioDeEntrada(id, conn);
             await this.repo.eliminar(id, conn);
 

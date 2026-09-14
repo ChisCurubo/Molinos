@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { CacheService } from '../../services/cache/cache.service';
-import { InfoRepository } from '../../repositories/info/info.repository';
+import { IInfoService } from '../../ports/info/service_port/info.service.interface';
 const ok = (res: Response, data: any) => res.status(200).json({ success: true, data });
 const err = (res: Response, e: any, status = 500) => res.status(status).json({ success: false, error: e.message || String(e) });
 
@@ -154,6 +154,34 @@ export const API_MAP = {
                 { grupo: 'Préstamos Financieros', metodo: 'GET', ruta: '/prestamos-financieros/:id', descripcion: 'Ver préstamo financiero' },
                 { grupo: 'Préstamos Financieros', metodo: 'POST', ruta: '/prestamos-financieros', descripcion: 'Crear préstamo financiero' },
                 { grupo: 'Préstamos Financieros', metodo: 'PUT', ruta: '/prestamos-financieros/:id', descripcion: 'Actualizar préstamo financiero' },
+                // Pago de MATERIAL — CxP agrupada por minero + abonos con prorrateo (2026-08-31)
+                { grupo: 'Pago Material', metodo: 'POST',   ruta: '/material',                descripcion: 'Agrupar volquetas de un minero en una cuenta por pagar', body: { entradas: [1, 2], concepto: 'Material Julio', fecha_limite: '2026-08-31' } },
+                { grupo: 'Pago Material', metodo: 'GET',    ruta: '/material',                descripcion: 'Tablero de cuentas de material', params: { id_minero: '', estado: '' } },
+                { grupo: 'Pago Material', metodo: 'GET',    ruta: '/material/:id',            descripcion: 'Detalle de la cuenta (volquetas prorrateadas + abonos)' },
+                { grupo: 'Pago Material', metodo: 'PATCH',  ruta: '/material/:id',            descripcion: 'Agregar/quitar volquetas, concepto o fecha_limite', body: { agregar_entradas: [], quitar_entradas: [] } },
+                { grupo: 'Pago Material', metodo: 'DELETE', ruta: '/material/:id',            descripcion: 'Anular la cuenta (409 si ya tiene abonos)' },
+                { grupo: 'Pago Material', metodo: 'POST',   ruta: '/material/:id/abonos',     descripcion: 'Registrar un abono (o pagar con saldo_a_favor)', body: { valor: 2000000, fecha_abono: '2026-08-09', metodo_pago: 'transferencia', comprobante_url: 'https://ejemplo.com/comprobante.png' } },
+                { grupo: 'Pago Material', metodo: 'PATCH',  ruta: '/material/abonos/:idAbono', descripcion: 'Corregir un abono' },
+                { grupo: 'Pago Material', metodo: 'DELETE', ruta: '/material/abonos/:idAbono', descripcion: 'Eliminar un abono' },
+                { grupo: 'Pago Material', metodo: 'GET',    ruta: '/material/abonos',          descripcion: 'Todos los abonos de material (todas las cuentas), paginados de a 50', params: { id_minero: '', desde: '', hasta: '', metodo_pago: '', page: 1, limit: 50 } },
+                // Pago de FLETE — CxP por (dueño, mes) + cascada de abonos + neto con ACPM (2026-09-05)
+                { grupo: 'Pago Flete', metodo: 'GET',    ruta: '/flete/deuda',            descripcion: 'Dashboard: deuda de flete por dueño (con positivos de gasolina)' },
+                { grupo: 'Pago Flete', metodo: 'GET',    ruta: '/flete/dueno/:id',        descripcion: 'Estado de cuenta del dueño (meses + viajes + abonos)', params: { mes: '', anio: '' } },
+                { grupo: 'Pago Flete', metodo: 'POST',   ruta: '/flete/dueno/:id/abonos', descripcion: 'Abonar en cascada (mes más viejo primero)', body: { valor: 500000, fecha_abono: '2026-09-05', comprobante_url: 'https://ejemplo.com/comprobante.png' } },
+                { grupo: 'Pago Flete', metodo: 'PATCH',  ruta: '/flete/abonos/:idAbono',  descripcion: 'Corregir un abono de flete' },
+                { grupo: 'Pago Flete', metodo: 'DELETE', ruta: '/flete/abonos/:idAbono',  descripcion: 'Eliminar un abono de flete' },
+                { grupo: 'Pago Flete', metodo: 'GET',    ruta: '/flete/abonos',           descripcion: 'Todos los abonos de flete (todas las cuentas), paginados de a 50', params: { id_dueno_volqueta: '', desde: '', hasta: '', metodo_pago: '', page: 1, limit: 50 } },
+                // Pago de AGUA — mismo motor que flete, por registro de agua_planta (2026-09-05)
+                { grupo: 'Pago Agua', metodo: 'GET',    ruta: '/agua/deuda',            descripcion: 'Dashboard: deuda de agua por dueño (con positivos de gasolina)' },
+                { grupo: 'Pago Agua', metodo: 'GET',    ruta: '/agua/dueno/:id',        descripcion: 'Estado de cuenta del dueño (meses + registros + abonos)', params: { mes: '', anio: '' } },
+                { grupo: 'Pago Agua', metodo: 'POST',   ruta: '/agua/dueno/:id/abonos', descripcion: 'Abonar en cascada (mes más viejo primero)', body: { valor: 100000, fecha_abono: '2026-09-05', comprobante_url: 'https://ejemplo.com/comprobante.png' } },
+                { grupo: 'Pago Agua', metodo: 'PATCH',  ruta: '/agua/abonos/:idAbono',  descripcion: 'Corregir un abono de agua' },
+                { grupo: 'Pago Agua', metodo: 'DELETE', ruta: '/agua/abonos/:idAbono',  descripcion: 'Eliminar un abono de agua' },
+                { grupo: 'Pago Agua', metodo: 'GET',    ruta: '/agua/abonos',           descripcion: 'Todos los abonos de agua (todas las cuentas), paginados de a 50', params: { id_dueno_volqueta: '', desde: '', hasta: '', metodo_pago: '', page: 1, limit: 50 } },
+                // ACPM / Combustible — fuente única del adelanto de combustible (2026-09-02)
+                { grupo: 'Combustible', metodo: 'GET', ruta: '/combustible',                     descripcion: 'Listar consumos/adelantos de ACPM', params: { desde: '', hasta: '', id_gasolinera: '', id_dueno_volqueta: '', tipo_consumo: '' } },
+                { grupo: 'Combustible', metodo: 'GET', ruta: '/combustible/:id',                 descripcion: 'Detalle de un registro de combustible' },
+                { grupo: 'Combustible', metodo: 'GET', ruta: '/combustible/dueno/:id/neto-flete', descripcion: 'Flete neto del dueño con arrastre de ACPM' },
             ]
         },
         {
@@ -207,12 +235,33 @@ export const API_MAP = {
                 { grupo: '7. Finanzas',  metodo: 'GET',   ruta: '/pagos/deuda/flete/dueno/:id', descripcion: '13. Ver cuánto debo de flete (bus/volqueta)' },
                 { grupo: '7. Finanzas',  metodo: 'GET',   ruta: '/material/vistas/excedente-empresa', descripcion: '14. Ver excedente y costo de procesar el material' }
             ]
+        },
+        {
+            // RECONSTRUIDO 2026-09-06: este bloque existía en el archivo antes de un error de
+            // sobrescritura accidental. Los pasos 2-9 se recuperaron tal cual (ya se habían leído);
+            // el paso 1 se reconstruyó a partir del endpoint real POST /pagos/material — verificar
+            // el texto exacto si importa (wording original no recuperable).
+            nombre: 'flujo_pago_material', prefijo: '/api/v1/pagos', requiere_token: true,
+            endpoints: [
+                { grupo: '1. Crear cuenta',  metodo: 'POST',   ruta: '/material',                  descripcion: '1. Agrupar volquetas de un minero en una cuenta por pagar (todas deben tener precio_total > 0)', body: { entradas: [1, 2], concepto: 'Material Julio', fecha_limite: '2026-08-31' } },
+                { grupo: '2. Ver prorrateo', metodo: 'GET',    ruta: '/material/:id',              descripcion: '2. Ver la cuenta recién creada: todas las volquetas en pendiente (pagado_volqueta = 0)' },
+                { grupo: '3. Abonar',        metodo: 'POST',   ruta: '/material/:id/abonos',       descripcion: '3. Primera transferencia de 2.000.000 (comprobante OBLIGATORIO). La cuenta pasa a parcial. Guarda el id del abono', body: { valor: 2000000, fecha_abono: '2026-08-09', metodo_pago: 'transferencia', comprobante_url: 'https://ejemplo.com/transfer1.png', observaciones: 'Primer abono' } },
+                { grupo: '3. Abonar',        metodo: 'POST',   ruta: '/material/:id/abonos',       descripcion: '3b. Segunda transferencia de 2.000.000 (otra fecha, mismo mes)', body: { valor: 2000000, fecha_abono: '2026-08-20', metodo_pago: 'nequi', comprobante_url: 'https://ejemplo.com/transfer2.png', observaciones: 'Segundo abono' } },
+                { grupo: '4. Ver prorrateo', metodo: 'GET',    ruta: '/material/:id',              descripcion: '4. Ver el prorrateo tras abonar: cada volqueta pagada al mismo % del grupo; num_abonos=2' },
+                { grupo: '5. Editar abono',  metodo: 'PATCH',  ruta: '/material/abonos/:idAbono',  descripcion: '5. Corregir un abono (ej. subirlo a 3.000.000). La cuenta se recalcula sola', body: { valor: 3000000 } },
+                { grupo: '6. Sobrepago',     metodo: 'POST',   ruta: '/material/:id/abonos',       descripcion: '6. Pagar de MÁS: abona más que el saldo → la cuenta queda pagada y el excedente se vuelve saldo a favor del minero (revisa saldo_a_favor_generado)', body: { valor: 9999999, fecha_abono: '2026-08-28', metodo_pago: 'transferencia', comprobante_url: 'https://ejemplo.com/transfer3.png', observaciones: 'Sobrepago' } },
+                { grupo: '6. Deuda minero',  metodo: 'GET',    ruta: '/deuda/material/minero/:id', descripcion: '6b. Ver la deuda del minero: trae saldo_a_favor, deuda_bruta y deuda_neta. El saldo a favor del sobrepago aparece aquí' },
+                { grupo: '6c. Usar crédito', metodo: 'POST',   ruta: '/material/:idOtraCuenta/abonos', descripcion: '6c. En OTRA cuenta del mismo minero, pagar con el crédito (sin comprobante)', body: { metodo_pago: 'saldo_a_favor' } },
+                { grupo: '7. Editar grupo',  metodo: 'PATCH',  ruta: '/material/:id',              descripcion: '7. (Opcional) Quitar una volqueta del grupo. Se bloquea si el nuevo total queda bajo lo ya abonado', body: { quitar_entradas: [5] } },
+                { grupo: '8. Eliminar abono',metodo: 'DELETE', ruta: '/material/abonos/:idAbono',  descripcion: '8. Eliminar un abono; la cuenta vuelve a parcial/pendiente' },
+                { grupo: '9. Anular grupo',  metodo: 'DELETE', ruta: '/material/:id',              descripcion: '9. Anular la cuenta. Ojo: si quedan abonos da 409 → primero elimina todos los abonos (paso 8) y luego anula' }
+            ]
         }
     ]
 };
 
 export class InfoController {
-    constructor(private repo: InfoRepository) {}
+    constructor(private service: IInfoService) {}
 
     public apiMap = (_req: Request, res: Response): void => {
         ok(res, API_MAP);
@@ -220,13 +269,13 @@ export class InfoController {
 
     public estadisticas = async (_req: Request, res: Response): Promise<void> => {
         try {
-            ok(res, await this.repo.estadisticas());
+            ok(res, await this.service.estadisticas());
         } catch (e) { err(res, e); }
     };
 
     public health = async (_req: Request, res: Response): Promise<void> => {
         try {
-            ok(res, await this.repo.health());
+            ok(res, await this.service.health());
         } catch (e) { err(res, e); }
     };
 

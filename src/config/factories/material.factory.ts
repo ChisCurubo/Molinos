@@ -23,6 +23,7 @@ import { AguaPlantaController } from '../../controllers/material/agua.controller
 import { AnalisisController } from '../../controllers/material/analisis.controller';
 import { VehiculoController } from '../../controllers/material/vehiculo.controller';
 import { VistaMaterialController } from '../../controllers/material/vistas.material.controller';
+import { VistaMaterialService } from '../../services/material/vistas.material.service';
 import { TriggerLogicRepositoryImpl } from '../../repositories/db_triggers/trigger_logic.repository';
 import { ConcentradoRepository } from '../../repositories/material/concentrado.repository';
 import { ViajesRepository } from '../../repositories/material/viajes.repository';
@@ -36,6 +37,11 @@ import { InventarioController } from '../../controllers/material/inventario.cont
 import { ExcedenteRepository } from '../../repositories/material/excedente.repository';
 import { ExcedenteService } from '../../services/material/excedente.service';
 import { ExcedenteController } from '../../controllers/material/excedente.controller';
+import { TarifaProcesoRepository } from '../../repositories/material/tarifa_proceso.repository';
+import { TarifaProcesoService } from '../../services/material/tarifa_proceso.service';
+import { TarifaProcesoController } from '../../controllers/material/tarifa_proceso.controller';
+import { CombustibleRepository } from '../../repositories/pagos/combustible.repository';
+import { CombustibleService } from '../../services/pagos/combustible.service';
 
 export class MaterialFactory {
     constructor(private db: Pool) {}
@@ -57,6 +63,7 @@ export class MaterialFactory {
     private analisisRepo?: AnalisisRepository;
     private tipoAnalisisRepo?: TipoAnalisisRepository;
     private vehiculoRepo?: VehiculoRepository;
+    private vistaMaterialService?: VistaMaterialService;
     private vistaMaterialController?: VistaMaterialController;
     private vEstadoPagoMaterialRepo?: VEstadoPagoMaterialRepository;
     private vEstadoPagoFleteRepo?: VEstadoPagoFleteRepository;
@@ -68,6 +75,9 @@ export class MaterialFactory {
     private viajesRepo?: ViajesRepository;
     private inventarioRepo?: InventarioRepository;
     private excedenteRepo?: ExcedenteRepository;
+    private tarifaProcesoRepo?: TarifaProcesoRepository;
+    private combustibleRepo?: CombustibleRepository;
+    private combustibleService?: CombustibleService;
 
     private materialPlantaEntradaService?: MaterialPlantaEntradaService;
     private tipoMaterialService?: TipoMaterialService;
@@ -88,6 +98,7 @@ export class MaterialFactory {
     private viajesService?: ViajesService;
     private inventarioService?: InventarioService;
     private excedenteService?: ExcedenteService;
+    private tarifaProcesoService?: TarifaProcesoService;
 
     private materialEntradaController?: MaterialEntradaController;
     private tipoMaterialController?: TipoMaterialController;
@@ -103,6 +114,7 @@ export class MaterialFactory {
     private viajesController?: ViajesController;
     private inventarioController?: InventarioController;
     private excedenteController?: ExcedenteController;
+    private tarifaProcesoController?: TarifaProcesoController;
 
     // Repos
     public getTriggerLogicRepo(): TriggerLogicRepositoryImpl {
@@ -212,6 +224,18 @@ export class MaterialFactory {
         if (!this.excedenteRepo) this.excedenteRepo = new ExcedenteRepository(this.db);
         return this.excedenteRepo;
     }
+    public getTarifaProcesoRepo(): TarifaProcesoRepository {
+        if (!this.tarifaProcesoRepo) this.tarifaProcesoRepo = new TarifaProcesoRepository(this.db);
+        return this.tarifaProcesoRepo;
+    }
+    public getCombustibleRepo(): CombustibleRepository {
+        if (!this.combustibleRepo) this.combustibleRepo = new CombustibleRepository(this.db);
+        return this.combustibleRepo;
+    }
+    public getCombustibleService(): CombustibleService {
+        if (!this.combustibleService) this.combustibleService = new CombustibleService(this.getCombustibleRepo());
+        return this.combustibleService;
+    }
 
     // Services
     public getMaterialPlantaEntradaService(): MaterialPlantaEntradaService {
@@ -222,7 +246,8 @@ export class MaterialFactory {
             this.getVehiculoRepo(),
             this.getMinaRepo(),
             this.getTarifaCalculoRepo(),
-            this.getAnalisisRepo()
+            this.getAnalisisRepo(),
+            this.getCombustibleService()
         );
         return this.materialPlantaEntradaService;
     }
@@ -271,7 +296,7 @@ export class MaterialFactory {
         return this.vehiculoService;
     }
     public getAguaPlantaService(): AguaPlantaService {
-        if (!this.aguaPlantaService) this.aguaPlantaService = new AguaPlantaService(this.getAguaPlantaRepo(), this.getVehiculoRepo());
+        if (!this.aguaPlantaService) this.aguaPlantaService = new AguaPlantaService(this.getAguaPlantaRepo(), this.getVehiculoRepo(), this.db, this.getCombustibleService());
         return this.aguaPlantaService;
     }
     public getAnalisisService(): AnalisisService {
@@ -320,6 +345,13 @@ export class MaterialFactory {
         );
         return this.excedenteService;
     }
+    public getTarifaProcesoService(): TarifaProcesoService {
+        if (!this.tarifaProcesoService) this.tarifaProcesoService = new TarifaProcesoService(
+            this.getTarifaProcesoRepo(),
+            this.db
+        );
+        return this.tarifaProcesoService;
+    }
 
     // Controllers
     public getMaterialEntradaController(): MaterialEntradaController {
@@ -349,7 +381,6 @@ export class MaterialFactory {
             this.getMinaService(),
             this.getMineroService(),
             this.getZonaService(),
-            this.getMinaRepo(),
             this.getTarifaZonaService(),
             this.getMinaPrecioMaterialService()
         );
@@ -365,8 +396,7 @@ export class MaterialFactory {
     }
     public getAnalisisController(): AnalisisController {
         if (!this.analisisController) this.analisisController = new AnalisisController(
-            this.getAnalisisService(),
-            this.getAnalisisRepo()
+            this.getAnalisisService()
         );
         return this.analisisController;
     }
@@ -374,14 +404,21 @@ export class MaterialFactory {
         if (!this.vehiculoController) this.vehiculoController = new VehiculoController(this.getVehiculoService());
         return this.vehiculoController;
     }
-    public getVistaMaterialController(): VistaMaterialController {
-        if (!this.vistaMaterialController) this.vistaMaterialController = new VistaMaterialController(
+    public getVistaMaterialService(): VistaMaterialService {
+        if (!this.vistaMaterialService) this.vistaMaterialService = new VistaMaterialService(
             this.getVEstadoPagoMaterialRepo(),
             this.getVEstadoPagoFleteRepo(),
             this.getVExcedenteEmpresaRepo(),
             this.getVExcedentePorVehiculoRepo(),
             this.getVAnalisisCompletoRepo(),
             this.getVEstadoAguaRepo()
+        );
+        return this.vistaMaterialService;
+    }
+
+    public getVistaMaterialController(): VistaMaterialController {
+        if (!this.vistaMaterialController) this.vistaMaterialController = new VistaMaterialController(
+            this.getVistaMaterialService()
         );
         return this.vistaMaterialController;
     }
@@ -408,6 +445,12 @@ export class MaterialFactory {
             this.getExcedenteService()
         );
         return this.excedenteController;
+    }
+    public getTarifaProcesoController(): TarifaProcesoController {
+        if (!this.tarifaProcesoController) this.tarifaProcesoController = new TarifaProcesoController(
+            this.getTarifaProcesoService()
+        );
+        return this.tarifaProcesoController;
     }
 
 }

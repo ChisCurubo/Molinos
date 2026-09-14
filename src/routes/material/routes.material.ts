@@ -10,6 +10,7 @@ import vistasRoutes from './vistas.material.routes';
 import concentradoRoutes from './concentrado.routes';
 import viajesRoutes from './viajes.routes';
 import inventarioRoutes from './inventario.routes';
+import tarifaProcesoRoutes from './tarifa_proceso.routes';
 
 const router = Router();
 
@@ -24,6 +25,7 @@ router.use('/vistas', vistasRoutes);
 router.use('/concentrado', concentradoRoutes);
 router.use('/viajes', viajesRoutes);
 router.use('/inventario', inventarioRoutes);
+router.use('/tarifas-proceso', tarifaProcesoRoutes);
 router.use('/', materialRoutes);
 
 export default router;

@@ -31,6 +31,18 @@ router.get('/resumen', viajesController.resumen);
  *     responses:
  *       200: { description: Líneas del lote con su viaje }
  */
+/**
+ * @swagger
+ * /material/viajes/disponibles-mula:
+ *   get:
+ *     summary: Selector — viajes armados (con líneas) y aún sin despachar en una Mula
+ *     tags: [Viajes]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Viajes en estado 'almacenado' con num_lineas y toneladas_seco }
+ */
+router.get('/disponibles-mula', viajesController.disponiblesParaMula);
+
 router.get('/lote/:id', viajesController.trazabilidadLote);
 
 /**
@@ -102,7 +114,7 @@ router.get('/:id', viajesController.obtenerDetalle);
  * @swagger
  * /material/viajes:
  *   post:
- *     summary: Crear la cabecera de un nuevo viaje
+ *     summary: Crear la cabecera de un nuevo viaje (solo requiere el número de viaje)
  *     tags: [Viajes]
  *     security: [{ bearerAuth: [] }]
  *     requestBody:
@@ -111,24 +123,46 @@ router.get('/:id', viajesController.obtenerDetalle);
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [numero_viaje]
  *             properties:
- *               id_cliente:
- *                 type: integer
- *               conductor:
- *                 type: string
- *               placa:
- *                 type: string
+ *               numero_viaje: { type: string }
+ *               fecha: { type: string, format: date }
+ *               comentarios: { type: string }
  *     responses:
- *       201:
- *         description: Viaje creado
+ *       201: { description: Viaje creado }
+ *       400: { description: Falta el número de viaje }
  */
 router.post('/', viajesController.crearCabecera);
 
 /**
  * @swagger
+ * /material/viajes/{id}:
+ *   patch:
+ *     summary: Editar la cabecera de un viaje (número, fecha, comentarios)
+ *     tags: [Viajes]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               numero_viaje: { type: string }
+ *               fecha: { type: string, format: date }
+ *               comentarios: { type: string }
+ *     responses:
+ *       200: { description: Viaje actualizado }
+ *       404: { description: Viaje no encontrado }
+ */
+router.patch('/:id', viajesController.actualizarViaje);
+
+/**
+ * @swagger
  * /material/viajes/{id}/lineas:
  *   post:
- *     summary: Asignar un lote de concentrado a un viaje
+ *     summary: Asignar un lote de concentrado a un viaje (se despacha en SECO)
  *     tags: [Viajes]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
@@ -143,11 +177,13 @@ router.post('/', viajesController.crearCabecera);
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [id_material_concentrado]
  *             properties:
  *               id_material_concentrado:
  *                 type: integer
- *               total_concentrado_humedo:
+ *               concentrado_seco:
  *                 type: number
+ *                 description: Toneladas SECAS a despachar. Si se omite, despacha todo lo disponible del lote. El húmedo se deriva con la humedad del lote.
  *     responses:
  *       201:
  *         description: Línea de viaje asignada
@@ -177,6 +213,31 @@ router.post('/:id/lineas', viajesController.asignarLinea);
  *         description: Línea eliminada
  */
 router.delete('/:idViaje/lineas/:idLinea', viajesController.eliminarLinea);
+
+/**
+ * @swagger
+ * /material/viajes/{idViaje}/lineas/{idLinea}:
+ *   patch:
+ *     summary: Actualizar una línea (cambiar el seco despachado ajusta el stock del lote)
+ *     tags: [Viajes]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { in: path, name: idViaje, required: true, schema: { type: integer } }
+ *       - { in: path, name: idLinea, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               concentrado_seco: { type: number, description: Nueva cantidad SECA de la línea; el stock se ajusta por diferencia }
+ *               valor_total: { type: number }
+ *               concepto: { type: string }
+ *     responses:
+ *       200: { description: Línea actualizada }
+ *       404: { description: Línea no encontrada }
+ */
+router.patch('/:idViaje/lineas/:idLinea', viajesController.actualizarLinea);
 
 /**
  * @swagger

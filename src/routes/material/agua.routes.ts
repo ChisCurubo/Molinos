@@ -193,4 +193,26 @@ router.get('/:id', controller.obtener);
  */
 router.put('/:id', controller.actualizar);
 
+/**
+ * @swagger
+ * /material/agua/{id}:
+ *   delete:
+ *     summary: Eliminar un viaje de agua (borra también su ACPM en Combustible)
+ *     tags: [Agua Planta]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Viaje de agua eliminado
+ *       404:
+ *         description: Viaje de agua no encontrado
+ */
+router.delete('/:id', controller.eliminar);
+
 export default router;

@@ -8,3 +8,12 @@ export interface ICategoriaProveedorService {
     delete(id: number): Promise<boolean>;
     list(): Promise<CategoriaProveedorSQL[]>;
 }
+
+// --- Proveedores (la entidad real) ---
+export interface IProveedorService {
+    create(data: any): Promise<any>;
+    getById(id: number): Promise<any | null>;
+    update(id: number, data: any): Promise<any | null>;
+    delete(id: number): Promise<boolean>;
+    list(filtros: { id_categoria?: number; estado?: string; q?: string }): Promise<any[]>;
+}

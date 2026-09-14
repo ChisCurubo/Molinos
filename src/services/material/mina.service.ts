@@ -46,6 +46,14 @@ export class MinaService implements IMinaService {
     async list(): Promise<MinaSQL[]> {
         return this.repository.list();
     }
+
+    async listarEntradas(id_mina: number): Promise<any[]> {
+        return this.repository.listarEntradas(id_mina);
+    }
+
+    async resumen(id_mina: number): Promise<any | null> {
+        return this.repository.resumen(id_mina);
+    }
 }
 
 // --- Original: minero ---

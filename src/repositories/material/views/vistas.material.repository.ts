@@ -1,6 +1,10 @@
 import { Pool } from 'mysql2/promise';
+import {
+    IVEstadoPagoMaterialRepository, IVEstadoPagoFleteRepository, IVExcedenteEmpresaRepository,
+    IVExcedentePorVehiculoRepository, IVAnalisisCompletoRepository, IVEstadoAguaRepository
+} from '../../../ports/material/repository_port/vistas.material.repository.interface';
 
-export class VEstadoPagoMaterialRepository {
+export class VEstadoPagoMaterialRepository implements IVEstadoPagoMaterialRepository {
   constructor(private db: Pool) {}
   async findAll(estado?: string): Promise<any[]> {
     const query = estado
@@ -18,7 +22,7 @@ export class VEstadoPagoMaterialRepository {
   }
 }
 
-export class VEstadoPagoFleteRepository {
+export class VEstadoPagoFleteRepository implements IVEstadoPagoFleteRepository {
   constructor(private db: Pool) {}
   async findAll(estado?: string): Promise<any[]> {
     const query = estado
@@ -36,7 +40,7 @@ export class VEstadoPagoFleteRepository {
   }
 }
 
-export class VExcedenteEmpresaRepository {
+export class VExcedenteEmpresaRepository implements IVExcedenteEmpresaRepository {
   constructor(private db: Pool) {}
   async findAll(estado_distribucion?: string): Promise<any[]> {
     const query = estado_distribucion
@@ -84,7 +88,7 @@ export class VResumenLiquidacionMaterialRepository {
   }
 }
 
-export class VExcedentePorVehiculoRepository {
+export class VExcedentePorVehiculoRepository implements IVExcedentePorVehiculoRepository {
   constructor(private db: Pool) {}
   async findAll(): Promise<any[]> {
     const [rows] = await this.db.execute<any[]>('SELECT * FROM v_excedente_por_vehiculo ORDER BY total_excedentes DESC');
@@ -99,22 +103,24 @@ export class VExcedentePorVehiculoRepository {
   }
 }
 
-export class VAnalisisCompletoRepository {
+export class VAnalisisCompletoRepository implements IVAnalisisCompletoRepository {
   constructor(private db: Pool) {}
   async findAll(id_minero?: number, id_mina?: number, desde?: string, hasta?: string): Promise<any[]> {
     let query = 'SELECT * FROM v_analisis_completo WHERE 1=1';
     const params: any[] = [];
-    if (id_minero) { query += ' AND id_minero = ?'; params.push(id_minero); }
-    if (id_mina)   { query += ' AND id_mina = ?';   params.push(id_mina); }
-    if (desde)     { query += ' AND fecha_llegada >= ?'; params.push(desde); }
-    if (hasta)     { query += ' AND fecha_llegada <= ?'; params.push(hasta); }
-    query += ' ORDER BY fecha_llegada DESC';
+    if (id_minero) { query += ' AND id_minero_resuelto = ?'; params.push(id_minero); }
+    if (id_mina)   { query += ' AND id_mina_resuelto = ?';   params.push(id_mina); }
+    // v_analisis_completo no expone fecha_llegada (solo columnas de `analisis` + los *_resuelto);
+    // se filtra/ordena por created_at (fecha de registro del análisis) como aproximación.
+    if (desde)     { query += ' AND created_at >= ?'; params.push(desde); }
+    if (hasta)     { query += ' AND created_at <= ?'; params.push(hasta); }
+    query += ' ORDER BY created_at DESC';
     const [rows] = await this.db.execute<any[]>(query, params);
     return rows;
   }
 }
 
-export class VEstadoAguaRepository {
+export class VEstadoAguaRepository implements IVEstadoAguaRepository {
   constructor(private db: Pool) {}
   async findAll(estado?: string): Promise<any[]> {
     const query = estado

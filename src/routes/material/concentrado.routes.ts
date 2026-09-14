@@ -161,6 +161,72 @@ router.put('/:id/cerrar', concentradoController.cerrarLote);
 
 /**
  * @swagger
+ * /material/concentrado/{id}/concentrado:
+ *   patch:
+ *     summary: Corregir el concentrado producido de un lote YA CERRADO (en_canoa, sin despachar)
+ *     tags: [Procesamiento]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               toneladas_humedo: { type: number }
+ *               porcentaje_humedad: { type: number }
+ *               ubicacion_canoa: { type: string }
+ *     responses:
+ *       200: { description: Concentrado corregido }
+ *       409: { description: El lote no está en canoa }
+ */
+router.patch('/:id/concentrado', concentradoController.corregirConcentrado);
+
+/**
+ * @swagger
+ * /material/concentrado/{id}/merma:
+ *   get:
+ *     summary: Ver la merma del lote (gramos de Au/Ag que se pierden)
+ *     tags: [Procesamiento]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200: { description: Merma del lote }
+ *       404: { description: Lote no encontrado }
+ */
+router.get('/:id/merma', concentradoController.obtenerMerma);
+
+/**
+ * @swagger
+ * /material/concentrado/{id}/merma:
+ *   patch:
+ *     summary: Registrar/actualizar la merma del lote (gramos de Au/Ag perdidos)
+ *     tags: [Procesamiento]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               merma_au: { type: number }
+ *               merma_ag: { type: number }
+ *     responses:
+ *       200: { description: Merma actualizada }
+ *       404: { description: Lote no encontrado }
+ */
+router.patch('/:id/merma', concentradoController.actualizarMerma);
+
+/**
+ * @swagger
  * /material/concentrado/{id}:
  *   put:
  *     summary: Editar campos básicos de un lote (código, procesos, ubicación, etc.)

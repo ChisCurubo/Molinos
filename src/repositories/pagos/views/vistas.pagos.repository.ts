@@ -1,6 +1,10 @@
 import { Pool } from 'mysql2/promise';
+import {
+    IVEstadoAlquileresRepository, IVEstadoCombustibleRepository,
+    IVEstadoMulasRepository, IVSaldosAFavorRepository
+} from '../../../ports/pagos/repository_port/deuda.repository.interface';
 
-export class VEstadoAlquileresRepository {
+export class VEstadoAlquileresRepository implements IVEstadoAlquileresRepository {
   constructor(private db: Pool) {}
   async findAll(estado?: string): Promise<any[]> {
     const query = estado
@@ -11,7 +15,7 @@ export class VEstadoAlquileresRepository {
   }
 }
 
-export class VEstadoCombustibleRepository {
+export class VEstadoCombustibleRepository implements IVEstadoCombustibleRepository {
   constructor(private db: Pool) {}
   async findAll(): Promise<any[]> {
     const [rows] = await this.db.execute<any[]>('SELECT * FROM v_estado_combustible');
@@ -19,7 +23,7 @@ export class VEstadoCombustibleRepository {
   }
 }
 
-export class VEstadoMulasRepository {
+export class VEstadoMulasRepository implements IVEstadoMulasRepository {
   constructor(private db: Pool) {}
   async findAll(): Promise<any[]> {
     const [rows] = await this.db.execute<any[]>('SELECT * FROM v_estado_mulas');
@@ -27,7 +31,7 @@ export class VEstadoMulasRepository {
   }
 }
 
-export class VSaldosAFavorRepository {
+export class VSaldosAFavorRepository implements IVSaldosAFavorRepository {
   constructor(private db: Pool) {}
   async findAll(): Promise<any[]> {
     const [rows] = await this.db.execute<any[]>('SELECT * FROM v_saldos_a_favor_disponibles');

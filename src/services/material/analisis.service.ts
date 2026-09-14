@@ -42,6 +42,7 @@ import { HttpError } from '../../helpers/http_error';
 import Database from '../../config/database.config';
 import { IInventarioService } from '../../ports/material/inventario.interface';
 import { IAnalisisRepository } from '../../ports/material/repository_port/analisis.repository.interface';
+import { Analisis, EstadoPagoAnalisis } from '../../models/material/sql/analisis.sql';
 import { IPrecioMaterialRepository, ITarifaCalculoRepository } from '../../ports/material/repository_port/material.repository.interface';
 import { IMaterialEntradaRepository } from '../../ports/material/repository_port/material.repository.interface';
 import { IConcentradoRepository } from '../../ports/material/concentrado.interface';
@@ -57,9 +58,9 @@ export class AnalisisService implements IAnalisisService {
     private concentradoRepo: IConcentradoRepository;
     private excedenteRepo: IExcedenteRepository;
 
-    // Excedente = ton_seco × tarifa, solo si el tenor real supera este umbral (gr Au/ton).
+    // Excedente = ton_seco × tarifa, solo si el tenor real alcanza este umbral (gr Au/ton).
     private readonly TARIFA_EXCEDENTE_POR_TON = 100000;
-    private readonly TENOR_MINIMO_EXCEDENTE = 2;
+    private readonly TENOR_MINIMO_EXCEDENTE = 4;
 
     constructor(
         analisisRepo: IAnalisisRepository,
@@ -79,10 +80,10 @@ export class AnalisisService implements IAnalisisService {
         this.excedenteRepo = excedenteRepo;
     }
 
-    // Excedente estimado de la entrada: solo si el tenor real > umbral (por defecto 2 gr Au/ton).
+    // Excedente estimado de la entrada: solo si el tenor real >= umbral (por defecto 4 gr Au/ton).
     // La tarifa por tonelada seca es configurable (default 100000).
     private calcularExcedente(tenorReal: number, totalMaterialSeco: number, tarifaPorTon?: number): number {
-        if (!(tenorReal > this.TENOR_MINIMO_EXCEDENTE)) return 0;
+        if (!(tenorReal >= this.TENOR_MINIMO_EXCEDENTE)) return 0;
         const tarifa = (tarifaPorTon !== undefined && tarifaPorTon !== null && Number(tarifaPorTon) > 0)
             ? Number(tarifaPorTon)
             : this.TARIFA_EXCEDENTE_POR_TON;
@@ -436,5 +437,29 @@ export class AnalisisService implements IAnalisisService {
         } finally {
             conn.release();
         }
+    }
+
+    async obtenerPorId(id: number): Promise<Analisis | null> {
+        return this.analisisRepo.obtenerPorId(id);
+    }
+
+    async listarPorMinero(id_minero: number): Promise<any[]> {
+        return this.analisisRepo.listarPorMinero(id_minero);
+    }
+
+    async listarPorMina(id_mina: number): Promise<any[]> {
+        return this.analisisRepo.listarPorMina(id_mina);
+    }
+
+    async listarPorFecha(fecha: string): Promise<any[]> {
+        return this.analisisRepo.listarPorFecha(fecha);
+    }
+
+    async obtenerAnalisisDeConcentrado(id_lote: number): Promise<any[]> {
+        return this.analisisRepo.obtenerAnalisisDeConcentrado(id_lote);
+    }
+
+    async actualizarEstadoPago(id: number, estado: EstadoPagoAnalisis): Promise<void> {
+        await this.analisisRepo.actualizarEstadoPago(id, estado);
     }
 }

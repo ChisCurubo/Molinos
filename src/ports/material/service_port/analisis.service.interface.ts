@@ -1,4 +1,5 @@
 import { TipoAnalisisSQL } from '../../../models/material/sql/tipo_analisis.sql';
+import { Analisis, EstadoPagoAnalisis } from '../../../models/material/sql/analisis.sql';
 
 // --- Original: tipo_analisis ---
 export interface ITipoAnalisisService {
@@ -16,4 +17,10 @@ export interface IAnalisisService {
     obtenerCabezaPorEntrada(id_entrada: number): Promise<any | null>;
     obtenerTodosPorEntrada(id_entrada: number): Promise<any[]>;
     eliminarAnalisis(id: number): Promise<void>;
+    obtenerPorId(id: number): Promise<Analisis | null>;
+    listarPorMinero(id_minero: number): Promise<any[]>;
+    listarPorMina(id_mina: number): Promise<any[]>;
+    listarPorFecha(fecha: string): Promise<any[]>;
+    obtenerAnalisisDeConcentrado(id_lote: number): Promise<any[]>;
+    actualizarEstadoPago(id: number, estado: EstadoPagoAnalisis): Promise<void>;
 }

@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
-import { AguaPlantaService } from '../../services/material/agua.service';
+import { IAguaPlantaService } from '../../ports/material/service_port/agua.service.interface';
 
 export class AguaPlantaController {
-    private service: AguaPlantaService;
+    private service: IAguaPlantaService;
 
-    constructor(service: AguaPlantaService) {
+    constructor(service: IAguaPlantaService) {
         this.service = service;
     }
 
@@ -21,6 +21,24 @@ export class AguaPlantaController {
             const success = await this.service.actualizar(Number(req.params.id), req.body);
             if (success) {
                 res.status(200).json({ success: true, message: 'Viaje de agua actualizado' });
+            } else {
+                res.status(404).json({ success: false, message: 'Viaje de agua no encontrado' });
+            }
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+        }
+    };
+
+    public eliminar = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const id = Number(req.params.id);
+            if (!id) {
+                res.status(400).json({ success: false, message: 'ID inválido' });
+                return;
+            }
+            const ok = await this.service.eliminar(id);
+            if (ok) {
+                res.status(200).json({ success: true, message: 'Viaje de agua eliminado' });
             } else {
                 res.status(404).json({ success: false, message: 'Viaje de agua no encontrado' });
             }

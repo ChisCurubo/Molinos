@@ -4,6 +4,7 @@ export interface ViajeApp {
     id: number;
     numero_viaje: string;
     fecha: Date;
+    estado: string;
     total_costo_material: number;
     maquila: number;
     total_viaje: number;

@@ -485,13 +485,14 @@ CREATE TABLE Turnos (
 
 CREATE TABLE Combustible (
     id                         INT           AUTO_INCREMENT PRIMARY KEY  COMMENT 'Identificador único del registro de combustible',
-    id_gasolinera              INT           NOT NULL                    COMMENT 'Proveedor (gasolinera o estación de servicio) que suministró el combustible. Categoría=Combustible — ver Proveedores',
+    id_gasolinera              INT           NULL                        COMMENT 'Proveedor (gasolinera o estación de servicio). NULL al registrar un ACPM adelantado (se completa luego al armar la CxP a la estación). Migración 2026-09-02 lo pasó de NOT NULL a NULL — ver Proveedores',
     tipo_consumo               ENUM('vehiculo','planta','maquinaria','otro') NOT NULL DEFAULT 'vehiculo'
                                COMMENT 'Destino del combustible: vehiculo=tanqueo de camión, planta=tambores para uso interno de planta, maquinaria=retroexcavadora u otro equipo, otro=sin clasificar',
     id_dueno_volqueta          INT           NULL                        COMMENT 'Dueño del vehículo al que se carga el combustible a crédito. El costo se descuenta del flete — ver Dueno_Volqueta',
     id_vehiculo                INT           NULL                        COMMENT 'Vehículo físico que tanqueó (cuando tipo_consumo=vehiculo) — ver Volqueta_Vehiculo',
     id_planta                  INT           NULL                        COMMENT 'Planta que consumió el combustible en tambores o equipos internos — ver Planta',
-    id_material_planta_entrada INT           NULL                        COMMENT 'Entrada de material específica a la que se atribuye este consumo de combustible (opcional)',
+    id_material_planta_entrada INT           NULL                        COMMENT 'Entrada de material a la que se atribuye este ACPM adelantado del flete (excluyente con id_agua) — ver Material_Planta_Entrada',
+    id_agua                    INT           NULL                        COMMENT 'Viaje de agua al que se atribuye este ACPM adelantado (excluyente con id_material_planta_entrada). Migración 2026-09-02 — ver Agua_Planta',
     fecha                      DATE          NOT NULL                    COMMENT 'Fecha del tanqueo o suministro de combustible',
     descripcion                VARCHAR(255)                              COMMENT 'Detalle del consumo: galones, placa del vehículo, tipo de combustible (ACPM/gasolina)',
     valor                      DECIMAL(15,2) NOT NULL                    COMMENT 'Costo total del suministro de combustible en pesos colombianos',
@@ -501,14 +502,25 @@ CREATE TABLE Combustible (
     FOREIGN KEY (id_dueno_volqueta) REFERENCES Dueno_Volqueta(id),
     FOREIGN KEY (id_vehiculo)       REFERENCES Volqueta_Vehiculo(id),
     FOREIGN KEY (id_planta)         REFERENCES Planta(id),
+    FOREIGN KEY (id_agua)           REFERENCES Agua_Planta(id),
     CONSTRAINT chk_combustible_tipo CHECK (
         (tipo_consumo = 'vehiculo' AND (id_vehiculo IS NOT NULL OR id_dueno_volqueta IS NOT NULL))
         OR tipo_consumo IN ('planta','maquinaria','otro')
     ),
     INDEX idx_combustible_gasolinera (id_gasolinera),
     INDEX idx_combustible_volqueta   (id_dueno_volqueta),
+    INDEX idx_combustible_agua        (id_agua),
     INDEX idx_combustible_fecha      (fecha)
-) COMMENT='Registro de tanqueos y suministros de combustible. tipo_consumo diferencia vehículo (ACPM camión) vs planta (tambores) vs maquinaria. Estado de pago a la gasolinera → v_estado_combustible.';
+) COMMENT='Registro de tanqueos, suministros y ACPM adelantados. tipo_consumo diferencia vehículo (ACPM camión) vs planta (tambores) vs maquinaria. Fuente única del ACPM que se descuenta al flete/agua (id_material_planta_entrada | id_agua). Estado de pago a la gasolinera → v_estado_combustible.';
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- id_gasolinera en Combustible · DECIDIDO 2026-09-05: queda NULL-able (OPCIONAL)
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Un ACPM adelantado se registra SIN gasolinera y se completa después, al armar la
+-- CxP a la estación (mientras tanto queda NULL = "sin proveedor asignado"). NO se
+-- exige gasolinera en el alta del ACPM. Modelo final acordado; no hay migración
+-- pendiente por este punto.
+-- ─────────────────────────────────────────────────────────────────────────────
 
 
 CREATE TABLE Prestamos_Financieros (
@@ -663,8 +675,8 @@ CREATE TABLE Anticipos_Terceros (
     saldo_disponible  DECIMAL(14,2) AS (monto_inicial - monto_usado) STORED
                       COMMENT 'Saldo pendiente de descontar (monto_inicial − monto_usado). Columna calculada.',
     descripcion       VARCHAR(255)                              COMMENT 'Descripción o motivo del anticipo (Ej: Adelanto para combustible campo, Anticipo material próxima entrada)',
-    estado            ENUM('disponible','agotado') DEFAULT 'disponible'
-                      COMMENT 'disponible=hay saldo pendiente de descontar | agotado=el anticipo fue consumido en su totalidad',
+    estado            ENUM('disponible','agotado','anulado') NOT NULL DEFAULT 'disponible'
+                      COMMENT 'disponible=hay saldo pendiente de descontar | agotado=el anticipo fue consumido en su totalidad | anulado=se canceló sin usarse',
     created_at        TIMESTAMP     DEFAULT CURRENT_TIMESTAMP  COMMENT 'Fecha y hora de registro del anticipo',
     FOREIGN KEY (id_minero)         REFERENCES Minero(id),
     FOREIGN KEY (id_dueno_volqueta) REFERENCES Dueno_Volqueta(id),
@@ -678,14 +690,16 @@ CREATE TABLE Anticipos_Terceros (
 CREATE TABLE Historial_Descuentos_Anticipos (
     id               INT           AUTO_INCREMENT PRIMARY KEY  COMMENT 'Identificador único del descuento aplicado',
     id_anticipo      INT           NOT NULL                    COMMENT 'Anticipo del que se realizó el descuento — ver Anticipos_Terceros',
-    id_entrada       INT           NOT NULL                    COMMENT 'Entrada de material en la que se aplicó el descuento al tercero — ver material_planta_entrada',
+    id_entrada       INT           NULL                        COMMENT 'Entrada de material en la que se aplicó el descuento, cuando aplica (material). NULL para flete/agua/proveedor — ver material_planta_entrada',
+    id_abono_cxp     INT           NULL                        COMMENT 'Abono_CxP (metodo_pago=saldo_a_favor) que efectivamente aplicó este descuento — ver Abonos_CxP',
     fecha            DATE          NOT NULL                    COMMENT 'Fecha en que se aplicó el descuento',
     monto_descontado DECIMAL(14,2) NOT NULL                    COMMENT 'Monto descontado en esta operación específica en pesos',
     nota             VARCHAR(255)                              COMMENT 'Observación o acuerdo sobre el descuento (Ej: Descuento pactado $300.000, Acuerdo verbal con Omar)',
     created_at       TIMESTAMP     DEFAULT CURRENT_TIMESTAMP  COMMENT 'Fecha y hora de registro del descuento',
-    FOREIGN KEY (id_anticipo) REFERENCES Anticipos_Terceros(id),
-    FOREIGN KEY (id_entrada)  REFERENCES material_planta_entrada(id)
-) COMMENT='Historial inmutable de descuentos aplicados sobre anticipos. Permite auditar en qué entrada exactamente se le descontó la deuda al tercero y generar el extracto de anticipos.';
+    FOREIGN KEY (id_anticipo)  REFERENCES Anticipos_Terceros(id),
+    FOREIGN KEY (id_entrada)   REFERENCES material_planta_entrada(id),
+    FOREIGN KEY (id_abono_cxp) REFERENCES Abonos_CxP(id)
+) COMMENT='Historial inmutable de descuentos aplicados sobre anticipos. Generalizado a material/flete/agua/proveedor: audita contra el Abono_CxP real (id_abono_cxp); id_entrada solo aplica al flujo de material.';
 
 
 CREATE TABLE Analisis (
@@ -746,14 +760,17 @@ CREATE TABLE Agua_Planta (
     fecha             DATE          NOT NULL                    COMMENT 'Fecha del suministro de agua a la planta',
     valor_viaje       DECIMAL(14,2) NOT NULL                    COMMENT 'Valor pactado en pesos por cada viaje de agua',
     cantidad_viajes   INT           NOT NULL DEFAULT 1          COMMENT 'Número de viajes de agua realizados en este registro',
-    acpm              DECIMAL(14,2) DEFAULT 0                   COMMENT 'Descuento en pesos por combustible ACPM que la empresa proveyó al transportador para el viaje de agua',
-    valor_total       DECIMAL(14,2) AS (valor_viaje * cantidad_viajes - IFNULL(acpm,0)) STORED
-                      COMMENT 'Valor total a pagar al dueño (valor_viaje × cantidad_viajes − acpm). Columna calculada automáticamente.',
+    acpm              DECIMAL(14,2) DEFAULT 0                   COMMENT 'Dato de entrada LEGADO del ACPM adelantado. Ya se espeja a Combustible (id_agua); el neto se deriva desde ahí. Eliminable en Fase B — migración 2026-09-02',
+    valor_total       DECIMAL(14,2) AS (valor_viaje * cantidad_viajes) STORED
+                      COMMENT 'Valor BRUTO del suministro (valor_viaje × cantidad_viajes). El ACPM se descuenta desde Combustible (NO aquí). Migración 2026-09-02 quitó el "− acpm" forzado.',
+    estado_pago       ENUM('pendiente','parcial','pagado','no_aplica') NOT NULL DEFAULT 'pendiente'
+                      COMMENT 'Estado de pago del registro de agua. Lo mantiene PagoAguaService al abonar (= estado de su CxP). Migración 2026-09-05 (pago de agua Fase B).',
     comprobante_url   VARCHAR(512)                              COMMENT 'URL o ruta del comprobante fotográfico del pago de agua',
     created_at        TIMESTAMP     DEFAULT CURRENT_TIMESTAMP  COMMENT 'Fecha y hora de registro',
     FOREIGN KEY (id_dueno_volqueta) REFERENCES Dueno_Volqueta(id),
     INDEX idx_agua_volqueta (id_dueno_volqueta),
-    INDEX idx_agua_fecha    (fecha)
+    INDEX idx_agua_fecha    (fecha),
+    INDEX idx_agua_estado   (estado_pago)
 ) COMMENT='Registro de suministros de agua a la planta en vehículos cisterna de dueños de volqueta. El valor_total se calcula automáticamente. Estado de pago → v_estado_agua.';
 
 
@@ -765,8 +782,8 @@ CREATE TABLE Mulas (
     concepto         VARCHAR(255)                              COMMENT 'Descripción del despacho: contenido, toneladas, destino y condiciones del transporte',
     factura_num      VARCHAR(50)                               COMMENT 'Número de factura de la empresa transportadora para este servicio',
     foto_factura_url VARCHAR(512)                              COMMENT 'URL o ruta de la foto de la factura del servicio de transporte',
-    valor            DECIMAL(14,2) NOT NULL                    COMMENT 'Valor total del flete de la mula (costo del transporte) en pesos colombianos',
-    comprobante_url  VARCHAR(512)                              COMMENT 'URL o ruta del comprobante de pago del flete de la mula',
+    valor            DECIMAL(14,2) NOT NULL                    COMMENT 'Lo que se debe pagar por este despacho (antes de retención) — la deuda, no un pago. El pago real se registra en los abonos de su Cuenta_Por_Pagar.',
+    comprobante_url  VARCHAR(512)                              COMMENT 'Sin uso desde la app (legado) — el comprobante del pago vive en cada Abono_CxP, no aquí',
     created_at       TIMESTAMP     DEFAULT CURRENT_TIMESTAMP  COMMENT 'Fecha y hora de registro del despacho',
     FOREIGN KEY (id_proveedor) REFERENCES Proveedores(id),
     INDEX idx_mulas_proveedor (id_proveedor),
@@ -893,6 +910,8 @@ CREATE TABLE Viaje (
     id                   INT           AUTO_INCREMENT PRIMARY KEY  COMMENT 'Identificador único del viaje',
     numero_viaje         VARCHAR(20)   NOT NULL                    COMMENT 'Código del viaje según nomenclatura de Transfigura (Ej: 11-1, 11-2, 12-3). Formato: semana-consecutivo.',
     fecha                DATE          NOT NULL                    COMMENT 'Fecha de salida del material de la planta hacia Barranquilla',
+    estado               ENUM('almacenado','despachado') NOT NULL DEFAULT 'almacenado'
+                         COMMENT 'almacenado=el viaje está armado pero el material sigue en planta. despachado=ya salió en una Mula hacia Barranquilla. Lo mantiene PagoMulaService al crear/eliminar/desvincular una Mula — no hay trigger.',
     total_costo_material DECIMAL(14,2)                             COMMENT 'Suma del costo de todo el material incluido en el viaje (sum de precio_total de cada entrada)',
     maquila              DECIMAL(14,2)                             COMMENT 'Costo total de maquila del viaje. Calculado como SUMA de viaje_material.costo_maquila. Actualizado por trg_after_insert_viaje_material al asignar concentrado al viaje. El costo de maquila nace en material_concentrado al cerrar el batch (en_proceso->en_canoa)',
     total_viaje          DECIMAL(14,2)                             COMMENT 'Costo total del viaje: material + maquila + otros gastos asociados',
@@ -1234,9 +1253,10 @@ CREATE TABLE Cuentas_Por_Cobrar_Relacion (
 
 CREATE TABLE Saldo_A_Favor (
     id                INT           AUTO_INCREMENT PRIMARY KEY  COMMENT 'Identificador único del crédito por sobrepago',
-    origen            ENUM('pago_excedido','ajuste_manual') NOT NULL
-                      COMMENT 'Origen: pago_excedido=valor_pagado superó valor_total en un Abono_CxP, ajuste_manual=corrección contable manual',
+    origen            ENUM('pago_excedido','ajuste_manual','anticipo') NOT NULL
+                      COMMENT 'Origen: pago_excedido=valor_pagado superó valor_total en un Abono_CxP, ajuste_manual=corrección contable manual, anticipo=espejo de un Anticipos_Terceros creado a propósito',
     id_abono_cxp_orig INT           NULL                        COMMENT 'Abono que generó el sobrepago cuando origen=pago_excedido — ver Abonos_CxP',
+    id_anticipo       INT           NULL                        COMMENT 'Solo cuando origen=anticipo: anticipo del que este crédito es espejo — ver Anticipos_Terceros',
 
     -- Exactamente UNO de estos beneficiarios (CHECK garantiza):
     id_minero         INT           NULL                        COMMENT 'Minero que recibió de más y tiene crédito a su favor — ver Minero',
@@ -1267,9 +1287,13 @@ CREATE TABLE Saldo_A_Favor (
     FOREIGN KEY (id_proveedor)      REFERENCES Proveedores(id),
     FOREIGN KEY (id_empleado)       REFERENCES Empleados(id),
     FOREIGN KEY (id_cuenta_pagar)   REFERENCES Cuentas_Por_Pagar(id),
+    FOREIGN KEY (id_anticipo)       REFERENCES Anticipos_Terceros(id),
     CONSTRAINT chk_saf_un_beneficiario CHECK (
         (id_minero IS NOT NULL) + (id_dueno_volqueta IS NOT NULL) +
         (id_proveedor IS NOT NULL) + (id_empleado IS NOT NULL) = 1
+    ),
+    CONSTRAINT chk_saf_origen_anticipo CHECK (
+        (origen = 'anticipo') = (id_anticipo IS NOT NULL)
     ),
     INDEX idx_saf_minero    (id_minero),
     INDEX idx_saf_volqueta  (id_dueno_volqueta),
@@ -1304,27 +1328,42 @@ LEFT JOIN Abonos_CxP         ab ON ab.id_cuenta_pagar = cp.id
 GROUP BY  mpe.id, mn.nombre, mpe.precio_total;
 
 
-CREATE VIEW v_estado_pago_flete AS
+-- v_estado_pago_flete: NETA (resta ACPM de Combustible) y PRORRATEADA (usa monto_aplicado
+-- × valor_pagado/valor_total, sin fan-out de abonos). Migración 2026-09-05 (pago de flete Fase B).
+-- El detalle por dueño lo arma PagoFleteService materializando cuentas mensuales; esta vista
+-- alimenta el KPI global de deuda. estado por viaje → material_planta_entrada.estado_pago_flete.
+CREATE OR REPLACE VIEW v_estado_pago_flete AS
 SELECT
-    mpe.id                                                            AS id_entrada,
+    mpe.id                                                             AS id_entrada,
     vv.placa,
-    dv.nombre                                                         AS dueno_volqueta,
-    mpe.costo_volqueta                                                AS valor_total,
-    COALESCE(SUM(ab.valor), 0)                                        AS total_pagado,
-    GREATEST(mpe.costo_volqueta - COALESCE(SUM(ab.valor), 0), 0)     AS saldo_pendiente,
+    dv.nombre                                                          AS dueno_volqueta,
+    mpe.costo_volqueta                                                 AS flete_bruto,
+    COALESCE(cb.acpm, 0)                                               AS acpm,
+    COALESCE(cpr.monto_aplicado, GREATEST(mpe.costo_volqueta - COALESCE(cb.acpm, 0), 0)) AS valor_total,
+    ROUND(COALESCE(cpr.monto_aplicado, 0)
+          * (COALESCE(cp.valor_pagado, 0) / NULLIF(cp.valor_total, 0)), 2)              AS total_pagado,
+    ROUND(COALESCE(cpr.monto_aplicado, GREATEST(mpe.costo_volqueta - COALESCE(cb.acpm, 0), 0))
+          - COALESCE(cpr.monto_aplicado, 0)
+            * (COALESCE(cp.valor_pagado, 0) / NULLIF(cp.valor_total, 0)), 2)            AS saldo_pendiente,
     CASE
-        WHEN COALESCE(SUM(ab.valor), 0) <= 0                  THEN 'pendiente'
-        WHEN COALESCE(SUM(ab.valor), 0) >= mpe.costo_volqueta THEN 'pagado'
+        WHEN COALESCE(cp.valor_pagado, 0) <= 0        THEN 'pendiente'
+        WHEN cp.valor_pagado >= cp.valor_total        THEN 'pagado'
         ELSE 'parcial'
-    END AS estado_pago
+    END                                                                AS estado_pago
 FROM      material_planta_entrada mpe
 LEFT JOIN Volqueta_Vehiculo vv ON vv.id = mpe.id_vehiculo
 LEFT JOIN Dueno_Volqueta    dv ON dv.id = vv.id_dueno_volqueta
+LEFT JOIN (
+    SELECT id_material_planta_entrada AS id_entrada, SUM(valor) AS acpm
+    FROM   Combustible
+    WHERE  id_material_planta_entrada IS NOT NULL
+    GROUP BY id_material_planta_entrada
+)         cb  ON cb.id_entrada = mpe.id
 LEFT JOIN Cuentas_Por_Pagar_Relacion cpr
        ON cpr.id_entrada = mpe.id AND cpr.subtipo = 'flete'
-LEFT JOIN Cuentas_Por_Pagar cp  ON cp.id = cpr.id_cuenta_pagar AND cp.estado != 'anulado'
-LEFT JOIN Abonos_CxP        ab  ON ab.id_cuenta_pagar = cp.id
-GROUP BY  mpe.id, vv.placa, dv.nombre, mpe.costo_volqueta;
+LEFT JOIN Cuentas_Por_Pagar cp
+       ON cp.id = cpr.id_cuenta_pagar AND cp.estado != 'anulado'
+WHERE     mpe.costo_volqueta > 0 AND mpe.estado != 'cancelada';
 
 
 CREATE VIEW v_excedente_por_vehiculo AS
@@ -1435,32 +1474,49 @@ LEFT JOIN Abonos_CxP ab ON ab.id_cuenta_pagar = cp.id
 GROUP BY c.id, c.valor;
 
 
-CREATE VIEW v_estado_agua AS
+-- v_estado_agua: NETA (resta ACPM de Combustible por id_agua) y PRORRATEADA (sin fan-out de abonos).
+-- Migración 2026-09-05 (pago de agua Fase B). El detalle por dueño lo arma PagoAguaService.
+CREATE OR REPLACE VIEW v_estado_agua AS
 SELECT
-    ag.id, ag.valor_total,
-    COALESCE(SUM(ab.valor),0) AS total_pagado,
-    GREATEST(ag.valor_total - COALESCE(SUM(ab.valor),0), 0) AS saldo_pendiente,
-    CASE WHEN COALESCE(SUM(ab.valor),0)<=0 THEN 'pendiente'
-         WHEN COALESCE(SUM(ab.valor),0)>=ag.valor_total THEN 'pagado' ELSE 'parcial' END AS estado_pago
-FROM Agua_Planta ag
-LEFT JOIN Cuentas_Por_Pagar_Relacion cpr ON cpr.id_agua = ag.id
-LEFT JOIN Cuentas_Por_Pagar cp ON cp.id = cpr.id_cuenta_pagar AND cp.estado!='anulado'
-LEFT JOIN Abonos_CxP ab ON ab.id_cuenta_pagar = cp.id
-GROUP BY ag.id, ag.valor_total;
+    ap.id                                                             AS id_agua,
+    dv.nombre                                                         AS dueno_volqueta,
+    ap.valor_total                                                    AS bruto,
+    COALESCE(cb.acpm, 0)                                              AS acpm,
+    COALESCE(cpr.monto_aplicado, GREATEST(ap.valor_total - COALESCE(cb.acpm, 0), 0)) AS valor_total,
+    ROUND(COALESCE(cpr.monto_aplicado, 0)
+          * (COALESCE(cp.valor_pagado, 0) / NULLIF(cp.valor_total, 0)), 2)              AS total_pagado,
+    ROUND(COALESCE(cpr.monto_aplicado, GREATEST(ap.valor_total - COALESCE(cb.acpm, 0), 0))
+          - COALESCE(cpr.monto_aplicado, 0)
+            * (COALESCE(cp.valor_pagado, 0) / NULLIF(cp.valor_total, 0)), 2)            AS saldo_pendiente,
+    CASE
+        WHEN COALESCE(cp.valor_pagado, 0) <= 0 THEN 'pendiente'
+        WHEN cp.valor_pagado >= cp.valor_total THEN 'pagado'
+        ELSE 'parcial'
+    END                                                               AS estado_pago
+FROM      agua_planta ap
+LEFT JOIN dueno_volqueta dv ON dv.id = ap.id_dueno_volqueta
+LEFT JOIN (
+    SELECT id_agua, SUM(valor) AS acpm
+    FROM   combustible
+    WHERE  id_agua IS NOT NULL
+    GROUP BY id_agua
+)         cb  ON cb.id_agua = ap.id
+LEFT JOIN Cuentas_Por_Pagar_Relacion cpr ON cpr.id_agua = ap.id
+LEFT JOIN Cuentas_Por_Pagar cp ON cp.id = cpr.id_cuenta_pagar AND cp.estado != 'anulado';
 
 
-CREATE VIEW v_estado_mulas AS
+-- v_estado_mulas: NETA de retención (lee la CxP real, no Mulas.valor bruto). Corregida 2026-09-13
+-- al implementar /pagos/mulas — la versión original ignoraba la retención (ver migración de esa fecha).
+CREATE OR REPLACE VIEW v_estado_mulas AS
 SELECT
-    m.id, m.valor AS valor_total,
-    COALESCE(SUM(ab.valor),0) AS total_pagado,
-    GREATEST(m.valor - COALESCE(SUM(ab.valor),0), 0) AS saldo_pendiente,
-    CASE WHEN COALESCE(SUM(ab.valor),0)<=0 THEN 'pendiente'
-         WHEN COALESCE(SUM(ab.valor),0)>=m.valor THEN 'pagado' ELSE 'parcial' END AS estado_pago
-FROM Mulas m
-LEFT JOIN Cuentas_Por_Pagar_Relacion cpr ON cpr.id_mula = m.id
-LEFT JOIN Cuentas_Por_Pagar cp ON cp.id = cpr.id_cuenta_pagar AND cp.estado!='anulado'
-LEFT JOIN Abonos_CxP ab ON ab.id_cuenta_pagar = cp.id
-GROUP BY m.id, m.valor;
+    m.id,
+    COALESCE(cp.valor_total, m.valor)   AS valor_total,
+    COALESCE(cp.valor_pagado, 0)        AS total_pagado,
+    COALESCE(cp.saldo, m.valor)         AS saldo_pendiente,
+    COALESCE(cp.estado, 'pendiente')    AS estado_pago
+FROM       Mulas m
+LEFT JOIN  Cuentas_Por_Pagar_Relacion cpr ON cpr.id_mula = m.id
+LEFT JOIN  Cuentas_Por_Pagar cp           ON cp.id = cpr.id_cuenta_pagar AND cp.estado != 'anulado';
 
 
 CREATE VIEW v_saldo_prestamos_empleado AS
@@ -1492,28 +1548,33 @@ LEFT JOIN Mina                    mi  ON mi.id = COALESCE(a.id_mina, mpe.id_mina
 
 
 -- 2. Ejemplo de corrección de Collation en las vistas de estado (Aplica a todas)
+-- PRORRATEO por pago agrupado (fix 2026-08-31). Antes sumaba TODOS los abonos de la CxP a
+-- cada entrada → contaba de más cuando una CxP cubre varias volquetas. Ahora: pagado de una
+-- entrada = monto_aplicado * (valor_pagado_CxP / valor_total_CxP). Mismas columnas de salida.
 CREATE OR REPLACE VIEW v_estado_pago_material AS
 SELECT
-    mpe.id                                                         AS id_entrada,
-    mn.nombre                                                      AS minero,
-    mpe.precio_total                                               AS valor_total,
-    COALESCE(SUM(ab.valor), 0)                                     AS total_pagado,
-    GREATEST(mpe.precio_total - COALESCE(SUM(ab.valor), 0), 0)     AS saldo_pendiente,
+    mpe.id                                                       AS id_entrada,
+    mpe.numero_volqueta                                         AS numero_volqueta,
+    mpe.fecha_llegada                                          AS fecha_llegada,
+    mn.nombre                                                   AS minero,
+    COALESCE(cpr.monto_aplicado, mpe.precio_total)             AS valor_total,
+    ROUND(COALESCE(cpr.monto_aplicado, 0)
+          * (COALESCE(cp.valor_pagado, 0) / NULLIF(cp.valor_total, 0)), 2)         AS total_pagado,
+    ROUND(COALESCE(cpr.monto_aplicado, mpe.precio_total)
+          - COALESCE(cpr.monto_aplicado, 0)
+            * (COALESCE(cp.valor_pagado, 0) / NULLIF(cp.valor_total, 0)), 2)       AS saldo_pendiente,
     CASE
-        WHEN COALESCE(SUM(ab.valor), 0) <= 0                THEN 'pendiente'
-        WHEN COALESCE(SUM(ab.valor), 0) >= mpe.precio_total THEN 'pagado'
+        WHEN cp.id IS NULL OR COALESCE(cp.valor_pagado, 0) <= 0 THEN 'pendiente'
+        WHEN cp.valor_pagado >= cp.valor_total                  THEN 'pagado'
         ELSE 'parcial'
     END AS estado_pago
 FROM      material_planta_entrada mpe
 JOIN      Mina    mi ON mi.id  = mpe.id_mina
 LEFT JOIN Minero  mn ON mn.id  = mi.id_minero
--- Forzamos el COLLATE en las cadenas de texto para evitar el choque con el servidor
 LEFT JOIN Cuentas_Por_Pagar_Relacion cpr
        ON cpr.id_entrada = mpe.id AND cpr.subtipo = 'material' COLLATE utf8mb4_unicode_ci
-LEFT JOIN Cuentas_Por_Pagar cp  
-       ON cp.id = cpr.id_cuenta_pagar AND cp.estado != 'anulado' COLLATE utf8mb4_unicode_ci
-LEFT JOIN Abonos_CxP         ab ON ab.id_cuenta_pagar = cp.id
-GROUP BY  mpe.id, mn.nombre, mpe.precio_total;
+LEFT JOIN Cuentas_Por_Pagar cp
+       ON cp.id = cpr.id_cuenta_pagar AND cp.estado != 'anulado' COLLATE utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
 SET SQL_SAFE_UPDATES   = 1;
@@ -1973,3 +2034,39 @@ BEGIN
 END$$
 
 DELIMITER ;
+
+
+-- ====================================================================
+-- MIGRACION 2026-08-23 — Triggers -> App + campos nuevos
+-- ====================================================================
+-- La logica de estos triggers ya vive en la app (Node/TS). Ejecutar los DROP
+-- para que NO haya doble escritura. Orden sugerido: desplegar backend y luego DROP.
+
+-- Ya migrados/borrados en fases previas (materia prima y concentrado):
+DROP TRIGGER IF EXISTS trg_after_insert_mpe;
+DROP TRIGGER IF EXISTS trg_after_update_mpe;
+DROP TRIGGER IF EXISTS trg_after_insert_procesamiento_material;   -- #1
+DROP TRIGGER IF EXISTS trg_before_update_material_concentrado;    -- #2
+DROP TRIGGER IF EXISTS trg_after_update_material_concentrado;     -- #3
+
+-- Viajes (migrados a ViajesService/ViajesRepository — Fase 4):
+DROP TRIGGER IF EXISTS trg_before_insert_viaje_material;          -- #4 costo_maquila
+DROP TRIGGER IF EXISTS trg_after_insert_viaje_material;           -- #5 descuento stock + totales
+DROP TRIGGER IF EXISTS trg_after_delete_viaje_material;           -- #7 reversa stock
+DROP TRIGGER IF EXISTS trg_before_update_viaje_material_lote;     -- #6 (la app llena la linea)
+
+-- Merma por lote (en GRAMOS de metal). Se restara a total_grs_au/ag_venta del viaje.
+ALTER TABLE material_concentrado
+  ADD COLUMN merma_au DECIMAL(12,4) NOT NULL DEFAULT 0
+    COMMENT 'Gramos de Au que se pierden del lote (merma); se restan a total_grs_au_venta',
+  ADD COLUMN merma_ag DECIMAL(12,4) NOT NULL DEFAULT 0
+    COMMENT 'Gramos de Ag que se pierden del lote (merma); se restan a total_grs_ag_venta';
+
+-- Notas de logica de negocio (sin DDL, ya en la app):
+--  * Excedente: aplica cuando el tenor real (au_gr_x_ton) >= 4 gr Au/ton (antes > 2).
+--  * Tarifas de maquila: se versionan por fecha en la tabla tarifas_proceso
+--    (POST /material/tarifas-proceso crea nueva vigencia y cierra la anterior).
+--  * Viaje.valor_total_con_gastos se deriva del total_material del lote (material+gastos,
+--    sin excedente) prorrateado por el seco despachado.
+--  * Al cerrar lote, porcentaje_humedad es OPCIONAL (se toma del analisis tipo 2 si existe).
+-- ====================================================================

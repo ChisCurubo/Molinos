@@ -7,6 +7,7 @@ export interface IAguaPlantaService {
     resumenPorDueno(fechaDesde: string, fechaHasta: string): Promise<any[]>;
     resumenPorIdDueno(id_dueno: number): Promise<any>;
     actualizar(id: number, data: import('../repository_port/agua.repository.interface').UpdateAguaPlantaDTO): Promise<boolean>;
+    eliminar(id: number): Promise<boolean>;
     obtenerPorId(id: number): Promise<AguaPlantaSQL | null>;
     reporteMensual(fechaDesde: string, fechaHasta: string): Promise<any>;
 }

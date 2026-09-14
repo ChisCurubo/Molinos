@@ -12,23 +12,81 @@ export class InventarioRepository implements IInventarioRepository {
         return tx || this.db;
     }
 
+    // Material crudo PENDIENTE de procesar. Reescrito sobre tablas base (la vista
+    // v_inventario_material_crudo no existe). "Disponible" = seco total − seco ya procesado.
     async obtenerMaterialCrudo(): Promise<any[]> {
         const [rows] = await this.db.execute<any[]>(`
-            SELECT * FROM v_inventario_material_crudo ORDER BY fecha_llegada ASC
+            SELECT
+                mpe.id AS id_entrada,
+                mpe.numero_volqueta,
+                mi.nombre AS mina,
+                tm.nombre AS tipo_material,
+                mpe.fecha_llegada,
+                mpe.porcentaje_humedad,
+                mpe.peso_llegada_planta,
+                mpe.total_material_seco,
+                mpe.tenor,
+                mpe.estado,
+                COALESCE(pr.ya_procesado_seco, 0) AS ya_procesado_seco,
+                ROUND(mpe.total_material_seco - COALESCE(pr.ya_procesado_seco, 0), 4) AS disponible_seco
+            FROM material_planta_entrada mpe
+            LEFT JOIN mina mi ON mi.id = mpe.id_mina
+            LEFT JOIN tipos_material tm ON tm.id = mpe.id_tipo_material
+            LEFT JOIN (
+                SELECT id_entrada, SUM(toneladas_seco_aportadas) AS ya_procesado_seco
+                FROM procesamiento_material GROUP BY id_entrada
+            ) pr ON pr.id_entrada = mpe.id
+            WHERE mpe.estado NOT IN ('cancelada')
+              AND mpe.total_material_seco > 0
+              AND (mpe.total_material_seco - COALESCE(pr.ya_procesado_seco, 0)) > 0.0001
+            ORDER BY mpe.fecha_llegada ASC
         `);
         return rows;
     }
 
+    // Concentrado DISPONIBLE para despachar. Reescrito sobre tablas base (la vista
+    // v_inventario_concentrado no existe). Trae el tenor del último análisis del lote.
     async obtenerConcentrado(): Promise<any[]> {
         const [rows] = await this.db.execute<any[]>(`
-            SELECT * FROM v_inventario_concentrado ORDER BY fecha_fin ASC
+            SELECT
+                mc.id, mc.codigo, mc.estado, mc.fecha_inicio, mc.fecha_fin,
+                mc.porcentaje_humedad, mc.toneladas_humedo, mc.toneladas_seco,
+                mc.toneladas_disponibles, mc.material_seco_procesado,
+                mc.ubicacion_canoa, mc.precio_maquila_por_ton, mc.maquila_total,
+                an.numero_analisis, an.au_gr_x_ton, an.ag_gr_x_ton, an.au_concentrado, an.ag_concentrado
+            FROM material_concentrado mc
+            LEFT JOIN (
+                SELECT a.id, a.id_material_concentrado, a.numero_analisis,
+                       a.au_gr_x_ton, a.ag_gr_x_ton, a.au_concentrado, a.ag_concentrado
+                FROM Analisis a
+                INNER JOIN (
+                    SELECT id_material_concentrado, MAX(id) AS mx
+                    FROM Analisis WHERE id_material_concentrado IS NOT NULL
+                    GROUP BY id_material_concentrado
+                ) last ON last.mx = a.id
+            ) an ON an.id_material_concentrado = mc.id
+            WHERE mc.estado IN ('en_canoa', 'parcialmente_enviado')
+              AND mc.toneladas_disponibles > 0
+            ORDER BY mc.fecha_fin ASC
         `);
         return rows;
     }
 
+    // Resumen de un lote de concentrado. Reescrito sobre tablas base (la vista
+    // v_resumen_lote no existe): lote + nº de materiales + seco procesado + estado de inventario.
     async obtenerResumenLote(idLote: number): Promise<any> {
         const [rows] = await this.db.execute<any[]>(
-            `SELECT * FROM v_resumen_lote WHERE id = ?`,
+            `SELECT
+                mc.id, mc.codigo, mc.estado, mc.fecha_inicio, mc.fecha_fin,
+                mc.porcentaje_humedad, mc.toneladas_humedo, mc.toneladas_seco,
+                mc.toneladas_disponibles, mc.material_seco_procesado,
+                mc.precio_maquila_por_ton, mc.maquila_total,
+                (SELECT COUNT(*) FROM procesamiento_material pm WHERE pm.id_material_concentrado = mc.id) AS num_materiales,
+                (SELECT COALESCE(SUM(pm.toneladas_seco_aportadas), 0) FROM procesamiento_material pm WHERE pm.id_material_concentrado = mc.id) AS total_seco_procesado,
+                (SELECT il.toneladas_disponibles FROM Inventario_Lotes il WHERE il.id_material_concentrado = mc.id ORDER BY il.id DESC LIMIT 1) AS inventario_disponible,
+                (SELECT il.estado FROM Inventario_Lotes il WHERE il.id_material_concentrado = mc.id ORDER BY il.id DESC LIMIT 1) AS inventario_estado
+            FROM material_concentrado mc
+            WHERE mc.id = ?`,
             [idLote]
         );
         return rows.length > 0 ? rows[0] : null;

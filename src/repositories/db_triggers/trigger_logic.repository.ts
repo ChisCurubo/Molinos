@@ -85,10 +85,12 @@ export class TriggerLogicRepositoryImpl implements TriggerLogicRepository {
       );
       const v_ps = psRows.length > 0 ? psRows[0].valor : 0;
 
+      // Relave y proceso normal ya incluyen filtroprensa (no se exige marcarla aparte).
+      // Ver ConcentradoRepository.obtenerTarifaMaquila (fuente de verdad).
       let v_precio = 0;
-      if (newRow.hizo_relave == 1 && newRow.hizo_filtroprensa == 1) {
+      if (newRow.hizo_relave == 1) {
         v_precio = v_pr;
-      } else if ((newRow.hizo_molienda == 1 || newRow.hizo_flotacion == 1) && newRow.hizo_filtroprensa == 1) {
+      } else if (newRow.hizo_molienda == 1 || newRow.hizo_flotacion == 1) {
         v_precio = v_pn;
       } else if (newRow.hizo_filtroprensa == 1) {
         v_precio = v_ps;

@@ -3,7 +3,8 @@
 export interface HistorialDescuentoAnticipoSQL {
     id: number;
     id_anticipo: number;
-    id_entrada: number;
+    id_entrada?: number;
+    id_abono_cxp?: number;
     fecha: Date;
     monto_descontado: number;
     nota: string;

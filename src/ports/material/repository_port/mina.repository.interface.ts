@@ -12,6 +12,8 @@ export interface IMinaRepository {
     delete(id: number): Promise<boolean>;
     list(): Promise<MinaSQL[]>;
     obtenerZonaDeMina(idMina: number, conn?: PoolConnection): Promise<number | null>;
+    listarEntradas(id_mina: number): Promise<any[]>;
+    resumen(id_mina: number): Promise<any | null>;
 }
 
 // --- Original: minero ---

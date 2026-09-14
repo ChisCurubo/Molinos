@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import { MinaRepository } from '../../repositories/material/mina.repository';
 
 import { IMinaService, IMineroService, IZonaService, ITarifaZonaService, IMinaPrecioMaterialService } from '../../ports/material/service_port/mina.service.interface';
 
@@ -13,29 +12,28 @@ export class MinaController {
         private minaService: IMinaService,
         private mineroService: IMineroService,
         private zonaService: IZonaService,
-        private repo: MinaRepository, // For legacy methods like listarEntradas
         private tarifaZonaService: ITarifaZonaService,
         private precioMaterialService: IMinaPrecioMaterialService
     ) {}
 
     list = async (_req: Request, res: Response) => {
-        try { ok(res, await this.repo.list()); } catch (e) { err(res, e); }
+        try { ok(res, await this.minaService.list()); } catch (e) { err(res, e); }
     };
 
     getById = async (req: Request, res: Response) => {
         try {
-            const data = await this.repo.getById(Number(req.params.id));
+            const data = await this.minaService.getById(Number(req.params.id));
             if (!data) return res.status(404).json({ success: false, error: 'Mina no encontrada' });
             ok(res, data);
         } catch (e) { err(res, e); }
     };
 
     entradas = async (req: Request, res: Response) => {
-        try { ok(res, await this.repo.listarEntradas(Number(req.params.id))); } catch (e) { err(res, e); }
+        try { ok(res, await this.minaService.listarEntradas(Number(req.params.id))); } catch (e) { err(res, e); }
     };
 
     resumen = async (req: Request, res: Response) => {
-        try { ok(res, await this.repo.resumen(Number(req.params.id))); } catch (e) { err(res, e); }
+        try { ok(res, await this.minaService.resumen(Number(req.params.id))); } catch (e) { err(res, e); }
     };
 
     mineros = async (_req: Request, res: Response) => {

@@ -10,6 +10,8 @@ export interface IMinaService {
     update(id: number, data: any): Promise<MinaSQL | null>;
     delete(id: number): Promise<boolean>;
     list(): Promise<MinaSQL[]>;
+    listarEntradas(id_mina: number): Promise<any[]>;
+    resumen(id_mina: number): Promise<any | null>;
 }
 
 // --- Original: minero ---

@@ -8,6 +8,7 @@ export interface CombustibleSQL {
     id_vehiculo?: number;
     id_planta?: number;
     id_material_planta_entrada?: number;
+    id_agua?: number;
     fecha: Date;
     descripcion: string;
     valor: number;

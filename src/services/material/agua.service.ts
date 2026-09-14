@@ -1,14 +1,20 @@
+import { Pool } from 'mysql2/promise';
 import { CreateAguaPlantaDTO, AguaPlantaSQL, IAguaPlantaRepository } from '../../ports/material/repository_port/agua.repository.interface';
 import { IAguaPlantaService } from '../../ports/material/service_port/agua.service.interface';
-import { VehiculoRepository } from '../../repositories/material/vehiculo.repository';
+import { IVehiculoRepository } from '../../ports/material/repository_port/volqueta.repository.interface';
+import { CombustibleService } from '../../services/pagos/combustible.service';
 
 export class AguaPlantaService implements IAguaPlantaService {
     private repo: IAguaPlantaRepository;
-    private vehiculoRepo: VehiculoRepository;
+    private vehiculoRepo: IVehiculoRepository;
+    private db: Pool;
+    private combustibleService: CombustibleService;
 
-    constructor(repo: IAguaPlantaRepository, vehiculoRepo: VehiculoRepository) {
+    constructor(repo: IAguaPlantaRepository, vehiculoRepo: IVehiculoRepository, db: Pool, combustibleService: CombustibleService) {
         this.repo = repo;
         this.vehiculoRepo = vehiculoRepo;
+        this.db = db;
+        this.combustibleService = combustibleService;
     }
 
     async registrar(data: CreateAguaPlantaDTO): Promise<number> {
@@ -23,13 +29,70 @@ export class AguaPlantaService implements IAguaPlantaService {
 
         data.id_dueno_volqueta = vehiculo.dueno_id;
 
-        // valor_total es calculado automáticamente por la DB (columna STORED)
-
-        return await this.repo.registrar(data);
+        // valor_total es calculado automáticamente por la DB (columna STORED).
+        // El ACPM se espeja a Combustible (fuente única de deuda con la gasolinera), en la misma tx.
+        const conn = await this.db.getConnection();
+        await conn.beginTransaction();
+        try {
+            const id = await this.repo.registrar(data, conn);
+            await this.combustibleService.sincronizarAcpmAgua(id, {
+                id_dueno_volqueta: vehiculo.dueno_id ?? null,
+                id_vehiculo: data.id_vehiculo ?? null,
+                id_gasolinera: data.id_gasolinera ?? null,
+                fecha: data.fecha,
+                acpm: Number(data.acpm) || 0,
+                comprobante_url: data.comprobante_url ?? null
+            }, conn);
+            await conn.commit();
+            return id;
+        } catch (error) {
+            await conn.rollback();
+            throw error;
+        } finally {
+            conn.release();
+        }
     }
 
     async actualizar(id: number, data: import('../../ports/material/repository_port/agua.repository.interface').UpdateAguaPlantaDTO): Promise<boolean> {
-        return await this.repo.actualizar(id, data);
+        const conn = await this.db.getConnection();
+        await conn.beginTransaction();
+        try {
+            const ok = await this.repo.actualizar(id, data, conn);
+            // Si cambió el ACPM, se sincroniza la fila espejo en Combustible.
+            if (data.acpm !== undefined) {
+                const viaje = await this.repo.obtenerPorId(id, conn);
+                await this.combustibleService.sincronizarAcpmAgua(id, {
+                    id_dueno_volqueta: viaje?.id_dueno ?? null,
+                    id_gasolinera: data.id_gasolinera ?? null,
+                    fecha: (viaje?.fecha ?? new Date().toISOString().slice(0, 10)) as any,
+                    acpm: Number(data.acpm) || 0,
+                    comprobante_url: data.comprobante_url ?? undefined
+                }, conn);
+            }
+            await conn.commit();
+            return ok;
+        } catch (error) {
+            await conn.rollback();
+            throw error;
+        } finally {
+            conn.release();
+        }
+    }
+
+    async eliminar(id: number): Promise<boolean> {
+        const conn = await this.db.getConnection();
+        await conn.beginTransaction();
+        try {
+            await this.combustibleService.eliminarAcpmAgua(id, conn);
+            const ok = await this.repo.eliminar(id, conn);
+            await conn.commit();
+            return ok;
+        } catch (error) {
+            await conn.rollback();
+            throw error;
+        } finally {
+            conn.release();
+        }
     }
 
     async listar(fechaDesde: string, fechaHasta: string): Promise<AguaPlantaSQL[]> {
@@ -54,19 +117,23 @@ export class AguaPlantaService implements IAguaPlantaService {
 
     /**
      * Reporte del período agrupado por dueño con arrastre de saldo.
-     * neto = valor_total (= bruto - acpm, columna STORED en BD).
+     * valor_total ahora es BRUTO; el ACPM se deriva de Combustible ⇒ neto = bruto − acpm.
      * saldo_inicio = suma de netos de meses ANTERIORES al período (abonos aún no implementados).
      * saldo_fin = saldo_inicio + neto_mes - abonado (abonado = 0 por ahora).
      */
     async reporteMensual(fechaDesde: string, fechaHasta: string): Promise<any> {
-        const [viajes, saldos] = await Promise.all([
+        const [viajes, saldos, abonadoPeriodo, abonadoAntes] = await Promise.all([
             this.repo.obtenerViajesPeriodo(fechaDesde, fechaHasta),
-            this.repo.obtenerSaldosInicio(fechaDesde)
+            this.repo.obtenerSaldosInicio(fechaDesde),
+            this.repo.abonosAguaPorDueno(fechaDesde, fechaHasta),
+            this.repo.abonosAguaAntesPorDueno(fechaDesde)
         ]);
 
+        // saldo_inicio = netos de meses anteriores − abonos de meses anteriores.
         const saldoInicioPorDueno = new Map<number, number>();
         for (const s of saldos) {
-            saldoInicioPorDueno.set(Number(s.id_dueno), Number(s.saldo_inicio) || 0);
+            const prevAbono = Number(abonadoAntes.get(Number(s.id_dueno)) || 0);
+            saldoInicioPorDueno.set(Number(s.id_dueno), (Number(s.saldo_inicio) || 0) - prevAbono);
         }
 
         const porDueno = new Map<number, any>();
@@ -75,11 +142,12 @@ export class AguaPlantaService implements IAguaPlantaService {
             const valorViaje = Number(v.valor_viaje) || 0;
             const cantidad = Number(v.cantidad_viajes) || 0;
             const acpm = Number(v.acpm) || 0;
-            const neto = Number(v.valor_total) || 0;
-            const bruto = valorViaje * cantidad;
+            const bruto = Number(v.valor_total) || (valorViaje * cantidad);  // valor_total ya es BRUTO
+            const neto = Math.max(0, bruto - acpm);   // per-registro, piso 0 (el excedente de ACPM es crédito de gasolina)
 
             if (!porDueno.has(idDueno)) {
                 const saldoInicio = saldoInicioPorDueno.get(idDueno) || 0;
+                const abonado = Number(abonadoPeriodo.get(idDueno) || 0);
                 porDueno.set(idDueno, {
                     id_dueno: idDueno,
                     dueno: v.dueno,
@@ -91,8 +159,8 @@ export class AguaPlantaService implements IAguaPlantaService {
                         acpm: 0,
                         neto_mes: 0,
                         saldo_inicio: saldoInicio,
-                        abonado: 0,
-                        saldo_fin: saldoInicio
+                        abonado,
+                        saldo_fin: saldoInicio - abonado
                     },
                     viajes: []
                 });

@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
-import { InventarioService } from '../../services/material/inventario.service';
+import { IInventarioService } from '../../ports/material/inventario.interface';
 
 const ok = (res: Response, data: any) => res.status(200).json({ success: true, data });
 const err = (res: Response, e: any, status = 500) => res.status(status).json({ success: false, error: e.message || String(e) });
 
 export class InventarioController {
-    constructor(private service: InventarioService) {}
+    constructor(private service: IInventarioService) {}
 
     public obtenerMaterialCrudo = async (_req: Request, res: Response): Promise<void> => {
         try {

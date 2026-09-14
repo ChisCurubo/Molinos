@@ -4,6 +4,7 @@ export interface SaldoAFavorSQL {
     id: number;
     origen: string;
     id_abono_cxp_orig?: number;
+    id_anticipo?: number;
     id_minero?: number;
     id_dueno_volqueta?: number;
     id_proveedor?: number;

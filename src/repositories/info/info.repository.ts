@@ -1,6 +1,7 @@
 import { Pool } from 'mysql2/promise';
+import { IInfoRepository } from '../../ports/info/repository_port/info.repository.interface';
 
-export class InfoRepository {
+export class InfoRepository implements IInfoRepository {
   constructor(private db: Pool) {}
   async estadisticas(): Promise<any> {
     const query = `

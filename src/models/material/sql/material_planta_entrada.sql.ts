@@ -73,6 +73,11 @@ export interface CreateMaterialEntradaDTO {
   // Si id_vehiculo es null y se envía nueva_volqueta, el Service crea el vehículo
   // primero (dentro de la misma transacción) y usa su id como id_vehiculo.
   nueva_volqueta?: NuevaVolquetaDTO | null;
+  // ACPM (adelanto de combustible al transportador). Se registra en la tabla Combustible
+  // y se descuenta del flete. Opcional; si es 0/omitido no se crea fila de combustible.
+  acpm?: number;
+  id_gasolinera?: number | null;      // gasolinera del ACPM (opcional, se puede completar luego)
+  acpm_comprobante_url?: string | null;
 }
 
 export interface UpdateDesdeAnalisisDTO {

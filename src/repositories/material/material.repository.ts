@@ -89,9 +89,15 @@ export class MaterialEntradaRepository implements IMaterialEntradaRepository {
           ) AS tiene_analisis_cabeza,
           -- Flete = costo_volqueta de la entrada (mismo valor que expone GET /material/entradas/:id → detalle.flete)
           mpe.costo_volqueta AS flete,
-          -- ACPM adelantado: no existe columna en material_planta_entrada (solo en agua_planta),
-          -- se expone 0 para ser consistente con detalle.acpm_adelantado del detalle.
-          CAST(0 AS DECIMAL(14,2)) AS acpm_adelantado,
+          -- ACPM adelantado: Σ de las filas de Combustible atadas a la entrada (adelanto de combustible).
+          COALESCE((
+              SELECT SUM(c.valor) FROM combustible c WHERE c.id_material_planta_entrada = mpe.id
+          ), 0) AS acpm_adelantado,
+          -- Flete NETO de la entrada = flete − ACPM (piso 0). El arrastre por dueño se ve en
+          -- GET /pagos/combustible/dueno/:id/neto-flete.
+          GREATEST(mpe.costo_volqueta - COALESCE((
+              SELECT SUM(c.valor) FROM combustible c WHERE c.id_material_planta_entrada = mpe.id
+          ), 0), 0) AS flete_neto,
           -- Zona de la mina de la entrada.
           z.nombre AS zona
       FROM material_planta_entrada mpe

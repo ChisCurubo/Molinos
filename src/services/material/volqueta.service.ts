@@ -1,13 +1,12 @@
 import { IDuenoVolquetaService, IVehiculoService } from '../../ports/material/service_port/volqueta.service.interface';
 import { IDuenoVolquetaRepository, IVehiculoRepository } from '../../ports/material/repository_port/volqueta.repository.interface';
-import { DuenoVolquetaRepository } from '../../repositories/material/volqueta.repository';
 import { DuenoVolquetaSQL } from '../../models/material/sql/dueno_volqueta.sql';
 
 // --- Original: dueno_volqueta ---
 export class DuenoVolquetaService implements IDuenoVolquetaService {
-    private repository: DuenoVolquetaRepository;
+    private repository: IDuenoVolquetaRepository;
 
-    constructor(repository: DuenoVolquetaRepository) {
+    constructor(repository: IDuenoVolquetaRepository) {
         this.repository = repository;
     }
 
