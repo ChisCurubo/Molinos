@@ -8,7 +8,7 @@
  * controller, ahora en DeudaService.deudaMaterialDeMinero) sí se valida aritméticamente.
  *
  * Requisitos: server en :3005, id_minero=1 y id_dueno_volqueta=1 existentes (seed).
- * Uso:  node tests/deuda_vistas_pagos.entities.test.mjs
+ * Uso:  node tests/pagos/deuda_vistas_pagos.entities.test.mjs
  */
 import fs from 'fs';
 import path from 'path';
@@ -88,7 +88,7 @@ try {
     const okN = results.filter(r => r.ok).length, failN = results.length - okN;
     const fecha = new Date().toISOString().slice(0, 10);
     let md = `# Reporte de pruebas — DEUDA + VISTAS PAGOS\n\n`;
-    md += `> Generado por \`tests/deuda_vistas_pagos.entities.test.mjs\` el ${fecha}. Base: ${BASE}\n\n`;
+    md += `> Generado por \`tests/pagos/deuda_vistas_pagos.entities.test.mjs\` el ${fecha}. Base: ${BASE}\n\n`;
     md += `**Resultado: ${okN}/${results.length} OK${failN ? ` · ${failN} FALLOS` : ''}.**\n\n`;
     md += `| # | Check | Resultado | Detalle |\n|---|---|---|---|\n`;
     results.forEach((r, i) => { md += `| ${i + 1} | ${r.name} | ${r.ok ? '✅ OK' : '❌ FALLA'} | ${(r.detail || '').split('\n')[0]} |\n`; });

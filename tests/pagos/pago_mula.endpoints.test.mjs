@@ -15,7 +15,7 @@
  *  - DELETE /pagos/mulas/:id                     (409 con abonos, 200 sin abonos)
  *
  * Requisitos: server en :3005 + migraciones de mulas y de Viaje.estado aplicadas.
- * Uso:  node tests/pago_mula.endpoints.test.mjs
+ * Uso:  node tests/pagos/pago_mula.endpoints.test.mjs
  */
 import fs from 'fs';
 import path from 'path';
@@ -207,7 +207,7 @@ try {
     const okN = results.filter(r => r.ok).length, failN = results.length - okN;
     const fecha = new Date().toISOString().slice(0, 10);
     let md = `# Reporte de pruebas — Pago de MULAS (v2, cascada por proveedor)\n\n`;
-    md += `> Generado por \`tests/pago_mula.endpoints.test.mjs\` el ${fecha}. Base: ${BASE}\n\n`;
+    md += `> Generado por \`tests/pagos/pago_mula.endpoints.test.mjs\` el ${fecha}. Base: ${BASE}\n\n`;
     md += `**Resultado: ${okN}/${results.length} OK${failN ? ` · ${failN} FALLOS` : ''}.**\n\n`;
     md += `| # | Check | Resultado | Detalle |\n|---|---|---|---|\n`;
     results.forEach((r, i) => { md += `| ${i + 1} | ${r.name} | ${r.ok ? '✅ OK' : '❌ FALLA'} | ${(r.detail || '').split('\n')[0]} |\n`; });

@@ -10,7 +10,7 @@
  *
  * Requisitos: server en :3005 + migracion_viaje_estado_2026-09-13.sql aplicada
  *             + migracion_mulas_2026-09-13.sql aplicada.
- * Uso:  node tests/viaje_estado_mula.endpoints.test.mjs
+ * Uso:  node tests/pagos/viaje_estado_mula.endpoints.test.mjs
  */
 import fs from 'fs';
 import path from 'path';
@@ -139,7 +139,7 @@ try {
     const okN = results.filter(r => r.ok).length, failN = results.length - okN;
     const fecha = new Date().toISOString().slice(0, 10);
     let md = `# Reporte de pruebas — Selector de viajes y estado (Viaje ↔ Mula)\n\n`;
-    md += `> Generado por \`tests/viaje_estado_mula.endpoints.test.mjs\` el ${fecha}. Base: ${BASE}\n\n`;
+    md += `> Generado por \`tests/pagos/viaje_estado_mula.endpoints.test.mjs\` el ${fecha}. Base: ${BASE}\n\n`;
     md += `**Resultado: ${okN}/${results.length} OK${failN ? ` · ${failN} FALLOS` : ''}.**\n\n`;
     md += `| # | Check | Resultado | Detalle |\n|---|---|---|---|\n`;
     results.forEach((r, i) => { md += `| ${i + 1} | ${r.name} | ${r.ok ? '✅ OK' : '❌ FALLA'} | ${(r.detail || '').split('\n')[0]} |\n`; });

@@ -6,7 +6,7 @@
  *  - Regla: no se puede eliminar una zona en uso (409 ZONA_EN_USO)
  *
  * Requisitos: server en :3005.
- * Uso:  node tests/mina.entities.test.mjs
+ * Uso:  node tests/material/mina.entities.test.mjs
  */
 import fs from 'fs';
 import path from 'path';
@@ -172,7 +172,7 @@ try {
     const okN = results.filter(r => r.ok).length, failN = results.length - okN;
     const fecha = new Date().toISOString().slice(0, 10);
     let md = `# Reporte de pruebas — MINA / MINERO / ZONA / TARIFA-ZONA / PRECIO-MATERIAL\n\n`;
-    md += `> Generado por \`tests/mina.entities.test.mjs\` el ${fecha}. Base: ${BASE}\n\n`;
+    md += `> Generado por \`tests/material/mina.entities.test.mjs\` el ${fecha}. Base: ${BASE}\n\n`;
     md += `**Resultado: ${okN}/${results.length} OK${failN ? ` · ${failN} FALLOS` : ''}.**\n\n`;
     md += `| # | Check | Resultado | Detalle |\n|---|---|---|---|\n`;
     results.forEach((r, i) => { md += `| ${i + 1} | ${r.name} | ${r.ok ? '✅ OK' : '❌ FALLA'} | ${(r.detail || '').split('\n')[0]} |\n`; });

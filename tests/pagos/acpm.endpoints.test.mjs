@@ -3,7 +3,7 @@
  * Se autentica solo, prueba GET/POST/PUT/PATCH/DELETE y escribe un reporte .md.
  *
  * Requisitos: server corriendo (npm run dev) + migracion_combustible_acpm_2026-09-02.sql aplicada.
- * Uso:  node tests/acpm.endpoints.test.mjs
+ * Uso:  node tests/pagos/acpm.endpoints.test.mjs
  * Config por env (opcional): BASE_URL, LOGIN_USER, LOGIN_PASS.
  */
 import fs from 'fs';
@@ -145,7 +145,7 @@ try {
   const okN = results.filter(r => r.ok).length, failN = results.length - okN;
   const fecha = new Date().toISOString().slice(0, 10);
   let md = `# Reporte de pruebas — ACPM / Combustible (Fase A)\n\n`;
-  md += `> Generado por \`tests/acpm.endpoints.test.mjs\` el ${fecha}. Base: ${BASE}\n\n`;
+  md += `> Generado por \`tests/pagos/acpm.endpoints.test.mjs\` el ${fecha}. Base: ${BASE}\n\n`;
   md += `**Resultado: ${okN}/${results.length} OK${failN ? ` · ${failN} FALLOS` : ''}.**\n\n`;
   md += `| # | Check | Resultado | Detalle |\n|---|---|---|---|\n`;
   results.forEach((r, i) => { md += `| ${i + 1} | ${r.name} | ${r.ok ? '✅ OK' : '❌ FALLA'} | ${r.detail || ''} |\n`; });

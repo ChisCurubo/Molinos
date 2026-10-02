@@ -4,14 +4,14 @@
  * no existía forma de crear/listar/editar/eliminar un Proveedor real.
  *
  * Prueba:
- *  - POST   /pagos/proveedores            (crear)
- *  - GET    /pagos/proveedores            (listar + filtros id_categoria/estado/q)
+ *  - POST   /pagos/proveedores            (crear, incluye validación de tipo)
+ *  - GET    /pagos/proveedores            (listar + filtros id_categoria/tipo/estado/q)
  *  - GET    /pagos/proveedores/:id        (detalle, con nombre de categoría)
  *  - PUT    /pagos/proveedores/:id        (editar)
  *  - DELETE /pagos/proveedores/:id        (200 si no está en uso, 409 si tiene referencias)
  *
  * Requisitos: server en :3005.
- * Uso:  node tests/proveedor.endpoints.test.mjs
+ * Uso:  node tests/pagos/proveedor.endpoints.test.mjs
  */
 import fs from 'fs';
 import path from 'path';
@@ -47,7 +47,7 @@ const db = await mysql.createConnection({
 });
 
 const RUN = String(Date.now()).slice(-6);
-let idProveedor, idCategoria, idProveedorEnUso, idMula;
+let idProveedor, idCategoria, idProveedorEnUso, idMula, idProveedorGasolinera;
 async function cleanup() {
     try {
         await db.query('SET FOREIGN_KEY_CHECKS=0');
@@ -64,6 +64,7 @@ async function cleanup() {
         }
         if (idProveedor) await db.query('DELETE FROM Proveedores WHERE id = ?', [idProveedor]);
         if (idProveedorEnUso) await db.query('DELETE FROM Proveedores WHERE id = ?', [idProveedorEnUso]);
+        if (idProveedorGasolinera) await db.query('DELETE FROM Proveedores WHERE id = ?', [idProveedorGasolinera]);
         await db.query('SET FOREIGN_KEY_CHECKS=1');
     } catch (e) { log('  (cleanup warn):', e.message); }
 }
@@ -85,15 +86,32 @@ try {
     idProveedor = r.j?.data?.id;
     check('crea proveedor (201)', r.status === 201 && !!idProveedor, `status=${r.status} id=${idProveedor}`);
     check('respuesta trae categoria resuelta', r.j?.data?.categoria === 'Transporte_Mula', `categoria=${r.j?.data?.categoria}`);
+    check('tipo default es general', r.j?.data?.tipo === 'general', `tipo=${r.j?.data?.tipo}`);
 
     r = await req('POST', '/pagos/proveedores', { alias: 'sin nombre' });
     check('crear sin nombre → 400', r.status === 400, `status=${r.status} msg=${r.j?.message}`);
+
+    log('\n===== tipo (gasolinera/combustible) =====');
+    r = await req('POST', '/pagos/proveedores', { nombre: `ZZ_TEST_GASOLINERA_${RUN}`, tipo: 'combustible' });
+    idProveedorGasolinera = r.j?.data?.id;
+    check('crea proveedor con tipo=combustible (201)', r.status === 201 && r.j?.data?.tipo === 'combustible', `status=${r.status} tipo=${r.j?.data?.tipo}`);
+
+    r = await req('POST', '/pagos/proveedores', { nombre: 'tipo invalido', tipo: 'no_existe' });
+    check('crear con tipo inválido → 400', r.status === 400, `status=${r.status} msg=${r.j?.message}`);
+
+    r = await req('PUT', `/pagos/proveedores/${idProveedorGasolinera}`, { tipo: 'no_existe' });
+    check('editar con tipo inválido → 400', r.status === 400, `status=${r.status} msg=${r.j?.message}`);
 
     log('\n===== GET /pagos/proveedores (listar + filtros) =====');
     r = await req('GET', `/pagos/proveedores?id_categoria=${idCategoria}`);
     check('listado filtra por id_categoria e incluye el creado', r.status === 200 && (r.j?.data || []).some(p => p.id === idProveedor), `n=${r.j?.data?.length}`);
     r = await req('GET', `/pagos/proveedores?q=ZZ_TEST_PROVEEDOR_${RUN}`);
     check('listado filtra por q (nombre/alias)', r.status === 200 && r.j?.data?.length === 1 && r.j.data[0].id === idProveedor, `n=${r.j?.data?.length}`);
+    r = await req('GET', `/pagos/proveedores?tipo=combustible`);
+    check('listado filtra por tipo=combustible e incluye el creado, excluye el de Transporte_Mula', r.status === 200
+        && (r.j?.data || []).some(p => p.id === idProveedorGasolinera)
+        && !(r.j?.data || []).some(p => p.id === idProveedor),
+        `n=${r.j?.data?.length}`);
 
     log('\n===== GET /pagos/proveedores/:id (detalle) =====');
     r = await req('GET', `/pagos/proveedores/${idProveedor}`);
@@ -126,7 +144,7 @@ try {
     const okN = results.filter(r => r.ok).length, failN = results.length - okN;
     const fecha = new Date().toISOString().slice(0, 10);
     let md = `# Reporte de pruebas — Proveedores (entidad real)\n\n`;
-    md += `> Generado por \`tests/proveedor.endpoints.test.mjs\` el ${fecha}. Base: ${BASE}\n\n`;
+    md += `> Generado por \`tests/pagos/proveedor.endpoints.test.mjs\` el ${fecha}. Base: ${BASE}\n\n`;
     md += `**Resultado: ${okN}/${results.length} OK${failN ? ` · ${failN} FALLOS` : ''}.**\n\n`;
     md += `| # | Check | Resultado | Detalle |\n|---|---|---|---|\n`;
     results.forEach((r, i) => { md += `| ${i + 1} | ${r.name} | ${r.ok ? '✅ OK' : '❌ FALLA'} | ${(r.detail || '').split('\n')[0]} |\n`; });
