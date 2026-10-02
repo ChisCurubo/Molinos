@@ -8,3 +8,18 @@ export interface ICategoriaCxCRepository {
     delete(id: number): Promise<boolean>;
     list(): Promise<CategoriaCxcSQL[]>;
 }
+
+export interface FiltrosCxCPaginado {
+    mes?: number;
+    anio?: number;
+    id_categoria?: number;
+    estado?: string;
+    page: number;
+    limit: number;
+}
+
+// Cuentas_Por_Cobrar: la tabla existe en el esquema (espejo de Cuentas_Por_Pagar) pero
+// hoy ningún módulo escribe en ella todavía — solo se expone el listado mes a mes.
+export interface ICuentasPorCobrarRepository {
+    listarPaginado(filtros: FiltrosCxCPaginado): Promise<{ rows: any[]; total: number }>;
+}

@@ -75,7 +75,8 @@ export class ProveedorController {
         res.status(error?.status || 400).json({ success: false, message: error.message });
     }
 
-    // POST /pagos/proveedores  { nombre, id_categoria?, contacto?, telefono?, ciudad?, alias?, nequi?, compra_realizada?, estado? }
+    // POST /pagos/proveedores  { nombre, id_categoria?, tipo?, contacto?, telefono?, ciudad?, alias?, nequi?, compra_realizada?, estado? }
+    // tipo: 'general' (default) | 'combustible' | 'transportadora' | 'laboratorio'
     create = async (req: Request, res: Response): Promise<void> => {
         try {
             const data = await this.service.create(req.body);
@@ -83,12 +84,13 @@ export class ProveedorController {
         } catch (e: any) { this.fail(res, e); }
     };
 
-    // GET /pagos/proveedores?id_categoria=&estado=&q=
+    // GET /pagos/proveedores?id_categoria=&tipo=&estado=&q=
     list = async (req: Request, res: Response): Promise<void> => {
         try {
-            const { id_categoria, estado, q } = req.query as any;
+            const { id_categoria, tipo, estado, q } = req.query as any;
             const data = await this.service.list({
                 id_categoria: id_categoria ? Number(id_categoria) : undefined,
+                tipo: tipo || undefined,
                 estado: estado || undefined,
                 q: q || undefined
             });

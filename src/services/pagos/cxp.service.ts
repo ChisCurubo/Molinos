@@ -28,6 +28,14 @@ export class CuentasPorPagarService implements CuentasPorPagarServiceInterface {
         return await this.repo.listByEstado(estado);
     }
 
+    // Mes a mes, 50 por página (tope), filtrable por categoría/estado.
+    async listarPaginado(filtros: { mes?: number; anio?: number; id_categoria?: number; estado?: string; page?: number; limit?: number }): Promise<any> {
+        const page = Math.max(1, Number(filtros.page) || 1);
+        const limit = Math.min(50, Math.max(1, Number(filtros.limit) || 50));
+        const { rows, total } = await this.repo.listarPaginado({ ...filtros, page, limit });
+        return { cuentas: rows, pagination: { page, limit, total, total_pages: Math.ceil(total / limit) || 1 } };
+    }
+
     async actualizarEstadoPago(id: number, pagoAdicional: number): Promise<boolean> {
         const cuenta = await this.obtenerCuenta(id);
         const nuevoPagado = Number(cuenta.valor_pagado) + Number(pagoAdicional);

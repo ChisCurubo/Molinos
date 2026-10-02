@@ -4,6 +4,7 @@ export interface ProveedorSQL {
     id: number;
     nombre: string;
     id_categoria: number;
+    tipo: string;
     contacto: string;
     telefono: string;
     ciudad: string;

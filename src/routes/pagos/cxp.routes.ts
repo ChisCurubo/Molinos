@@ -8,6 +8,7 @@ const cxpController = factory.pagos.getCuentasPorPagarController();
 const categoriaCxpController = factory.pagos.getCategoriaCxPController();
 
 // Rutas CxP Custom
+router.get('/mensual', cxpController.listarMensual.bind(cxpController));
 router.post('/', cxpController.registrar.bind(cxpController));
 router.get('/', cxpController.listar.bind(cxpController));
 router.post('/:id/pagar', cxpController.pagar.bind(cxpController));

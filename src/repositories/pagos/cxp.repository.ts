@@ -46,6 +46,38 @@ export class MySQLCuentasPorPagarRepo implements CuentasPorPagarRepositoryInterf
         return rows as CuentaPorPagarSQL[];
     }
 
+    // Listado mes a mes, paginado (50 por página), con filtro opcional de categoría/estado.
+    async listarPaginado(filtros: { mes?: number; anio?: number; id_categoria?: number; estado?: string; page: number; limit: number }): Promise<{ rows: any[]; total: number }> {
+        const where: string[] = [];
+        const params: any[] = [];
+        if (filtros.anio) { where.push('YEAR(cp.fecha_creacion) = ?'); params.push(filtros.anio); }
+        if (filtros.mes) { where.push('MONTH(cp.fecha_creacion) = ?'); params.push(filtros.mes); }
+        if (filtros.id_categoria) { where.push('cp.id_categoria = ?'); params.push(filtros.id_categoria); }
+        if (filtros.estado) { where.push('cp.estado = ?'); params.push(filtros.estado); }
+        const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+        const [countRows] = await this.pool.execute<RowDataPacket[]>(
+            `SELECT COUNT(*) AS total FROM Cuentas_Por_Pagar cp ${whereSql}`,
+            params
+        );
+        const offset = (filtros.page - 1) * filtros.limit;
+        const [rows] = await this.pool.execute<RowDataPacket[]>(
+            `SELECT cp.*, cat.nombre AS categoria,
+                    COALESCE(pr.nombre, mn.nombre, dv.nombre, emp.nombre) AS beneficiario
+             FROM Cuentas_Por_Pagar cp
+             JOIN Categorias_CxP cat      ON cat.id = cp.id_categoria
+             LEFT JOIN Proveedores pr     ON pr.id  = cp.id_proveedor
+             LEFT JOIN minero mn          ON mn.id  = cp.id_minero
+             LEFT JOIN Dueno_Volqueta dv  ON dv.id  = cp.id_dueno_volqueta
+             LEFT JOIN Empleados emp      ON emp.id = cp.id_empleado
+             ${whereSql}
+             ORDER BY cp.fecha_creacion DESC, cp.id DESC
+             LIMIT ${filtros.limit} OFFSET ${offset}`,
+            params
+        );
+        return { rows, total: Number(countRows[0]?.total ?? 0) };
+    }
+
     async update(id: number, cuenta: Partial<CuentaPorPagarSQL>): Promise<boolean> {
         const query = `UPDATE Cuentas_Por_Pagar SET valor_pagado = ?, estado = ? WHERE id = ?`;
         const values: any[] = [cuenta.valor_pagado, cuenta.estado, id];

@@ -5,6 +5,8 @@ import { CategoriaProveedorSQL } from '../../models/pagos/sql/categoria_proveedo
 
 const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
 
+const TIPOS_PROVEEDOR = ['general', 'combustible', 'transportadora', 'laboratorio'];
+
 // --- Original: categoria_proveedor ---
 export class CategoriaProveedorService implements ICategoriaProveedorService {
     constructor(private repository: ICategoriaProveedorRepository) {}
@@ -40,9 +42,13 @@ export class ProveedorService implements IProveedorService {
     async create(data: any): Promise<any> {
         const nombre = (data.nombre ?? '').toString().trim();
         if (!nombre) throw err('nombre es requerido');
+        if (data.tipo !== undefined && !TIPOS_PROVEEDOR.includes(data.tipo)) {
+            throw err(`tipo inválido, debe ser uno de: ${TIPOS_PROVEEDOR.join(', ')}`);
+        }
         const id = await this.repository.create({
             nombre,
             id_categoria: data.id_categoria ? Number(data.id_categoria) : undefined,
+            tipo: data.tipo,
             contacto: data.contacto, telefono: data.telefono, ciudad: data.ciudad,
             alias: data.alias, nequi: data.nequi, compra_realizada: data.compra_realizada,
             estado: data.estado
@@ -57,6 +63,9 @@ export class ProveedorService implements IProveedorService {
     async update(id: number, data: any): Promise<any | null> {
         const existe = await this.repository.getById(id);
         if (!existe) throw err('Proveedor no encontrado', 404);
+        if (data.tipo !== undefined && !TIPOS_PROVEEDOR.includes(data.tipo)) {
+            throw err(`tipo inválido, debe ser uno de: ${TIPOS_PROVEEDOR.join(', ')}`);
+        }
         await this.repository.update(id, data);
         return this.repository.getById(id);
     }
@@ -72,7 +81,7 @@ export class ProveedorService implements IProveedorService {
         }
     }
 
-    async list(filtros: { id_categoria?: number; estado?: string; q?: string }): Promise<any[]> {
+    async list(filtros: { id_categoria?: number; tipo?: string; estado?: string; q?: string }): Promise<any[]> {
         return this.repository.list(filtros);
     }
 }

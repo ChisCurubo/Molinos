@@ -3,6 +3,10 @@ import { factory } from '../../config/factory';
 
 const router = Router();
 const categoriaCxcController = factory.pagos.getCategoriaCxCController();
+const cuentasPorCobrarController = factory.pagos.getCuentasPorCobrarController();
+
+// Cuentas por cobrar (mes a mes, paginado)
+router.get('/mensual', cuentasPorCobrarController.listarMensual);
 
 // CxC Categorias
 router.get('/categorias', categoriaCxcController.list);

@@ -12,9 +12,9 @@ export interface ICategoriaProveedorRepository {
 
 // --- Proveedores (la entidad real: transportadoras de mula, laboratorios, gasolineras, etc.) ---
 export interface IProveedorRepository {
-    create(data: { nombre: string; id_categoria?: number; contacto?: string; telefono?: string; ciudad?: string; alias?: string; nequi?: boolean; compra_realizada?: string; estado?: string }): Promise<number>;
+    create(data: { nombre: string; id_categoria?: number; tipo?: string; contacto?: string; telefono?: string; ciudad?: string; alias?: string; nequi?: boolean; compra_realizada?: string; estado?: string }): Promise<number>;
     getById(id: number): Promise<any | null>;
     update(id: number, data: Partial<ProveedorSQL>): Promise<boolean>;
     delete(id: number): Promise<boolean>;
-    list(filtros: { id_categoria?: number; estado?: string; q?: string }): Promise<any[]>;
+    list(filtros: { id_categoria?: number; tipo?: string; estado?: string; q?: string }): Promise<any[]>;
 }

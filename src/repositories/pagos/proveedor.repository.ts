@@ -58,11 +58,11 @@ export class CategoriaProveedorRepository implements ICategoriaProveedorReposito
 export class ProveedorRepository implements IProveedorRepository {
     constructor(private db: Pool) {}
 
-    async create(data: { nombre: string; id_categoria?: number; contacto?: string; telefono?: string; ciudad?: string; alias?: string; nequi?: boolean; compra_realizada?: string; estado?: string }): Promise<number> {
+    async create(data: { nombre: string; id_categoria?: number; tipo?: string; contacto?: string; telefono?: string; ciudad?: string; alias?: string; nequi?: boolean; compra_realizada?: string; estado?: string }): Promise<number> {
         const [result] = await this.db.query<ResultSetHeader>(
-            `INSERT INTO Proveedores (nombre, id_categoria, contacto, telefono, ciudad, alias, nequi, compra_realizada, estado)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [data.nombre, data.id_categoria ?? null, data.contacto ?? null, data.telefono ?? null,
+            `INSERT INTO Proveedores (nombre, id_categoria, tipo, contacto, telefono, ciudad, alias, nequi, compra_realizada, estado)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [data.nombre, data.id_categoria ?? null, data.tipo || 'general', data.contacto ?? null, data.telefono ?? null,
              data.ciudad ?? null, data.alias ?? null, data.nequi ?? false, data.compra_realizada ?? null,
              data.estado || 'activo']
         );
@@ -81,7 +81,7 @@ export class ProveedorRepository implements IProveedorRepository {
     }
 
     async update(id: number, data: Partial<ProveedorSQL>): Promise<boolean> {
-        const permitidos = ['nombre', 'id_categoria', 'contacto', 'telefono', 'ciudad', 'alias', 'nequi', 'compra_realizada', 'estado'];
+        const permitidos = ['nombre', 'id_categoria', 'tipo', 'contacto', 'telefono', 'ciudad', 'alias', 'nequi', 'compra_realizada', 'estado'];
         const fields: string[] = []; const values: any[] = [];
         for (const k of permitidos) if ((data as any)[k] !== undefined) { fields.push(`${k} = ?`); values.push((data as any)[k]); }
         if (fields.length === 0) return false;
@@ -95,10 +95,11 @@ export class ProveedorRepository implements IProveedorRepository {
         return result.affectedRows > 0;
     }
 
-    async list(filtros: { id_categoria?: number; estado?: string; q?: string }): Promise<any[]> {
+    async list(filtros: { id_categoria?: number; tipo?: string; estado?: string; q?: string }): Promise<any[]> {
         const where: string[] = [];
         const params: any[] = [];
         if (filtros.id_categoria) { where.push('p.id_categoria = ?'); params.push(filtros.id_categoria); }
+        if (filtros.tipo) { where.push('p.tipo = ?'); params.push(filtros.tipo); }
         if (filtros.estado) { where.push('p.estado = ?'); params.push(filtros.estado); }
         if (filtros.q) { where.push('(p.nombre LIKE ? OR p.alias LIKE ?)'); params.push(`%${filtros.q}%`, `%${filtros.q}%`); }
         const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';

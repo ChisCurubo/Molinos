@@ -8,3 +8,7 @@ export interface ICategoriaCxCService {
     delete(id: number): Promise<boolean>;
     list(): Promise<CategoriaCxcSQL[]>;
 }
+
+export interface ICuentasPorCobrarService {
+    listarPaginado(filtros: { mes?: number; anio?: number; id_categoria?: number; estado?: string; page?: number; limit?: number }): Promise<any>;
+}

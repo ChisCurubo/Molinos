@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { ICategoriaCxCService } from '../../ports/pagos/service_port/cxc.service.interface';
+import { ICategoriaCxCService, ICuentasPorCobrarService } from '../../ports/pagos/service_port/cxc.service.interface';
 import { CategoriaCxCService } from '../../services/pagos/cxc.service';
 
 // --- Original: categoria_cxc ---
@@ -63,6 +63,29 @@ export class CategoriaCxCController {
             res.status(200).json({ success: true, data: results });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
+        }
+    };
+}
+
+// --- Cuentas_Por_Cobrar ---
+export class CuentasPorCobrarController {
+    constructor(private service: ICuentasPorCobrarService) {}
+
+    // GET /pagos/cxc/mensual?mes=&anio=&id_categoria=&estado=&page=&limit=
+    listarMensual = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { mes, anio, id_categoria, estado, page, limit } = req.query as any;
+            const data = await this.service.listarPaginado({
+                mes: mes ? Number(mes) : undefined,
+                anio: anio ? Number(anio) : undefined,
+                id_categoria: id_categoria ? Number(id_categoria) : undefined,
+                estado: estado || undefined,
+                page: page ? Number(page) : undefined,
+                limit: limit ? Number(limit) : undefined
+            });
+            res.status(200).json({ success: true, data });
+        } catch (error: any) {
+            res.status(400).json({ success: false, message: error.message });
         }
     };
 }

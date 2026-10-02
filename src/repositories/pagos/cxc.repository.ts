@@ -1,6 +1,6 @@
 import { RowDataPacket, ResultSetHeader, Pool } from 'mysql2/promise';
 import { CategoriaCxcSQL } from '../../models/pagos/sql/categoria_cxc.sql';
-import { ICategoriaCxCRepository } from '../../ports/pagos/repository_port/cxc.repository.interface';
+import { ICategoriaCxCRepository, ICuentasPorCobrarRepository } from '../../ports/pagos/repository_port/cxc.repository.interface';
 
 // --- Original: categoria_cxc ---
 export class CategoriaCxCRepository implements ICategoriaCxCRepository {
@@ -50,5 +50,41 @@ export class CategoriaCxCRepository implements ICategoriaCxCRepository {
     async list(): Promise<CategoriaCxcSQL[]> {
         const [rows] = await this.db.query<RowDataPacket[]>('SELECT * FROM Categorias_CxC');
         return rows as CategoriaCxcSQL[];
+    }
+}
+
+// --- Cuentas_Por_Cobrar (espejo de Cuentas_Por_Pagar): tabla existe, aún sin módulo que la alimente ---
+export class MySQLCuentasPorCobrarRepo implements ICuentasPorCobrarRepository {
+    constructor(private db: Pool) {}
+
+    async listarPaginado(filtros: { mes?: number; anio?: number; id_categoria?: number; estado?: string; page: number; limit: number }): Promise<{ rows: any[]; total: number }> {
+        const where: string[] = [];
+        const params: any[] = [];
+        if (filtros.anio) { where.push('YEAR(cc.fecha_creacion) = ?'); params.push(filtros.anio); }
+        if (filtros.mes) { where.push('MONTH(cc.fecha_creacion) = ?'); params.push(filtros.mes); }
+        if (filtros.id_categoria) { where.push('cc.id_categoria = ?'); params.push(filtros.id_categoria); }
+        if (filtros.estado) { where.push('cc.estado = ?'); params.push(filtros.estado); }
+        const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+        const [countRows] = await this.db.execute<RowDataPacket[]>(
+            `SELECT COUNT(*) AS total FROM Cuentas_Por_Cobrar cc ${whereSql}`,
+            params
+        );
+        const offset = (filtros.page - 1) * filtros.limit;
+        const [rows] = await this.db.execute<RowDataPacket[]>(
+            `SELECT cc.*, cat.nombre AS categoria,
+                    COALESCE(pr.nombre, mn.nombre, dv.nombre, emp.nombre) AS deudor
+             FROM Cuentas_Por_Cobrar cc
+             JOIN Categorias_CxC cat      ON cat.id = cc.id_categoria
+             LEFT JOIN Proveedores pr     ON pr.id  = cc.id_proveedor
+             LEFT JOIN minero mn          ON mn.id  = cc.id_minero
+             LEFT JOIN Dueno_Volqueta dv  ON dv.id  = cc.id_dueno_volqueta
+             LEFT JOIN Empleados emp      ON emp.id = cc.id_empleado
+             ${whereSql}
+             ORDER BY cc.fecha_creacion DESC, cc.id DESC
+             LIMIT ${filtros.limit} OFFSET ${offset}`,
+            params
+        );
+        return { rows, total: Number(countRows[0]?.total ?? 0) };
     }
 }

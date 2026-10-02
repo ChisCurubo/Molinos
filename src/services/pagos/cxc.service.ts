@@ -1,5 +1,5 @@
-import { ICategoriaCxCService } from '../../ports/pagos/service_port/cxc.service.interface';
-import { ICategoriaCxCRepository } from '../../ports/pagos/repository_port/cxc.repository.interface';
+import { ICategoriaCxCService, ICuentasPorCobrarService } from '../../ports/pagos/service_port/cxc.service.interface';
+import { ICategoriaCxCRepository, ICuentasPorCobrarRepository } from '../../ports/pagos/repository_port/cxc.repository.interface';
 import { CategoriaCxCRepository } from '../../repositories/pagos/cxc.repository';
 import { CategoriaCxcSQL } from '../../models/pagos/sql/categoria_cxc.sql';
 
@@ -28,5 +28,18 @@ export class CategoriaCxCService implements ICategoriaCxCService {
 
     async list(): Promise<CategoriaCxcSQL[]> {
         return this.repository.list();
+    }
+}
+
+// --- Cuentas_Por_Cobrar ---
+export class CuentasPorCobrarService implements ICuentasPorCobrarService {
+    constructor(private repo: ICuentasPorCobrarRepository) {}
+
+    // Mes a mes, 50 por página (tope), filtrable por categoría/estado.
+    async listarPaginado(filtros: { mes?: number; anio?: number; id_categoria?: number; estado?: string; page?: number; limit?: number }): Promise<any> {
+        const page = Math.max(1, Number(filtros.page) || 1);
+        const limit = Math.min(50, Math.max(1, Number(filtros.limit) || 50));
+        const { rows, total } = await this.repo.listarPaginado({ ...filtros, page, limit });
+        return { cuentas: rows, pagination: { page, limit, total, total_pages: Math.ceil(total / limit) || 1 } };
     }
 }
