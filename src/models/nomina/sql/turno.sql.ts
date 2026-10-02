@@ -5,9 +5,9 @@ export interface TurnoSQL {
     fecha: Date;
     id_empleado: number;
     id_tipo_turno: number;
-    id_planta: number;
-    proceso: string;
+    id_planta_proceso: number | null;
     horas_trabajadas: number;
+    presente: boolean;
     comentarios: string;
     quincena: number;
     created_at: Date;

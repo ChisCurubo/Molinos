@@ -54,7 +54,7 @@ export class EmpleadoController {
             }
             res.status(200).json({ success: true, message: 'Registro eliminado' });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            res.status(error?.status || 500).json({ success: false, error: error.message });
         }
     };
 
@@ -102,6 +102,42 @@ export class PrestamoEmpleadoController {
             res.status(200).json({ success: true, data: prestamo });
         } catch (error: any) {
             res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async getById(req: Request, res: Response) {
+        try {
+            const prestamo = await this.service.getById(Number(req.params.id));
+            if (!prestamo) {
+                res.status(404).json({ success: false, message: "Préstamo no encontrado" });
+                return;
+            }
+            res.status(200).json({ success: true, data: prestamo });
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async listAll(req: Request, res: Response) {
+        try {
+            const { id_empleado } = req.query as any;
+            const prestamos = await this.service.listAll({ id_empleado: id_empleado ? Number(id_empleado) : undefined });
+            res.status(200).json({ success: true, data: prestamos });
+        } catch (error: any) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async delete(req: Request, res: Response) {
+        try {
+            const deleted = await this.service.delete(Number(req.params.id));
+            if (!deleted) {
+                res.status(404).json({ success: false, message: "Préstamo no encontrado" });
+                return;
+            }
+            res.status(200).json({ success: true, message: 'Préstamo eliminado' });
+        } catch (error: any) {
+            res.status(error?.status || 500).json({ success: false, message: error.message });
         }
     }
 }

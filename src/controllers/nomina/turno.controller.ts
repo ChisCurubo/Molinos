@@ -13,7 +13,30 @@ export class TurnoController {
             const result = await this.service.create(req.body);
             res.status(201).json({ success: true, data: result });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            res.status(error?.status || 500).json({ success: false, error: error.message });
+        }
+    };
+
+    // PUT /nomina/turnos/upsert — grilla de asistencia (/nomina/calendario): a lo sumo un
+    // turno por (id_empleado, fecha); crea o actualiza según exista o no.
+    upsert = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const result = await this.service.upsert(req.body);
+            res.status(200).json({ success: true, data: result });
+        } catch (error: any) {
+            res.status(error?.status || 400).json({ success: false, error: error.message });
+        }
+    };
+
+    // DELETE /nomina/turnos/dia?id_empleado=&fecha= — "Sin turno (limpiar)" del calendario.
+    eliminarPorDia = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const id_empleado = Number(req.query.id_empleado);
+            const fecha = String(req.query.fecha || '');
+            const eliminado = await this.service.eliminarPorEmpleadoYFecha(id_empleado, fecha);
+            res.status(200).json({ success: true, eliminado });
+        } catch (error: any) {
+            res.status(error?.status || 500).json({ success: false, error: error.message });
         }
     };
 

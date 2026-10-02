@@ -50,6 +50,59 @@ const tipoTurnoController = factory.nomina.getTipoTurnoController();
  */
 router.get('/', turnoController.list);
 
+// Rutas literales (antes del /:id genérico, mismo patrón que empleado.routes.ts: si van
+// después, '/:id' las captura primero — 'tipos'/'upsert'/'dia' -> Number('tipos')=NaN).
+router.get('/tipos', tipoTurnoController.list);
+router.get('/tipos/:id', tipoTurnoController.getById);
+router.post('/tipos', tipoTurnoController.create);
+router.put('/tipos/:id', tipoTurnoController.update);
+router.delete('/tipos/:id', tipoTurnoController.delete);
+
+/**
+ * @swagger
+ * /nomina/turnos/upsert:
+ *   put:
+ *     summary: Registrar/actualizar el turno de un empleado en un día (grilla de asistencia /nomina/calendario). A lo sumo un turno por (id_empleado, fecha) — upsert, no duplica.
+ *     tags: [Turnos]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id_empleado: { type: integer }
+ *               fecha: { type: string, format: date }
+ *               id_tipo_turno: { type: integer, description: 'Requerido si presente=true (o se omite, default true)' }
+ *               horas_trabajadas: { type: number, description: 'Default 8 si presente=true y no se envía; debe estar entre 1 y 24' }
+ *               presente: { type: boolean, description: 'false = ausencia; fuerza horas_trabajadas=0' }
+ *     responses:
+ *       200: { description: Turno creado o actualizado }
+ */
+router.put('/upsert', turnoController.upsert);
+
+/**
+ * @swagger
+ * /nomina/turnos/dia:
+ *   delete:
+ *     summary: Borrar el turno de un empleado en un día ("Sin turno (limpiar)" del calendario)
+ *     tags: [Turnos]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: id_empleado
+ *         required: true
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: fecha
+ *         required: true
+ *         schema: { type: string, format: date }
+ *     responses:
+ *       200: { description: Eliminado (o no existía, idempotente) }
+ */
+router.delete('/dia', turnoController.eliminarPorDia);
+
 /**
  * @swagger
  * /nomina/turnos/{id}:
@@ -131,12 +184,5 @@ router.put('/:id', turnoController.update);
  *         description: Turno eliminado
  */
 router.delete('/:id', turnoController.delete);
-
-// Rutas Tipos de Turno
-router.get('/tipos', tipoTurnoController.list);
-router.get('/tipos/:id', tipoTurnoController.getById);
-router.post('/tipos', tipoTurnoController.create);
-router.put('/tipos/:id', tipoTurnoController.update);
-router.delete('/tipos/:id', tipoTurnoController.delete);
 
 export default router;

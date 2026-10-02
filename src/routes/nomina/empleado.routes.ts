@@ -1,5 +1,9 @@
 import { Router } from 'express';
 import { factory } from '../../config/factory';
+import empleadoSalarioRoutes from './empleado_salario.routes';
+import nominaLiquidacionRoutes from './nomina_liquidacion.routes';
+import bonoEmpleadoRoutes from './bono_empleado.routes';
+import empleadoFichaRoutes from './empleado_ficha.routes';
 
 const router = Router();
 
@@ -28,6 +32,33 @@ const prestamoController = factory.nomina.getPrestamoEmpleadoController();
  *         description: Lista de empleados
  */
 router.get('/', empleadoController.list);
+
+// Ruta literal de préstamos ANTES del /:id genérico de Empleado (mismo patrón que
+// proveedor.routes.ts): '/prestamos' es de un solo segmento, igual que '/:id', y
+// Express toma la primera que matchee — si va después, '/:id' la captura primero
+// (id='prestamos' -> Number('prestamos')=NaN -> error de SQL).
+/**
+ * @swagger
+ * /nomina/empleados/prestamos:
+ *   get:
+ *     summary: Listar todos los préstamos de empleados
+ *     tags: [PrestamosEmpleados]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: id_empleado
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Lista de préstamos
+ */
+router.get('/prestamos', prestamoController.listAll.bind(prestamoController));
+
+// Mismo motivo: 'liquidaciones' y 'bonos' son literales de un solo segmento, deben ir
+// ANTES del /:id genérico de Empleado.
+router.use('/', nominaLiquidacionRoutes);
+router.use('/', bonoEmpleadoRoutes);
 
 /**
  * @swagger
@@ -95,6 +126,31 @@ router.put('/:id', empleadoController.update);
 /**
  * @swagger
  * /nomina/empleados/{id}:
+ *   patch:
+ *     summary: Actualizar parcialmente un empleado
+ *     tags: [Empleados]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Empleado actualizado exitosamente
+ */
+router.patch('/:id', empleadoController.update);
+
+/**
+ * @swagger
+ * /nomina/empleados/{id}:
  *   delete:
  *     summary: Eliminar empleado
  *     tags: [Empleados]
@@ -110,6 +166,13 @@ router.put('/:id', empleadoController.update);
  *         description: Empleado eliminado
  */
 router.delete('/:id', empleadoController.delete);
+
+// Salario de empleados (configuración versionada) — ver empleado_salario.routes.ts
+router.use('/', empleadoSalarioRoutes);
+
+// Ficha 360 y prestaciones sociales — ver empleado_ficha.routes.ts (rutas /:id/ficha,
+// /:id/prestaciones, dos segmentos, no chocan con el /:id genérico de arriba).
+router.use('/', empleadoFichaRoutes);
 
 // Rutas Prestamos
 /**
@@ -137,6 +200,27 @@ router.delete('/:id', empleadoController.delete);
  *         description: Préstamo creado exitosamente
  */
 router.post('/prestamos', prestamoController.registrar.bind(prestamoController));
+
+/**
+ * @swagger
+ * /nomina/empleados/prestamos/detalle/{id}:
+ *   get:
+ *     summary: Obtener un préstamo de empleado por id
+ *     tags: [PrestamosEmpleados]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Préstamo encontrado
+ *       404:
+ *         description: No encontrado
+ */
+router.get('/prestamos/detalle/:id', prestamoController.getById.bind(prestamoController));
 
 /**
  * @swagger
@@ -186,5 +270,51 @@ router.get('/prestamos/:idEmpleado', prestamoController.listarPorEmpleado.bind(p
  *         description: Préstamo actualizado
  */
 router.put('/prestamos/:id', prestamoController.update.bind(prestamoController));
+
+/**
+ * @swagger
+ * /nomina/empleados/prestamos/{id}:
+ *   patch:
+ *     summary: Actualizar parcialmente un préstamo de empleado
+ *     tags: [PrestamosEmpleados]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Préstamo actualizado
+ */
+router.patch('/prestamos/:id', prestamoController.update.bind(prestamoController));
+
+/**
+ * @swagger
+ * /nomina/empleados/prestamos/{id}:
+ *   delete:
+ *     summary: Eliminar un préstamo de empleado
+ *     tags: [PrestamosEmpleados]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Préstamo eliminado
+ *       409:
+ *         description: Tiene registros asociados y no se puede eliminar
+ */
+router.delete('/prestamos/:id', prestamoController.delete.bind(prestamoController));
 
 export default router;

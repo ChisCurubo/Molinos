@@ -5,4 +5,5 @@ export interface TipoTurnoSQL {
     nombre: string;
     hora_inicio: Date;
     hora_fin: Date;
+    recargo_porcentaje: number;
 }
