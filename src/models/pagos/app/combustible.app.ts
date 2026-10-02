@@ -9,6 +9,7 @@ export interface CombustibleApp {
     id: number;
     gasolinera?: ProveedorApp;
     tipo_consumo: string;
+    forma_pago: string;
     dueno_volqueta?: DuenoVolquetaApp;
     vehiculo?: VolquetaVehiculoApp;
     planta?: PlantaApp;
