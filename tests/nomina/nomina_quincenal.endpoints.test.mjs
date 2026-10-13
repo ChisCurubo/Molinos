@@ -119,17 +119,37 @@ try {
     const preview = r.j?.data;
     check('preview: bruto=500000 (fijo/2)', r.status === 200 && Number(preview?.monto_bruto) === 500000, `bruto=${preview?.monto_bruto}`);
     check('preview: descuenta cuota préstamo 50000 (200000/4)', Number(preview?.total_descuento_prestamo) === 50000, `descuento=${preview?.total_descuento_prestamo}`);
-    check('preview: neto=450000', Number(preview?.monto_neto) === 450000, `neto=${preview?.monto_neto}`);
+
+    // IBC = bruto + bonos del período (el bono de Fase 3 puede o no caer en el rango de esta
+    // quincena según la fecha del día en que corra el test — por eso se calcula sobre lo que
+    // el propio preview reporta, no se hardcodea).
+    const ibcEsperado = Number(preview?.monto_bruto) + Number(preview?.total_bonos_periodo);
+    const saludEsperado = Math.round(ibcEsperado * 0.04 * 100) / 100;
+    const pensionEsperado = Math.round(ibcEsperado * 0.04 * 100) / 100;
+    const aportesEsperados = Math.round((saludEsperado + pensionEsperado) * 100) / 100;
+    const netoEsperado = Math.round((Number(preview?.monto_bruto) + Number(preview?.total_bonos_periodo)
+        - Number(preview?.total_descuento_prestamo) - aportesEsperados) * 100) / 100;
+
+    check('preview: aporte_salud = 4% del IBC', Number(preview?.aporte_salud) === saludEsperado, `salud=${preview?.aporte_salud} esperado=${saludEsperado} ibc=${ibcEsperado}`);
+    check('preview: aporte_pension = 4% del IBC', Number(preview?.aporte_pension) === pensionEsperado, `pension=${preview?.aporte_pension} esperado=${pensionEsperado}`);
+    check('preview: total_aportes_seguridad_social = salud + pension', Number(preview?.total_aportes_seguridad_social) === aportesEsperados, `total=${preview?.total_aportes_seguridad_social} esperado=${aportesEsperados}`);
+    check('preview: neto = bruto + bonos - prestamo - aportes', Number(preview?.monto_neto) === netoEsperado, `neto=${preview?.monto_neto} esperado=${netoEsperado}`);
     check('preview: ya_liquidada=false', preview?.ya_liquidada === false);
 
     r = await req('POST', '/nomina/empleados/liquidaciones', { id_empleado: idEmpleado, anio, mes, quincena });
     idLiquidacion = r.j?.data?.id;
     idCxpNomina = r.j?.data?.id_cuenta_pagar;
     check('confirma liquidación (201)', r.status === 201 && !!idLiquidacion && !!idCxpNomina, `status=${r.status} data=${JSON.stringify(r.j?.data || {})}`);
-    check('liquidación: monto_neto=450000, estado=confirmado', Number(r.j?.data?.monto_neto) === 450000 && r.j?.data?.estado === 'confirmado');
+    check('liquidación: monto_neto consistente con preview, estado=confirmado',
+        Number(r.j?.data?.monto_neto) === netoEsperado && r.j?.data?.estado === 'confirmado',
+        `neto=${r.j?.data?.monto_neto} esperado=${netoEsperado}`);
+    check('liquidación confirmada: conserva desglose de aportes (salud/pension/total)',
+        Number(r.j?.data?.aporte_salud) === saludEsperado && Number(r.j?.data?.aporte_pension) === pensionEsperado
+        && Number(r.j?.data?.total_aportes_seguridad_social) === aportesEsperados,
+        JSON.stringify({ salud: r.j?.data?.aporte_salud, pension: r.j?.data?.aporte_pension, total: r.j?.data?.total_aportes_seguridad_social }));
 
     let [[cxpNomina]] = await db.query('SELECT cp.valor_total, cat.nombre AS categoria FROM Cuentas_Por_Pagar cp JOIN Categorias_CxP cat ON cat.id=cp.id_categoria WHERE cp.id=?', [idCxpNomina]);
-    check('CxP de la nómina: categoría Nómina, valor 450000', cxpNomina?.categoria === 'Nómina' && Number(cxpNomina?.valor_total) === 450000, JSON.stringify(cxpNomina));
+    check('CxP de la nómina: categoría Nómina, valor = neto esperado', cxpNomina?.categoria === 'Nómina' && Number(cxpNomina?.valor_total) === netoEsperado, JSON.stringify(cxpNomina));
 
     let [[cxcTrasDescuento]] = await db.query('SELECT valor_cobrado, saldo, estado FROM Cuentas_Por_Cobrar WHERE id=?', [idCxcPrestamo]);
     check('CxC del préstamo bajó a saldo=150000 tras el descuento_nomina', Number(cxcTrasDescuento?.saldo) === 150000 && cxcTrasDescuento?.estado === 'parcial', JSON.stringify(cxcTrasDescuento));

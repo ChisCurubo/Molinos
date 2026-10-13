@@ -11,13 +11,15 @@ export class NominaLiquidacionRepository implements INominaLiquidacionRepository
         const [result] = await conn.execute<ResultSetHeader>(
             `INSERT INTO Nomina_Liquidaciones
                 (id_empleado, anio, mes, quincena, tipo_pago, unidades, tarifa_aplicada,
-                 monto_bruto, total_bonos, total_descuento_prestamo, otros_descuentos, monto_neto,
-                 estado, fecha_liquidacion)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmado', ?)`,
+                 monto_bruto, total_recargo_dominical_festivo, total_bonos, total_descuento_prestamo,
+                 aporte_salud, aporte_pension, total_aportes_seguridad_social, otros_descuentos,
+                 monto_neto, estado, fecha_liquidacion)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmado', ?)`,
             [
                 data.id_empleado, data.anio, data.mes, data.quincena, data.tipo_pago,
-                data.unidades, data.tarifa_aplicada, data.monto_bruto, data.total_bonos,
-                data.total_descuento_prestamo, data.otros_descuentos, data.monto_neto,
+                data.unidades, data.tarifa_aplicada, data.monto_bruto, data.total_recargo_dominical_festivo,
+                data.total_bonos, data.total_descuento_prestamo, data.aporte_salud, data.aporte_pension,
+                data.total_aportes_seguridad_social, data.otros_descuentos, data.monto_neto,
                 data.fecha_liquidacion || new Date().toISOString().slice(0, 10)
             ]
         );
@@ -73,13 +75,15 @@ export class NominaLiquidacionRepository implements INominaLiquidacionRepository
         const [result] = await this.conn(conn).execute<ResultSetHeader>(
             `INSERT INTO Nomina_Liquidaciones
                 (id_empleado, anio, mes, quincena, tipo_pago, unidades, tarifa_aplicada,
-                 monto_bruto, total_bonos, total_descuento_prestamo, otros_descuentos, monto_neto,
-                 estado, fecha_liquidacion)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'borrador', ?)`,
+                 monto_bruto, total_recargo_dominical_festivo, total_bonos, total_descuento_prestamo,
+                 aporte_salud, aporte_pension, total_aportes_seguridad_social, otros_descuentos,
+                 monto_neto, estado, fecha_liquidacion)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'borrador', ?)`,
             [
                 data.id_empleado, data.anio, data.mes, data.quincena, data.tipo_pago,
-                data.unidades, data.tarifa_aplicada, data.monto_bruto, data.total_bonos,
-                data.total_descuento_prestamo, data.otros_descuentos, data.monto_neto,
+                data.unidades, data.tarifa_aplicada, data.monto_bruto, data.total_recargo_dominical_festivo,
+                data.total_bonos, data.total_descuento_prestamo, data.aporte_salud, data.aporte_pension,
+                data.total_aportes_seguridad_social, data.otros_descuentos, data.monto_neto,
                 data.fecha_liquidacion || new Date().toISOString().slice(0, 10)
             ]
         );
@@ -95,18 +99,22 @@ export class NominaLiquidacionRepository implements INominaLiquidacionRepository
 
     async confirmarBorrador(id: number, id_cuenta_pagar: number, data: {
         tipo_pago: string; unidades: number | null; tarifa_aplicada: number; monto_bruto: number;
-        total_bonos: number; total_descuento_prestamo: number; monto_neto: number; fecha_liquidacion: string;
+        total_recargo_dominical_festivo: number; total_bonos: number; total_descuento_prestamo: number;
+        aporte_salud: number; aporte_pension: number; total_aportes_seguridad_social: number;
+        monto_neto: number; fecha_liquidacion: string;
     }, conn: PoolConnection): Promise<void> {
         await conn.execute(
             `UPDATE Nomina_Liquidaciones
-             SET tipo_pago = ?, unidades = ?, tarifa_aplicada = ?, monto_bruto = ?, total_bonos = ?,
-                 total_descuento_prestamo = ?, monto_neto = ?, fecha_liquidacion = ?,
-                 id_cuenta_pagar = ?, estado = 'confirmado'
+             SET tipo_pago = ?, unidades = ?, tarifa_aplicada = ?, monto_bruto = ?,
+                 total_recargo_dominical_festivo = ?, total_bonos = ?, total_descuento_prestamo = ?,
+                 aporte_salud = ?, aporte_pension = ?, total_aportes_seguridad_social = ?,
+                 monto_neto = ?, fecha_liquidacion = ?, id_cuenta_pagar = ?, estado = 'confirmado'
              WHERE id = ? AND estado = 'borrador'`,
             [
-                data.tipo_pago, data.unidades, data.tarifa_aplicada, data.monto_bruto, data.total_bonos,
-                data.total_descuento_prestamo, data.monto_neto, data.fecha_liquidacion,
-                id_cuenta_pagar, id
+                data.tipo_pago, data.unidades, data.tarifa_aplicada, data.monto_bruto,
+                data.total_recargo_dominical_festivo, data.total_bonos, data.total_descuento_prestamo,
+                data.aporte_salud, data.aporte_pension, data.total_aportes_seguridad_social,
+                data.monto_neto, data.fecha_liquidacion, id_cuenta_pagar, id
             ]
         );
     }

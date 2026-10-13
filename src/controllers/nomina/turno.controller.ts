@@ -113,7 +113,7 @@ export class TipoTurnoController {
             const result = await this.service.create(req.body);
             res.status(201).json({ success: true, data: result });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            res.status(error?.status || 500).json({ success: false, error: error.message });
         }
     };
 
@@ -141,7 +141,7 @@ export class TipoTurnoController {
             }
             res.status(200).json({ success: true, data: result });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            res.status(error?.status || 500).json({ success: false, error: error.message });
         }
     };
 
@@ -155,7 +155,7 @@ export class TipoTurnoController {
             }
             res.status(200).json({ success: true, message: 'Registro eliminado' });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            res.status(error?.status || 500).json({ success: false, error: error.message });
         }
     };
 

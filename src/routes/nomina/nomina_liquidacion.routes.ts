@@ -37,7 +37,7 @@ const controller = factory.nomina.getNominaLiquidacionController();
  *         schema: { type: integer, enum: [1, 2] }
  *     responses:
  *       200:
- *         description: Cálculo de la liquidación (bruto, bonos del período, descuento de préstamo, neto)
+ *         description: Cálculo de la liquidación (bruto, bonos del período, descuento de préstamo, aportes de salud/pensión, neto)
  */
 router.get('/liquidaciones/preview', controller.previsualizar);
 

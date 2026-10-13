@@ -8,6 +8,7 @@ export interface TurnoSQL {
     id_planta_proceso: number | null;
     horas_trabajadas: number;
     presente: boolean;
+    es_festivo: boolean;
     comentarios: string;
     quincena: number;
     created_at: Date;

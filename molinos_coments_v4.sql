@@ -97,16 +97,17 @@ INSERT INTO Tipos_Gasto_Operativo (nombre, descripcion) VALUES
 
 
 CREATE TABLE Tipos_Turno (
-    id          INT         AUTO_INCREMENT PRIMARY KEY COMMENT 'Identificador único del horario de turno',
-    nombre      VARCHAR(50) NOT NULL                   COMMENT 'Nombre descriptivo del turno (TURNO 1=mañana 6-14h, TURNO 2=tarde 14-22h, TURNO 3=noche 22-6h)',
-    hora_inicio TIME        NOT NULL                   COMMENT 'Hora de inicio del turno en formato HH:MM:SS (Ej: 06:00:00)',
-    hora_fin    TIME        NOT NULL                   COMMENT 'Hora de finalización del turno en formato HH:MM:SS (Ej: 14:00:00)'
+    id                 INT           AUTO_INCREMENT PRIMARY KEY COMMENT 'Identificador único del horario de turno',
+    nombre             VARCHAR(50)   NOT NULL                   COMMENT 'Nombre descriptivo del turno (TURNO 1=mañana 6-14h, TURNO 2=tarde 14-22h, TURNO 3=noche 22-6h)',
+    hora_inicio        TIME          NOT NULL                   COMMENT 'Hora de inicio del turno en formato HH:MM:SS (Ej: 06:00:00)',
+    hora_fin           TIME          NOT NULL                   COMMENT 'Hora de finalización del turno en formato HH:MM:SS (Ej: 14:00:00)',
+    recargo_porcentaje DECIMAL(5,2)  NOT NULL DEFAULT 0         COMMENT 'Recargo PROPIO de este turno (política interna, ej. bono de la tarde) — aparte del recargo nocturno legal de 35%, que ahora se calcula por hora según Jornada_Nocturna_Legal y se suma por separado. No usar este campo para modelar la noche. Migración 2026-10-13.'
 ) COMMENT='Catálogo estático de horarios de operación de la planta. Los tres turnos cubren las 24 horas del día corrido.';
 
-INSERT INTO Tipos_Turno (nombre, hora_inicio, hora_fin) VALUES
-('TURNO 1','06:00:00','14:00:00'),
-('TURNO 2','14:00:00','22:00:00'),
-('TURNO 3','22:00:00','06:00:00');
+INSERT INTO Tipos_Turno (nombre, hora_inicio, hora_fin, recargo_porcentaje) VALUES
+('TURNO 1','06:00:00','14:00:00', 0),
+('TURNO 2','14:00:00','22:00:00', 25),
+('TURNO 3','22:00:00','06:00:00', 0);
 
 
 CREATE TABLE Tipos_Alquiler (
@@ -351,6 +352,8 @@ CREATE TABLE Proveedores (
     id               INT          AUTO_INCREMENT PRIMARY KEY  COMMENT 'Identificador único del proveedor',
     nombre           VARCHAR(150) NOT NULL                    COMMENT 'Razón social o nombre completo del proveedor (Ej: AHK LABORATORIO, CONSURRECON COMBUSTIBLE)',
     id_categoria     INT                                      COMMENT 'Categoría de servicio del proveedor — ver Categorias_Proveedor',
+    tipo             ENUM('general','combustible','transportadora','laboratorio') NOT NULL DEFAULT 'general'
+                     COMMENT 'Tipo de negocio del proveedor, fijo (no texto libre como la categoría) — combustible=válido como Combustible.id_gasolinera. Migración 2026-09-19',
     contacto         VARCHAR(150)                             COMMENT 'Nombre de la persona de contacto o representante comercial del proveedor',
     telefono         VARCHAR(20)                              COMMENT 'Número de teléfono de contacto',
     ciudad           VARCHAR(100)                             COMMENT 'Ciudad base de operación o ubicación principal del proveedor',
@@ -471,7 +474,9 @@ CREATE TABLE Turnos (
     id_empleado       INT           NOT NULL                   COMMENT 'Empleado asignado a este turno — ver Empleados',
     id_tipo_turno     INT           NOT NULL                   COMMENT 'Horario del turno (mañana/tarde/noche) — ver Tipos_Turno',
     id_planta_proceso INT           NULL                       COMMENT 'Proceso o área específica donde laboró (Ej: Molienda, Flotación, Secado) — ver Planta_Procesos',
-    horas_trabajadas  DECIMAL(5,2)  DEFAULT 0                 COMMENT 'Horas efectivas trabajadas durante el turno. Base para cálculo de nómina cuando tipo_pago=POR_HORAS.',
+    horas_trabajadas  DECIMAL(5,2)  DEFAULT 0                 COMMENT 'Horas efectivas trabajadas durante el turno. Base para cálculo de nómina cuando tipo_pago=POR_HORAS. En 0 cuando presente=FALSE.',
+    presente          BOOLEAN       NOT NULL DEFAULT TRUE      COMMENT 'FALSE = el empleado no asistió ese día (ausencia); horas_trabajadas queda en 0. TRUE = turno normal. Migración 2026-09-27.',
+    es_festivo        BOOLEAN       NOT NULL DEFAULT FALSE     COMMENT 'Festivo de calendario (no domingo, que se detecta solo) — se marca al registrar el turno de ese día, sin catálogo de fechas aparte. Suma +75% de recargo dominical/festivo. Migración 2026-10-13.',
     comentarios       TEXT                                     COMMENT 'Novedades, ausencias parciales, paros, incidencias u anomalías del turno',
     quincena          INT GENERATED ALWAYS AS (CASE WHEN DAY(fecha) <= 15 THEN 1 ELSE 2 END) STORED
                       COMMENT 'Período de nómina calculado automáticamente: 1=días 1 al 15 del mes, 2=días 16 al 31. No editable.',
@@ -479,8 +484,9 @@ CREATE TABLE Turnos (
     FOREIGN KEY (id_empleado)       REFERENCES Empleados(id),
     FOREIGN KEY (id_tipo_turno)     REFERENCES Tipos_Turno(id),
     FOREIGN KEY (id_planta_proceso) REFERENCES Planta_Procesos(id),
-    INDEX idx_turnos_fecha (fecha)
-) COMMENT='Registro diario de asistencia y turnos del personal de planta. La columna quincena se calcula sola para facilitar la liquidación de nómina por período. Permite filtrar por empleado, área o proceso.';
+    INDEX idx_turnos_fecha (fecha),
+    UNIQUE KEY uq_turno_empleado_fecha (id_empleado, fecha)
+) COMMENT='Registro diario de asistencia y turnos del personal de planta. A lo sumo un turno por (empleado, fecha) — upsert, no duplicar. La columna quincena se calcula sola para facilitar la liquidación de nómina por período. Permite filtrar por empleado, área o proceso.';
 
 
 CREATE TABLE Combustible (
@@ -488,6 +494,8 @@ CREATE TABLE Combustible (
     id_gasolinera              INT           NULL                        COMMENT 'Proveedor (gasolinera o estación de servicio). NULL al registrar un ACPM adelantado (se completa luego al armar la CxP a la estación). Migración 2026-09-02 lo pasó de NOT NULL a NULL — ver Proveedores',
     tipo_consumo               ENUM('vehiculo','planta','maquinaria','otro') NOT NULL DEFAULT 'vehiculo'
                                COMMENT 'Destino del combustible: vehiculo=tanqueo de camión, planta=tambores para uso interno de planta, maquinaria=retroexcavadora u otro equipo, otro=sin clasificar',
+    forma_pago                 ENUM('efectivo','credito') NOT NULL DEFAULT 'credito'
+                               COMMENT 'efectivo=ya se pagó en el momento (adelanto en efectivo al dueño de volqueta, o caja menor de planta) y no genera CxP; credito=se cargó a la línea de crédito de la gasolinera y debe agruparse en una Cuenta_Por_Pagar. Migración 2026-09-16 — ver v_estado_combustible',
     id_dueno_volqueta          INT           NULL                        COMMENT 'Dueño del vehículo al que se carga el combustible a crédito. El costo se descuenta del flete — ver Dueno_Volqueta',
     id_vehiculo                INT           NULL                        COMMENT 'Vehículo físico que tanqueó (cuando tipo_consumo=vehiculo) — ver Volqueta_Vehiculo',
     id_planta                  INT           NULL                        COMMENT 'Planta que consumió el combustible en tambores o equipos internos — ver Planta',
@@ -782,7 +790,7 @@ CREATE TABLE Mulas (
     concepto         VARCHAR(255)                              COMMENT 'Descripción del despacho: contenido, toneladas, destino y condiciones del transporte',
     factura_num      VARCHAR(50)                               COMMENT 'Número de factura de la empresa transportadora para este servicio',
     foto_factura_url VARCHAR(512)                              COMMENT 'URL o ruta de la foto de la factura del servicio de transporte',
-    valor            DECIMAL(14,2) NOT NULL                    COMMENT 'Lo que se debe pagar por este despacho (antes de retención) — la deuda, no un pago. El pago real se registra en los abonos de su Cuenta_Por_Pagar.',
+    valor            DECIMAL(14,2) NOT NULL                    COMMENT 'Lo que se debe pagar por este despacho (antes de retención) — la deuda, no un pago. El pago real se registra en los abonos de su Cuenta_Por_Pagar; comprobante_url de esta tabla queda sin uso desde la app (el comprobante vive en cada Abono_CxP).',
     comprobante_url  VARCHAR(512)                              COMMENT 'Sin uso desde la app (legado) — el comprobante del pago vive en cada Abono_CxP, no aquí',
     created_at       TIMESTAMP     DEFAULT CURRENT_TIMESTAMP  COMMENT 'Fecha y hora de registro del despacho',
     FOREIGN KEY (id_proveedor) REFERENCES Proveedores(id),
@@ -923,7 +931,8 @@ CREATE TABLE Viaje (
     comentarios          TEXT                                      COMMENT 'Novedades, diferencias en destino, condiciones de venta o incidencias del transporte',
     created_at           TIMESTAMP     DEFAULT CURRENT_TIMESTAMP  COMMENT 'Fecha y hora de creación del viaje en el sistema',
     updated_at           TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                         COMMENT 'Fecha y hora de la última actualización del viaje'
+                         COMMENT 'Fecha y hora de la última actualización del viaje',
+    INDEX idx_viaje_estado (estado)
 ) COMMENT='Registro de cada despacho de material a Barranquilla para procesamiento externo (maquila). Agrupa múltiples entradas de planta en un solo envío. Las entradas participantes se enlistan en viaje_material.';
 
 
@@ -1462,16 +1471,17 @@ GROUP BY al.id, al.valor;
 
 CREATE VIEW v_estado_combustible AS
 SELECT
-    c.id, c.valor AS valor_total,
-    COALESCE(SUM(ab.valor),0) AS total_pagado,
-    GREATEST(c.valor - COALESCE(SUM(ab.valor),0), 0) AS saldo_pendiente,
-    CASE WHEN COALESCE(SUM(ab.valor),0)<=0 THEN 'pendiente'
+    c.id, c.forma_pago, c.valor AS valor_total,
+    CASE WHEN c.forma_pago = 'efectivo' THEN c.valor ELSE COALESCE(SUM(ab.valor),0) END AS total_pagado,
+    CASE WHEN c.forma_pago = 'efectivo' THEN 0 ELSE GREATEST(c.valor - COALESCE(SUM(ab.valor),0), 0) END AS saldo_pendiente,
+    CASE WHEN c.forma_pago = 'efectivo' THEN 'pagado'
+         WHEN COALESCE(SUM(ab.valor),0)<=0 THEN 'pendiente'
          WHEN COALESCE(SUM(ab.valor),0)>=c.valor THEN 'pagado' ELSE 'parcial' END AS estado_pago
 FROM Combustible c
 LEFT JOIN Cuentas_Por_Pagar_Relacion cpr ON cpr.id_combustible = c.id
 LEFT JOIN Cuentas_Por_Pagar cp ON cp.id = cpr.id_cuenta_pagar AND cp.estado!='anulado'
 LEFT JOIN Abonos_CxP ab ON ab.id_cuenta_pagar = cp.id
-GROUP BY c.id, c.valor;
+GROUP BY c.id, c.forma_pago, c.valor;
 
 
 -- v_estado_agua: NETA (resta ACPM de Combustible por id_agua) y PRORRATEADA (sin fan-out de abonos).

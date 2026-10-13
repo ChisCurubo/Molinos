@@ -8,6 +8,23 @@ import { TipoTurnoRepository } from '../../repositories/nomina/turno.repository'
 import { TipoTurnoSQL } from '../../models/nomina/sql/tipo_turno.sql';
 
 const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const HORA_RE = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
+
+// El front edita Tipos_Turno directamente (nombre/horario/recargo) — validar aquí lo que antes
+// solo se tecleaba a mano en SQL, para que un dato mal formado no quede guardado silenciosamente.
+function validarTipoTurno(data: any, exigirNombre: boolean): void {
+    if (exigirNombre && !(data.nombre || '').toString().trim()) throw err('nombre es requerido');
+    if (data.hora_inicio !== undefined && !HORA_RE.test(String(data.hora_inicio))) {
+        throw err('hora_inicio debe tener formato HH:MM o HH:MM:SS');
+    }
+    if (data.hora_fin !== undefined && !HORA_RE.test(String(data.hora_fin))) {
+        throw err('hora_fin debe tener formato HH:MM o HH:MM:SS');
+    }
+    if (data.recargo_porcentaje !== undefined) {
+        const r = Number(data.recargo_porcentaje);
+        if (!Number.isFinite(r) || r < 0 || r > 200) throw err('recargo_porcentaje debe ser un número entre 0 y 200');
+    }
+}
 
 // --- Original: turno ---
 export class TurnoService implements ITurnoService {
@@ -35,7 +52,7 @@ export class TurnoService implements ITurnoService {
      * presente=true (turno normal) exige id_tipo_turno y valida horas entre 1 y 24
      * (default 8 si no se envía).
      */
-    async upsert(data: { id_empleado: number; fecha: string; id_tipo_turno?: number; horas_trabajadas?: number; presente?: boolean; id_planta_proceso?: number; comentarios?: string }): Promise<TurnoSQL> {
+    async upsert(data: { id_empleado: number; fecha: string; id_tipo_turno?: number; horas_trabajadas?: number; presente?: boolean; es_festivo?: boolean; id_planta_proceso?: number; comentarios?: string }): Promise<TurnoSQL> {
         if (!data.id_empleado) throw err('id_empleado es requerido');
         if (!data.fecha) throw err('fecha es requerida');
 
@@ -57,6 +74,9 @@ export class TurnoService implements ITurnoService {
         }
         if (data.id_planta_proceso !== undefined) payload.id_planta_proceso = data.id_planta_proceso as any;
         if (data.comentarios !== undefined) payload.comentarios = data.comentarios as any;
+        // Festivo de calendario (Ley/día no laboral) — se marca por turno, no hay catálogo de
+        // fechas aparte; el domingo se detecta solo (ver nomina_liquidacion.service.ts diaSemana()).
+        if (data.es_festivo !== undefined) payload.es_festivo = !!data.es_festivo as any;
 
         return this.repository.upsert(data.id_empleado, data.fecha, payload);
     }
@@ -100,6 +120,7 @@ export class TipoTurnoService implements ITipoTurnoService {
     constructor(private repository: ITipoTurnoRepository) {}
 
     async create(data: any): Promise<TipoTurnoSQL> {
+        validarTipoTurno(data, true);
         const id = await this.repository.create(data);
         const entity = await this.repository.getById(id);
         return entity!;
@@ -110,6 +131,7 @@ export class TipoTurnoService implements ITipoTurnoService {
     }
 
     async update(id: number, data: any): Promise<TipoTurnoSQL | null> {
+        validarTipoTurno(data, false);
         await this.repository.update(id, data);
         return this.repository.getById(id);
     }

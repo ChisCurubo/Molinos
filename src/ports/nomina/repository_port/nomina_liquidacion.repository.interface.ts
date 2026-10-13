@@ -17,6 +17,8 @@ export interface INominaLiquidacionRepository {
     actualizarBorrador(id: number, data: { otros_descuentos: number; monto_neto: number }, conn?: PoolConnection): Promise<void>;
     confirmarBorrador(id: number, id_cuenta_pagar: number, data: {
         tipo_pago: string; unidades: number | null; tarifa_aplicada: number; monto_bruto: number;
-        total_bonos: number; total_descuento_prestamo: number; monto_neto: number; fecha_liquidacion: string;
+        total_recargo_dominical_festivo: number; total_bonos: number; total_descuento_prestamo: number;
+        aporte_salud: number; aporte_pension: number; total_aportes_seguridad_social: number;
+        monto_neto: number; fecha_liquidacion: string;
     }, conn: PoolConnection): Promise<void>;
 }

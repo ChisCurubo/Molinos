@@ -1,11 +1,13 @@
 import { Pool, PoolConnection } from 'mysql2/promise';
 import { INominaLiquidacionRepository } from '../../ports/nomina/repository_port/nomina_liquidacion.repository.interface';
-import { INominaLiquidacionService, PreviewLiquidacion, PreviewGrupalResult, PrestacionesSociales } from '../../ports/nomina/service_port/nomina_liquidacion.service.interface';
+import { INominaLiquidacionService, PreviewLiquidacion, PreviewGrupalResult, PrestacionesSociales, DetalleTurnoLiquidacion } from '../../ports/nomina/service_port/nomina_liquidacion.service.interface';
 import { IEmpleadoRepository, PrestamoEmpleadoRepositoryInterface } from '../../ports/nomina/repository_port/empleado.repository.interface';
 import { IEmpleadoSalarioRepository } from '../../ports/nomina/repository_port/empleado_salario.repository.interface';
 import { ITurnoRepository, ITipoTurnoRepository } from '../../ports/nomina/repository_port/turno.repository.interface';
 import { IBonoEmpleadoRepository } from '../../ports/nomina/repository_port/bono_empleado.repository.interface';
+import { IJornadaNocturnaLegalRepository } from '../../ports/nomina/repository_port/jornada_nocturna_legal.repository.interface';
 import { NominaLiquidacionSQL } from '../../models/nomina/sql/nomina_liquidacion.sql';
+import { JornadaNocturnaLegalSQL } from '../../models/nomina/sql/jornada_nocturna_legal.sql';
 
 const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -19,12 +21,69 @@ function rangoQuincena(anio: number, mes: number, quincena: 1 | 2): { desde: str
     return { desde: `${anio}-${pad(mes)}-16`, hasta: `${anio}-${pad(mes)}-${pad(ultimoDia)}` };
 }
 
+function minutosDesdeMedianoche(hora: string | Date): number {
+    if (hora instanceof Date) return hora.getHours() * 60 + hora.getMinutes();
+    const [h, m] = String(hora).split(':').map(Number);
+    return h * 60 + (m || 0);
+}
+
+// Divide un intervalo [ini,fin) de minutos-del-día en 1 o 2 tramos sin cruce de medianoche
+// (si fin <= ini, el bloque cruza medianoche, ej. 22:00-06:00 → [1320,1440) + [0,360)).
+function tramosSinCruce(ini: number, fin: number): [number, number][] {
+    return ini < fin ? [[ini, fin]] : [[ini, 1440], [0, fin]];
+}
+
+function solape(a: [number, number], b: [number, number]): number {
+    return Math.max(0, Math.min(a[1], b[1]) - Math.max(a[0], b[0]));
+}
+
+/**
+ * Fracción [0,1] del bloque físico de un turno (`inicioBloque`-`finBloque`, puede cruzar
+ * medianoche) que cae en zona legalmente nocturna: [horaInicioNocturno, 24:00) ∪ [00:00, 06:00)
+ * — la jornada nocturna siempre termina a las 06:00; solo su inicio se ha movido por ley
+ * (Ley 2101 de 2021). Ver Jornada_Nocturna_Legal / migracion_jornada_nocturna_legal_2026-10-13.sql.
+ */
+function fraccionNocturna(inicioBloque: string | Date, finBloque: string | Date, horaInicioNocturno: string | Date): number {
+    const bloque = tramosSinCruce(minutosDesdeMedianoche(inicioBloque), minutosDesdeMedianoche(finBloque));
+    const noche = tramosSinCruce(minutosDesdeMedianoche(horaInicioNocturno), 6 * 60);
+
+    const duracionBloque = bloque.reduce((acc, [i, f]) => acc + (f - i), 0);
+    if (duracionBloque <= 0) return 0;
+
+    let nocheEnBloque = 0;
+    for (const b of bloque) for (const n of noche) nocheEnBloque += solape(b, n);
+    return nocheEnBloque / duracionBloque;
+}
+
+function partesFecha(fecha: string | Date): { y: number; m: number; d: number } {
+    if (fecha instanceof Date) return { y: fecha.getFullYear(), m: fecha.getMonth() + 1, d: fecha.getDate() };
+    const [y, m, d] = String(fecha).slice(0, 10).split('-').map(Number);
+    return { y, m, d };
+}
+
+/** 0 = domingo. Calculado a partir del calendario (y,m,d) en UTC, nunca de un timestamp con zona
+ *  horaria local, para que no dependa de en qué TZ corra el proceso. */
+function diaSemana(fecha: string | Date): number {
+    const { y, m, d } = partesFecha(fecha);
+    return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+/** "YYYY-MM-DD", sin hora — para mostrar en el detalle por turno. */
+function fechaISO(fecha: string | Date): string {
+    const { y, m, d } = partesFecha(fecha);
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
 /**
  * Nómina quincenal: paga la mitad del salario fijo el día 15, la otra mitad a fin de mes;
  * para empleados variables (POR_DIAS/POR_HORAS) liquida lo devengado en esa quincena según
  * Turno. Descuenta automáticamente la cuota de cualquier préstamo activo del empleado
  * (Prestamos_Empleados.valor / cuotas, topada al saldo restante de su CxC) como un
  * Abono_CxC con metodo='descuento_nomina'. Ver NOMINA_QUINCENAL_plan.md Fase 2.
+ * También descuenta seguridad social de ley (salud 4% + pensión 4% a cargo del empleado,
+ * sobre IBC = monto_bruto + bonos del período) para los 3 tipo_pago — ver `calcular()`.
+ * No confundir con `calcularPrestaciones()`: esa es una provisión informativa que paga la
+ * empresa aparte, no toca monto_neto.
  */
 export class NominaLiquidacionService implements INominaLiquidacionService {
     constructor(
@@ -35,8 +94,15 @@ export class NominaLiquidacionService implements INominaLiquidacionService {
         private tipoTurnoRepo: ITipoTurnoRepository,
         private prestamoRepo: PrestamoEmpleadoRepositoryInterface,
         private bonoRepo: IBonoEmpleadoRepository,
+        private jornadaNocturnaRepo: IJornadaNocturnaLegalRepository,
         private db: Pool
     ) {}
+
+    /** El corte legal vigente en `fecha` dentro de un histórico ya cargado (orden DESC). */
+    private vigenteEnFecha(historial: JornadaNocturnaLegalSQL[], fecha: string | Date): JornadaNocturnaLegalSQL | undefined {
+        const t = new Date(fecha).getTime();
+        return historial.find(j => new Date(j.vigente_desde).getTime() <= t);
+    }
 
     private async tx<T>(fn: (conn: PoolConnection) => Promise<T>): Promise<T> {
         const conn = await this.db.getConnection();
@@ -74,24 +140,82 @@ export class NominaLiquidacionService implements INominaLiquidacionService {
 
         let unidades: number | null = null;
         let monto_bruto = 0;
+        let total_recargo_dominical_festivo = 0;
+        const detalle_turnos: DetalleTurnoLiquidacion[] = [];
         if (salario.tipo_pago === 'FIJO_MENSUAL') {
             monto_bruto = r2(Number(salario.tarifa_monto) / 2);
         } else {
             const turnos = (await this.turnoRepo.listByEmpleadoAndQuincena(id_empleado, quincena, mes, anio))
                 .filter(t => t.presente !== false); // ausencias (presente=false) no devengan, ya vienen con horas=0
+
+            // Recargo dominical/festivo (+75% de ley, se SUMA al resto de recargos): aplica si el
+            // día del turno es domingo (calculado) o si ese Turno quedó marcado `es_festivo=true`
+            // al registrarlo (no hay catálogo de fechas aparte — se marca turno por turno).
+            const esFestivo = (t: { fecha: string | Date; es_festivo?: boolean }) => diaSemana(t.fecha) === 0 || !!t.es_festivo;
+
+            const tipos = await this.tipoTurnoRepo.list();
+            const tipoPorId = new Map(tipos.map(t => [t.id, t]));
+
             if (salario.tipo_pago === 'POR_DIAS') {
                 unidades = turnos.length;
-                monto_bruto = r2(unidades * Number(salario.tarifa_monto));
+                const tarifa = Number(salario.tarifa_monto);
+                monto_bruto = 0;
+                total_recargo_dominical_festivo = 0;
+                for (const t of turnos) {
+                    const festivo = esFestivo(t);
+                    const pctDia = festivo ? 75 : 0;
+                    const monto = r2(tarifa * (1 + pctDia / 100));
+                    monto_bruto = r2(monto_bruto + monto);
+                    if (festivo) total_recargo_dominical_festivo = r2(total_recargo_dominical_festivo + tarifa * 0.75);
+
+                    detalle_turnos.push({
+                        fecha: fechaISO(t.fecha), id_tipo_turno: t.id_tipo_turno,
+                        nombre_turno: tipoPorId.get(t.id_tipo_turno)?.nombre ?? null,
+                        horas_trabajadas: null, es_domingo: diaSemana(t.fecha) === 0, es_festivo: !!t.es_festivo,
+                        horas_diurnas: null, horas_nocturnas: null,
+                        recargo_pct_diurno: pctDia, recargo_pct_nocturno: 0, monto
+                    });
+                }
             } else {
                 unidades = turnos.reduce((acc, t) => acc + Number(t.horas_trabajadas || 0), 0);
-                // Recargo por tipo de turno (diurno 0% / tarde +25% / nocturno +35%, ver Tipos_Turno):
-                // cada turno se paga horas × tarifa × (1 + recargo/100), no una suma plana de horas.
-                const tipos = await this.tipoTurnoRepo.list();
-                const recargoPorTipo = new Map(tipos.map(t => [t.id, Number(t.recargo_porcentaje || 0)]));
-                monto_bruto = r2(turnos.reduce((acc, t) => {
-                    const recargo = recargoPorTipo.get(t.id_tipo_turno) || 0;
-                    return acc + Number(t.horas_trabajadas || 0) * Number(salario.tarifa_monto) * (1 + recargo / 100);
-                }, 0));
+                // Recargo propio del turno (0% mañana / +25% tarde, ver Tipos_Turno.recargo_porcentaje)
+                // + recargo nocturno legal (+35%, sobre la fracción de cada turno en zona nocturna
+                // según el corte vigente — Ley 2101/2021, histórico en Jornada_Nocturna_Legal) +
+                // recargo dominical/festivo (+75% uniforme sobre todas las horas de ese día). Los
+                // tres recargos SE SUMAN entre sí sobre la tarifa base.
+                const jornadaHistorial = await this.jornadaNocturnaRepo.listar();
+                const tarifa = Number(salario.tarifa_monto);
+                monto_bruto = 0;
+                total_recargo_dominical_festivo = 0;
+                for (const t of turnos) {
+                    const horas = Number(t.horas_trabajadas || 0);
+                    const tipoTurno = tipoPorId.get(t.id_tipo_turno);
+                    const recargoPropio = Number(tipoTurno?.recargo_porcentaje || 0);
+                    const corte = this.vigenteEnFecha(jornadaHistorial, t.fecha);
+                    const fraccionNoche = (tipoTurno && corte)
+                        ? fraccionNocturna(tipoTurno.hora_inicio, tipoTurno.hora_fin, corte.hora_inicio_nocturno)
+                        : 0;
+                    const horasNoche = r2(horas * fraccionNoche);
+                    const horasDia = r2(horas - horasNoche);
+                    const festivo = esFestivo(t);
+                    const recargoFestivoPct = festivo ? 75 : 0;
+                    const pctDia = recargoPropio + recargoFestivoPct;
+                    const pctNoche = recargoPropio + 35 + recargoFestivoPct;
+
+                    const montoTurno = r2(horasDia * tarifa * (1 + pctDia / 100) + horasNoche * tarifa * (1 + pctNoche / 100));
+                    monto_bruto = r2(monto_bruto + montoTurno);
+                    if (festivo) {
+                        total_recargo_dominical_festivo = r2(total_recargo_dominical_festivo + horas * tarifa * 0.75);
+                    }
+
+                    detalle_turnos.push({
+                        fecha: fechaISO(t.fecha), id_tipo_turno: t.id_tipo_turno, nombre_turno: tipoTurno?.nombre ?? null,
+                        horas_trabajadas: horas, es_domingo: diaSemana(t.fecha) === 0, es_festivo: !!t.es_festivo,
+                        horas_diurnas: horasDia, horas_nocturnas: horasNoche,
+                        recargo_pct_diurno: pctDia, recargo_pct_nocturno: horasNoche > 0 ? pctNoche : 0,
+                        monto: montoTurno
+                    });
+                }
             }
         }
 
@@ -115,9 +239,18 @@ export class NominaLiquidacionService implements INominaLiquidacionService {
 
         const total_bonos_periodo = r2(await this.bonoRepo.sumarPorEmpleadoYRango(id_empleado, desde, hasta));
 
+        // Seguridad social (ley): salud 4% + pensión 4% a cargo del empleado, sobre el IBC
+        // (ingreso base de cotización) = lo efectivamente devengado en la quincena (bruto +
+        // bonos del periodo), antes de descuentos. Aplica igual para los 3 tipo_pago.
+        const ibc = r2(monto_bruto + total_bonos_periodo);
+        const aporte_salud = r2(ibc * 0.04);
+        const aporte_pension = r2(ibc * 0.04);
+        const total_aportes_seguridad_social = r2(aporte_salud + aporte_pension);
+
         return {
-            empleado, salario, desde, hasta, unidades, monto_bruto,
-            total_descuento_prestamo, prestamos_a_descontar, total_bonos_periodo
+            empleado, salario, desde, hasta, unidades, monto_bruto, total_recargo_dominical_festivo,
+            detalle_turnos, total_descuento_prestamo, prestamos_a_descontar, total_bonos_periodo,
+            aporte_salud, aporte_pension, total_aportes_seguridad_social
         };
     }
 
@@ -130,7 +263,8 @@ export class NominaLiquidacionService implements INominaLiquidacionService {
         const c = await this.calcular(id_empleado, anio, mes, quincena);
         const existente = await this.repo.obtenerPorPeriodo(id_empleado, anio, mes, quincena);
         const otros_descuentos = 0;
-        const monto_neto = r2(c.monto_bruto + c.total_bonos_periodo - c.total_descuento_prestamo - otros_descuentos);
+        const monto_neto = r2(c.monto_bruto + c.total_bonos_periodo - c.total_descuento_prestamo
+            - c.total_aportes_seguridad_social - otros_descuentos);
 
         return {
             id_empleado, anio, mes, quincena,
@@ -138,9 +272,14 @@ export class NominaLiquidacionService implements INominaLiquidacionService {
             unidades: c.unidades,
             tarifa_aplicada: Number(c.salario.tarifa_monto),
             monto_bruto: c.monto_bruto,
+            total_recargo_dominical_festivo: c.total_recargo_dominical_festivo,
+            detalle_turnos: c.detalle_turnos,
             total_bonos_periodo: c.total_bonos_periodo,
             total_descuento_prestamo: c.total_descuento_prestamo,
             prestamos_a_descontar: c.prestamos_a_descontar,
+            aporte_salud: c.aporte_salud,
+            aporte_pension: c.aporte_pension,
+            total_aportes_seguridad_social: c.total_aportes_seguridad_social,
             otros_descuentos,
             monto_neto,
             ya_liquidada: !!existente
@@ -197,7 +336,8 @@ export class NominaLiquidacionService implements INominaLiquidacionService {
         if (existente) throw err('Ya existe una liquidación para este empleado en esta quincena', 409);
 
         const c = await this.calcular(id_empleado, anio, mes, quincena);
-        const monto_neto = r2(c.monto_bruto + c.total_bonos_periodo - c.total_descuento_prestamo - otros_descuentos);
+        const monto_neto = r2(c.monto_bruto + c.total_bonos_periodo - c.total_descuento_prestamo
+            - c.total_aportes_seguridad_social - otros_descuentos);
         if (monto_neto < 0) throw err('El neto a pagar quedaría negativo; revisa los descuentos', 409);
 
         const concepto = `Nómina ${c.empleado.nombre} ${c.empleado.apellido} — quincena ${quincena} ${mes}/${anio}`;
@@ -210,8 +350,12 @@ export class NominaLiquidacionService implements INominaLiquidacionService {
                 unidades: c.unidades,
                 tarifa_aplicada: Number(c.salario.tarifa_monto),
                 monto_bruto: c.monto_bruto,
+                total_recargo_dominical_festivo: c.total_recargo_dominical_festivo,
                 total_bonos: c.total_bonos_periodo,
                 total_descuento_prestamo: c.total_descuento_prestamo,
+                aporte_salud: c.aporte_salud,
+                aporte_pension: c.aporte_pension,
+                total_aportes_seguridad_social: c.total_aportes_seguridad_social,
                 otros_descuentos,
                 monto_neto,
                 fecha_liquidacion
@@ -242,7 +386,8 @@ export class NominaLiquidacionService implements INominaLiquidacionService {
         if (existente) throw err(`Ya existe una liquidación (${existente.estado}) para este empleado en esta quincena`, 409);
 
         const c = await this.calcular(id_empleado, anio, mes, quincena as 1 | 2);
-        const monto_neto = r2(c.monto_bruto + c.total_bonos_periodo - c.total_descuento_prestamo - otros_descuentos);
+        const monto_neto = r2(c.monto_bruto + c.total_bonos_periodo - c.total_descuento_prestamo
+            - c.total_aportes_seguridad_social - otros_descuentos);
         if (monto_neto < 0) throw err('El neto a pagar quedaría negativo; revisa los descuentos', 409);
 
         const id = await this.repo.crearBorrador({
@@ -251,8 +396,12 @@ export class NominaLiquidacionService implements INominaLiquidacionService {
             unidades: c.unidades,
             tarifa_aplicada: Number(c.salario.tarifa_monto),
             monto_bruto: c.monto_bruto,
+            total_recargo_dominical_festivo: c.total_recargo_dominical_festivo,
             total_bonos: c.total_bonos_periodo,
             total_descuento_prestamo: c.total_descuento_prestamo,
+            aporte_salud: c.aporte_salud,
+            aporte_pension: c.aporte_pension,
+            total_aportes_seguridad_social: c.total_aportes_seguridad_social,
             otros_descuentos,
             monto_neto,
             fecha_liquidacion: c.hasta
@@ -267,7 +416,8 @@ export class NominaLiquidacionService implements INominaLiquidacionService {
 
         const otros_descuentos = r2(Number(data.otros_descuentos));
         if (!Number.isFinite(otros_descuentos) || otros_descuentos < 0) throw err('otros_descuentos no puede ser negativo');
-        const monto_neto = r2(Number(row.monto_bruto) + Number(row.total_bonos) - Number(row.total_descuento_prestamo) - otros_descuentos);
+        const monto_neto = r2(Number(row.monto_bruto) + Number(row.total_bonos) - Number(row.total_descuento_prestamo)
+            - Number(row.total_aportes_seguridad_social) - otros_descuentos);
         if (monto_neto < 0) throw err('El neto a pagar quedaría negativo; revisa los descuentos', 409);
 
         await this.repo.actualizarBorrador(id, { otros_descuentos, monto_neto });
@@ -286,7 +436,8 @@ export class NominaLiquidacionService implements INominaLiquidacionService {
 
         const c = await this.calcular(row.id_empleado, row.anio, row.mes, row.quincena);
         const otros_descuentos = Number(row.otros_descuentos);
-        const monto_neto = r2(c.monto_bruto + c.total_bonos_periodo - c.total_descuento_prestamo - otros_descuentos);
+        const monto_neto = r2(c.monto_bruto + c.total_bonos_periodo - c.total_descuento_prestamo
+            - c.total_aportes_seguridad_social - otros_descuentos);
         if (monto_neto < 0) throw err('El neto a pagar quedaría negativo; revisa los descuentos', 409);
 
         const concepto = `Nómina ${c.empleado.nombre} ${c.empleado.apellido} — quincena ${row.quincena} ${row.mes}/${row.anio}`;
@@ -301,8 +452,12 @@ export class NominaLiquidacionService implements INominaLiquidacionService {
                 unidades: c.unidades,
                 tarifa_aplicada: Number(c.salario.tarifa_monto),
                 monto_bruto: c.monto_bruto,
+                total_recargo_dominical_festivo: c.total_recargo_dominical_festivo,
                 total_bonos: c.total_bonos_periodo,
                 total_descuento_prestamo: c.total_descuento_prestamo,
+                aporte_salud: c.aporte_salud,
+                aporte_pension: c.aporte_pension,
+                total_aportes_seguridad_social: c.total_aportes_seguridad_social,
                 monto_neto,
                 fecha_liquidacion
             }, conn);

@@ -77,6 +77,7 @@ router.delete('/tipos/:id', tipoTurnoController.delete);
  *               id_tipo_turno: { type: integer, description: 'Requerido si presente=true (o se omite, default true)' }
  *               horas_trabajadas: { type: number, description: 'Default 8 si presente=true y no se envía; debe estar entre 1 y 24' }
  *               presente: { type: boolean, description: 'false = ausencia; fuerza horas_trabajadas=0' }
+ *               es_festivo: { type: boolean, description: 'true = este día lleva recargo dominical/festivo (+75%) además del domingo, que se detecta solo' }
  *     responses:
  *       200: { description: Turno creado o actualizado }
  */

@@ -6,6 +6,7 @@ import { TurnoRepository, TipoTurnoRepository } from '../../repositories/nomina/
 import { NominaLiquidacionRepository } from '../../repositories/nomina/nomina_liquidacion.repository';
 import { BonoEmpleadoRepository } from '../../repositories/nomina/bono_empleado.repository';
 import { VSaldoPrestamosEmpleadoRepository } from '../../repositories/nomina/views/vistas.nomina.repository';
+import { JornadaNocturnaLegalRepository } from '../../repositories/nomina/jornada_nocturna_legal.repository';
 import { EmpleadoService, PrestamoEmpleadoService } from '../../services/nomina/empleado.service';
 import { EmpleadoSalarioService } from '../../services/nomina/empleado_salario.service';
 import { PlantaService } from '../../services/nomina/planta.service';
@@ -13,6 +14,7 @@ import { TurnoService, TipoTurnoService } from '../../services/nomina/turno.serv
 import { NominaLiquidacionService } from '../../services/nomina/nomina_liquidacion.service';
 import { BonoEmpleadoService } from '../../services/nomina/bono_empleado.service';
 import { EmpleadoFichaService } from '../../services/nomina/empleado_ficha.service';
+import { JornadaNocturnaLegalService } from '../../services/nomina/jornada_nocturna_legal.service';
 import { EmpleadoController, PrestamoEmpleadoController } from '../../controllers/nomina/empleado.controller';
 import { EmpleadoSalarioController } from '../../controllers/nomina/empleado_salario.controller';
 import { PlantaController } from '../../controllers/nomina/planta.controller';
@@ -20,6 +22,7 @@ import { TurnoController, TipoTurnoController } from '../../controllers/nomina/t
 import { NominaLiquidacionController } from '../../controllers/nomina/nomina_liquidacion.controller';
 import { BonoEmpleadoController } from '../../controllers/nomina/bono_empleado.controller';
 import { EmpleadoFichaController } from '../../controllers/nomina/empleado_ficha.controller';
+import { JornadaNocturnaLegalController } from '../../controllers/nomina/jornada_nocturna_legal.controller';
 
 export class NominaFactory {
     constructor(private db: Pool) {}
@@ -34,6 +37,7 @@ export class NominaFactory {
     private vSaldoPrestamosEmpleadoRepository?: VSaldoPrestamosEmpleadoRepository;
     private nominaLiquidacionRepository?: NominaLiquidacionRepository;
     private bonoEmpleadoRepository?: BonoEmpleadoRepository;
+    private jornadaNocturnaLegalRepository?: JornadaNocturnaLegalRepository;
 
     private empleadoService?: EmpleadoService;
     private empleadoSalarioService?: EmpleadoSalarioService;
@@ -44,6 +48,7 @@ export class NominaFactory {
     private nominaLiquidacionService?: NominaLiquidacionService;
     private bonoEmpleadoService?: BonoEmpleadoService;
     private empleadoFichaService?: EmpleadoFichaService;
+    private jornadaNocturnaLegalService?: JornadaNocturnaLegalService;
 
     private empleadoController?: EmpleadoController;
     private empleadoSalarioController?: EmpleadoSalarioController;
@@ -54,6 +59,7 @@ export class NominaFactory {
     private nominaLiquidacionController?: NominaLiquidacionController;
     private bonoEmpleadoController?: BonoEmpleadoController;
     private empleadoFichaController?: EmpleadoFichaController;
+    private jornadaNocturnaLegalController?: JornadaNocturnaLegalController;
 
     public getEmpleadoRepository(): EmpleadoRepository {
         if (!this.empleadoRepository) this.empleadoRepository = new EmpleadoRepository(this.db);
@@ -100,6 +106,11 @@ export class NominaFactory {
         return this.bonoEmpleadoRepository;
     }
 
+    public getJornadaNocturnaLegalRepository(): JornadaNocturnaLegalRepository {
+        if (!this.jornadaNocturnaLegalRepository) this.jornadaNocturnaLegalRepository = new JornadaNocturnaLegalRepository(this.db);
+        return this.jornadaNocturnaLegalRepository;
+    }
+
     public getEmpleadoService(): EmpleadoService {
         if (!this.empleadoService) this.empleadoService = new EmpleadoService(this.getEmpleadoRepository());
         return this.empleadoService;
@@ -139,9 +150,15 @@ export class NominaFactory {
             this.getTipoTurnoRepository(),
             this.getPrestamoEmpleadoRepository(),
             this.getBonoEmpleadoRepository(),
+            this.getJornadaNocturnaLegalRepository(),
             this.db
         );
         return this.nominaLiquidacionService;
+    }
+
+    public getJornadaNocturnaLegalService(): JornadaNocturnaLegalService {
+        if (!this.jornadaNocturnaLegalService) this.jornadaNocturnaLegalService = new JornadaNocturnaLegalService(this.getJornadaNocturnaLegalRepository());
+        return this.jornadaNocturnaLegalService;
     }
 
     public getBonoEmpleadoService(): BonoEmpleadoService {
@@ -203,6 +220,11 @@ export class NominaFactory {
     public getEmpleadoFichaController(): EmpleadoFichaController {
         if (!this.empleadoFichaController) this.empleadoFichaController = new EmpleadoFichaController(this.getEmpleadoFichaService());
         return this.empleadoFichaController;
+    }
+
+    public getJornadaNocturnaLegalController(): JornadaNocturnaLegalController {
+        if (!this.jornadaNocturnaLegalController) this.jornadaNocturnaLegalController = new JornadaNocturnaLegalController(this.getJornadaNocturnaLegalService());
+        return this.jornadaNocturnaLegalController;
     }
 
     // ==========================================
