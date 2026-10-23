@@ -101,18 +101,25 @@ Dos entradas, ambas consumen **del crédito más viejo primero** (cascada):
 
 ---
 
-## 4. Cómo implementarlo en FLETE y AGUA (pendiente)
+## 4. Cómo implementarlo en FLETE, AGUA y MULAS (pendiente)
 
-Es el **mismo mecanismo**, cambiando el beneficiario a `id_dueno_volqueta`:
-- El crédito se crea/consume igual, pero `Saldo_A_Favor.id_dueno_volqueta` (en vez de `id_minero`).
-- Con el modelo de flete/agua (cascada por dueño, mes más viejo primero), el sobrepago aparece
-  cuando el abono del dueño supera **toda** su deuda (todos los meses). Ese exceso → crédito del dueño.
-- Consumir: en el próximo abono del dueño, antes (o además) de la cascada de deuda, se puede
-  descontar su crédito disponible.
+> **Actualizado 2026-09-19:** el diseño detallado, el estado verificado en código (dónde está el
+> bloqueo exacto en cada service) y la lista concreta de qué construir viven ahora en
+> **`PENDIENTE_CONSUMO_SALDO_A_FAVOR.md`** — este documento queda solo como el resumen conceptual.
+> Esa misma pieza de trabajo también cubre el consumo de `Saldo_A_Favor` origen `anticipo`
+> (ver `ANTICIPOS_plan.md`), porque el mecanismo de consumo es idéntico sea cual sea el origen del crédito.
+
+Es el **mismo mecanismo**, cambiando el beneficiario a `id_dueno_volqueta` (flete/agua) o `id_proveedor`
+(mulas):
+- El crédito se crea/consume igual, pero contra el beneficiario correspondiente.
+- Con el modelo de flete/agua/mulas (cascada por dueño o proveedor), el sobrepago aparece cuando el
+  abono supera **toda** la deuda abierta. Ese exceso → crédito del beneficiario.
+- Consumir: en el próximo abono, antes (o además) de la cascada de deuda, se puede descontar su
+  crédito disponible.
 - Exponerlo en `GET /pagos/flete/deuda` y `/pagos/agua/deuda` como `saldo_a_favor` + `deuda_neta`.
 
 Reutilizar el patrón de `PagoMaterialService`; idealmente extraer un helper compartido
-(`consumirCredito`, `crearSaldoAFavor`) parametrizado por beneficiario (minero vs dueño).
+(`consumirCredito`, `crearSaldoAFavor`) parametrizado por beneficiario (minero / dueño / proveedor).
 
 ---
 

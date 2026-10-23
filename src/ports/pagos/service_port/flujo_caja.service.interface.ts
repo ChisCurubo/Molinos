@@ -19,7 +19,38 @@ export interface HistoricoFlujoCaja {
     saldo_acumulado: number;
 }
 
+export interface MesFlujoCaja {
+    mes: number;
+    ingresos: number;
+    gastos: number;
+    saldo_mes: number;
+}
+
+export interface FlujoCajaAnual {
+    anio: number;
+    ingresos_total: number;
+    gastos_total: number;
+    saldo_anio: number;
+    meses: MesFlujoCaja[];
+}
+
+export interface TransaccionLibroDTO {
+    id: number;
+    fecha: string;
+    categoria: string;
+    color: string | null;
+    concepto: string;
+    beneficiario: string | null;
+    monto: number;
+    metodo_pago: string;
+    comprobante_url: string | null;
+    observaciones: string | null;
+}
+
 export interface IFlujoCajaService {
     resumenMensual(mes: number, anio: number): Promise<ResumenFlujoCaja>;
     historico(): Promise<HistoricoFlujoCaja>;
+    anual(anio: number): Promise<FlujoCajaAnual>;
+    libroGastos(mes: number, anio: number): Promise<TransaccionLibroDTO[]>;
+    libroCobros(mes: number, anio: number): Promise<TransaccionLibroDTO[]>;
 }

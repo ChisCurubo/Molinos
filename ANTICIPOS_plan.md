@@ -4,6 +4,10 @@
 > **Fase 1 (módulo standalone) implementada 2026-09-13** — ver §0 para qué falta y §7 para el detalle.
 > Diseño para implementar los anticipos a **minero / dueño de volqueta / proveedor**: la empresa le
 > adelanta dinero al tercero y ese monto se **descuenta de pagos futuros**.
+>
+> **Actualizado 2026-09-19:** `migracion_anticipos_terceros_2026-09-13.sql` ya se aplicó en BD (punto 1
+> de abajo, cerrado). La Fase 2 (punto 3) se detalla ahora en un archivo propio:
+> **`PENDIENTE_CONSUMO_SALDO_A_FAVOR.md`**.
 
 ---
 
@@ -15,28 +19,22 @@ construyó y cómo.
 
 **⏳ Falta, en orden, antes de dar esto por cerrado:**
 
-1. **Aplicar `migracion_anticipos_terceros_2026-09-13.sql` en la base de datos.** Sin esto el módulo no
-   corre contra la BD real (agrega `'anticipo'` a `Saldo_A_Favor.origen` + columna `id_anticipo`,
-   `'anulado'` a `Anticipos_Terceros.estado`, y generaliza `Historial_Descuentos_Anticipos`). **Nadie la
-   ha corrido todavía.**
-2. **Probar el flujo de creación/anulación contra la BD real** una vez aplicada la migración (crear un
-   anticipo de prueba, verificar que se abre y paga la CxP, que aparece el espejo en `Saldo_A_Favor`, y
-   que anular revierte las 4 tablas). Hoy solo hay verificación de tipos, cero pruebas de endpoint
-   (a diferencia de flete/agua que se probaron 27/27 y 23/23).
-3. **Fase 2 — incorporar el consumo al sistema** (lo que falta para que un anticipo sirva de algo más
-   allá de crearse y anularse): extender la cascada de abonos de `pago_material.service`,
-   `pago_flete.service` y `pago_agua.service` para que, al registrar un abono, se pueda pagar una porción
-   con el crédito del tercero (`Saldo_A_Favor` con `origen='pago_excedido'` **o** `origen='anticipo'`,
-   indistintamente) en vez de solo efectivo/transferencia. Ahora mismo **nada consume el espejo en
-   `Saldo_A_Favor` que crea un anticipo** — el crédito queda ahí disponible pero ningún abono lo aplica.
-   Esto es también lo que cierra el pendiente viejo "consumir saldo a favor en flete/agua" (§6),
-   porque sería el mismo mecanismo genérico para ambos orígenes.
-4. **Registrar cada descuento en `Historial_Descuentos_Anticipos`** (`id_anticipo`, `id_abono_cxp`,
-   `monto_descontado`) cuando la Fase 2 consuma un crédito de origen `anticipo` — hoy la tabla existe
-   generalizada pero nada escribe en ella todavía.
+1. ~~Aplicar `migracion_anticipos_terceros_2026-09-13.sql` en la base de datos.~~ **✅ Aplicada
+   (confirmado 2026-09-19).** Agregó `'anticipo'` a `Saldo_A_Favor.origen` + columna `id_anticipo`,
+   `'anulado'` a `Anticipos_Terceros.estado`, y generalizó `Historial_Descuentos_Anticipos`.
+2. **Probar el flujo de creación/anulación contra la BD real** ahora que la migración ya está aplicada
+   (crear un anticipo de prueba, verificar que se abre y paga la CxP, que aparece el espejo en
+   `Saldo_A_Favor`, y que anular revierte las 4 tablas). Sigue sin existir `tests/anticipo*.test.mjs`
+   (a diferencia de flete/agua/material/mulas/combustible, todos con 20+ checks) — **sigue pendiente**.
+3. **Fase 2 — incorporar el consumo al sistema.** Ver el diseño completo, el estado verificado en código
+   y la lista de qué construir en **`PENDIENTE_CONSUMO_SALDO_A_FAVOR.md`** (nuevo, 2026-09-19) — resuelve
+   a la vez el pendiente viejo "consumir saldo a favor en flete/agua" (§6 de este doc / §4 de
+   `SALDO_A_FAVOR_2026-09-01.md`), porque es el mismo mecanismo genérico para ambos orígenes de crédito.
+4. **Registrar cada descuento en `Historial_Descuentos_Anticipos`** — parte de la Fase 2, ver el archivo
+   de pendiente. Hoy la tabla existe generalizada pero nada escribe en ella todavía.
 5. **Nice-to-have, no bloqueante:** registrar `/pagos/anticipos/*` en `info.controller` (API_MAP) y en
    el Postman (`Molinos_API_Postman_Collection.json`) — mismo pendiente transversal que ya existe para
-   flete/agua/combustible.
+   Mulas y Proveedores.
 
 ---
 
@@ -141,7 +139,7 @@ escribir un mecanismo de consumo nuevo. `Anticipos_Terceros.monto_usado`/`estado
 por el service como el registro de negocio (igual patrón que las demás tablas de este dominio: sin
 triggers, todo en la app).
 
-**Migración de esquema:** `migracion_anticipos_terceros_2026-09-13.sql` (no aplicada aún, ver §0.1):
+**Migración de esquema:** `migracion_anticipos_terceros_2026-09-13.sql` (✅ aplicada 2026-09-19, ver §0.1):
 - `Saldo_A_Favor.origen` ENUM +`'anticipo'`, + columna `id_anticipo` NULL FK + CHECK de consistencia.
 - `Anticipos_Terceros.estado` ENUM +`'anulado'` (para poder cancelar un anticipo recién creado).
 - `Historial_Descuentos_Anticipos`: `id_entrada` pasa a NULLable + columna `id_abono_cxp` NULL FK

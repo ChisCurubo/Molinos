@@ -16,11 +16,16 @@ export interface IPrestamoFinancieroRepository {
 
     // Interés + abonos — ver migracion_prestamos_financieros_interes_2026-10-01.sql
     actualizarSaldo(id: number, nuevoSaldo: number, activo: boolean, conn: PoolConnection): Promise<void>;
-    /** Crea la CxP (categoría 'Préstamo financiero') + su Abono_CxP + la Relación, pagada de inmediato. */
-    crearAbonoPrestamo(data: {
-        id_prestamo_fin: number; concepto: string; valor: number; fecha_abono: string;
-        metodo_pago?: string; comprobante_url?: string; observaciones?: string;
-    }, conn: PoolConnection): Promise<{ id_cuenta_pagar: number; id_abono: number }>;
+
+    // CxP persistente del préstamo — decisión 2026-10-23: antes cada abono abría y pagaba una
+    // CxP nueva (nunca se veía deuda pendiente en /cxp/mensual); ahora hay UNA CxP que nace
+    // 'pendiente' por monto_principal, crece con cada interés capitalizado, y se abona de verdad.
+    crearCxPInicial(data: { id_prestamo_fin: number; concepto: string; valor_total: number; fecha: string }, conn: PoolConnection): Promise<number>;
+    obtenerCxP(id_prestamo_fin: number, conn?: PoolConnection): Promise<{ id: number; valor_total: number; valor_pagado: number } | null>;
+    aumentarValorTotalCxP(idCxp: number, incremento: number, conn: PoolConnection): Promise<void>;
+    registrarAbono(idCxp: number, data: { fecha_abono: string; valor: number; metodo_pago?: string; comprobante_url?: string; observaciones?: string }, conn: PoolConnection): Promise<number>;
+    recalcularEstadoCxP(idCxp: number, conn: PoolConnection): Promise<void>;
+    eliminarCxP(id_prestamo_fin: number, conn: PoolConnection): Promise<void>;
     insertarMovimiento(data: {
         id_prestamo_fin: number; tipo: 'interes' | 'abono'; fecha: string; valor: number;
         saldo_resultante: number; id_abono_cxp: number | null; observaciones?: string | null;

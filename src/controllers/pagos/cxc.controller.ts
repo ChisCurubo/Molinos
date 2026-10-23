@@ -88,4 +88,54 @@ export class CuentasPorCobrarController {
             res.status(400).json({ success: false, message: error.message });
         }
     };
+
+    // POST /pagos/cxc — crea la cuenta por cobrar (sin abono, o con `abono` inicial incluido)
+    crear = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const data = await this.service.crear(req.body);
+            res.status(201).json({ success: true, data });
+        } catch (error: any) {
+            res.status(error?.status || 400).json({ success: false, message: error.message });
+        }
+    };
+
+    // GET /pagos/cxc/:id
+    obtenerPorId = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const data = await this.service.obtenerPorId(Number(req.params.id));
+            res.status(200).json({ success: true, data });
+        } catch (error: any) {
+            res.status(error?.status || 400).json({ success: false, message: error.message });
+        }
+    };
+
+    // POST /pagos/cxc/:id/abonos — cobro sobre una cuenta ya creada
+    abonar = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const data = await this.service.abonar(Number(req.params.id), req.body);
+            res.status(201).json({ success: true, data });
+        } catch (error: any) {
+            res.status(error?.status || 400).json({ success: false, message: error.message });
+        }
+    };
+
+    // PATCH /pagos/cxc/:id — corrige concepto/categoría/valor_total/fechas/deudor
+    editar = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const data = await this.service.editar(Number(req.params.id), req.body);
+            res.status(200).json({ success: true, data });
+        } catch (error: any) {
+            res.status(error?.status || 400).json({ success: false, message: error.message });
+        }
+    };
+
+    // DELETE /pagos/cxc/:id — anula (borrado lógico)
+    anular = async (req: Request, res: Response): Promise<void> => {
+        try {
+            await this.service.anular(Number(req.params.id));
+            res.status(200).json({ success: true });
+        } catch (error: any) {
+            res.status(error?.status || 400).json({ success: false, message: error.message });
+        }
+    };
 }

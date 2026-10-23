@@ -4,6 +4,7 @@ export interface AlquilerSQL {
     id: number;
     id_tipo: number;
     id_proveedor: number;
+    id_contrato?: number;
     fecha_inicio: Date;
     concepto: string;
     valor: number;

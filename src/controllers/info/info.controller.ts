@@ -152,14 +152,14 @@ export const API_MAP = {
                 { grupo: 'Vistas Pagos',   metodo: 'GET', ruta: '/vistas/saldos-a-favor',     descripcion: 'Saldos disponibles por sobrepago' },
                 { grupo: 'Préstamos Financieros', metodo: 'GET', ruta: '/prestamos-financieros', descripcion: 'Listar préstamos financieros' },
                 { grupo: 'Préstamos Financieros', metodo: 'GET', ruta: '/prestamos-financieros/:id', descripcion: 'Ver préstamo financiero' },
-                { grupo: 'Préstamos Financieros', metodo: 'POST', ruta: '/prestamos-financieros', descripcion: 'Crear préstamo financiero' },
+                { grupo: 'Préstamos Financieros', metodo: 'POST', ruta: '/prestamos-financieros', descripcion: 'Crear préstamo financiero — también abre su CxP persistente (categoría "Préstamo financiero", pendiente por monto_principal) y su Ingreso_Tesoreria espejo. La CxP SÍ aparece en /pagos/cxp/mensual como deuda real mientras no se termine de pagar (2026-10-23)' },
                 { grupo: 'Préstamos Financieros', metodo: 'PUT', ruta: '/prestamos-financieros/:id', descripcion: 'Actualizar préstamo financiero' },
                 { grupo: 'Préstamos Financieros', metodo: 'PATCH', ruta: '/prestamos-financieros/:id', descripcion: 'Actualizar parcialmente préstamo financiero' },
                 { grupo: 'Préstamos Financieros', metodo: 'DELETE', ruta: '/prestamos-financieros/:id', descripcion: 'Eliminar préstamo financiero (409 si ya tiene abonos/ajustes: saldo_pendiente != monto_principal)' },
                 // Interés + abonos — capitaliza tasa_interes mensual sobre saldo_pendiente; el abono es plata real (CxP 'Préstamo financiero') (2026-10-01)
                 { grupo: 'Préstamos Financieros', metodo: 'GET',  ruta: '/prestamos-financieros/:id/interes/proyeccion', descripcion: 'Proyectar el interés que se acumularía a hoy (o a `fecha`), sin persistir', params: { fecha: '' } },
                 { grupo: 'Préstamos Financieros', metodo: 'POST', ruta: '/prestamos-financieros/:id/interes',            descripcion: 'Acumular (capitalizar) el interés del período transcurrido desde el último movimiento', body: { fecha: '2026-10-01' } },
-                { grupo: 'Préstamos Financieros', metodo: 'POST', ruta: '/prestamos-financieros/:id/abonos',             descripcion: 'Registrar un abono real (reduce saldo_pendiente, CxP pagada de inmediato)', body: { valor: 500000, fecha_abono: '2026-10-01', metodo_pago: 'transferencia', comprobante_url: 'https://ejemplo.com/comprobante.png' } },
+                { grupo: 'Préstamos Financieros', metodo: 'POST', ruta: '/prestamos-financieros/:id/abonos',             descripcion: 'Registrar un abono real (reduce saldo_pendiente, abona la CxP persistente del préstamo — 2026-10-23: ya no abre una CxP nueva por cada abono)', body: { valor: 500000, fecha_abono: '2026-10-01', metodo_pago: 'transferencia', comprobante_url: 'https://ejemplo.com/comprobante.png' } },
                 { grupo: 'Préstamos Financieros', metodo: 'GET',  ruta: '/prestamos-financieros/:id/movimientos',        descripcion: 'Historial de movimientos (intereses + abonos), orden cronológico' },
                 // Tesorería — Fase 2 de EMPLEADOS_PRESTAMOS_plan.md (2026-09-22): ingresos reales de la
                 // empresa + flujo de caja (ingresos vs. gastos, solo movimientos de caja real).
@@ -170,6 +170,26 @@ export const API_MAP = {
                 { grupo: 'Tesorería', metodo: 'DELETE', ruta: '/ingresos/:id', descripcion: 'Eliminar un ingreso (409 si viene de un préstamo financiero)' },
                 { grupo: 'Tesorería', metodo: 'GET', ruta: '/vistas/flujo-caja', descripcion: 'Flujo de caja del mes: ingresos (tesorería + cobros CxC) vs. gastos (Abonos_CxP) con desglose por categoría (Material/Flete/Nómina/Mula/etc.), solo métodos de caja real', params: { mes: '', anio: '' } },
                 { grupo: 'Tesorería', metodo: 'GET', ruta: '/vistas/flujo-caja/historico', descripcion: 'Saldo acumulado histórico total, con gastos desglosados por categoría' },
+                { grupo: 'Tesorería', metodo: 'GET', ruta: '/vistas/flujo-caja/anual', descripcion: 'Flujo de caja de un año calendario completo, desglosado mes a mes (reemplaza el loop de 12 llamadas a /flujo-caja) — 2026-10-18', params: { anio: '2026' } },
+                { grupo: 'Tesorería', metodo: 'GET', ruta: '/vistas/libro-gastos', descripcion: 'Libro de transacciones de gastos reales del período — un registro por abono, con beneficiario (minero/dueño volqueta/empleado/proveedor) resuelto. La suma de monto coincide con gastos.total de /flujo-caja — 2026-10-18', params: { mes: '10', anio: '2026' } },
+                { grupo: 'Tesorería', metodo: 'GET', ruta: '/vistas/libro-cobros', descripcion: 'Libro de transacciones de cobros reales del período — un registro por abono, con beneficiario resuelto — 2026-10-18', params: { mes: '10', anio: '2026' } },
+                // Gasto Directo — reemplaza el diseño de Caja Menor con saldo acumulado (decisión
+                // 2026-10-22): todo gasto que se paga de inmediato (parqueadero, peajes, etc.) es su
+                // propia Cuenta_Por_Pagar ya pagada (CxP + abono en el mismo paso), con comprobante
+                // obligatorio — sin saldo de caja física que rastrear.
+                { grupo: 'Gasto Directo', metodo: 'GET',    ruta: '/gastos-directos', descripcion: 'Listar gastos directos', params: { desde: '', hasta: '' } },
+                { grupo: 'Gasto Directo', metodo: 'POST',   ruta: '/gastos-directos', descripcion: 'Registrar un gasto directo — crea la CxP (categoría Gasto Directo) ya pagada con su abono', body: { concepto: 'Parqueadero planta', monto: 15000, fecha: '2026-10-22', metodo_pago: 'efectivo', comprobante_url: 'https://ejemplo.com/comprobante.png' } },
+                { grupo: 'Gasto Directo', metodo: 'GET',    ruta: '/gastos-directos/:id', descripcion: 'Detalle de un gasto directo' },
+                { grupo: 'Gasto Directo', metodo: 'PATCH',  ruta: '/gastos-directos/:id', descripcion: 'Corrige un gasto mal digitado (concepto/monto/fecha/metodo_pago/comprobante_url/observaciones, todos opcionales) — 409 si ya está anulado', body: { monto: 18000, comprobante_url: 'https://ejemplo.com/comprobante-correcto.png' } },
+                { grupo: 'Gasto Directo', metodo: 'DELETE', ruta: '/gastos-directos/:id', descripcion: 'Anula un gasto directo (borrado lógico, 404 si no existe o ya está anulado)' },
+                // CxC (Cuentas por Cobrar) — antes solo tenía el listado mensual y las categorías,
+                // no existía forma de crear una. Ahora: se puede crear sin abono (deuda pendiente de
+                // cobrar después) o con `abono` incluido en el mismo paso (cobro inmediato) — 2026-10-22.
+                { grupo: 'CxC', metodo: 'POST', ruta: '/cxc', descripcion: 'Crea la cuenta por cobrar. Sin "abono" queda pendiente; con "abono" queda cobrada (total o parcialmente) desde ya', body: { id_categoria: 5, concepto: 'Préstamo moto Mauricio', valor_total: 500000, id_empleado: 3, abono: { valor: 100000, comprobante_url: 'https://ejemplo.com/comprobante.png' } } },
+                { grupo: 'CxC', metodo: 'GET',  ruta: '/cxc/:id', descripcion: 'Detalle de una cuenta por cobrar, con sus abonos' },
+                { grupo: 'CxC', metodo: 'POST',   ruta: '/cxc/:id/abonos', descripcion: 'Registra un cobro sobre una cuenta ya creada (409 si excede el saldo pendiente)', body: { valor: 100000, metodo: 'efectivo', comprobante_url: 'https://ejemplo.com/comprobante.png' } },
+                { grupo: 'CxC', metodo: 'PATCH',  ruta: '/cxc/:id', descripcion: 'Corrige concepto/id_categoria/valor_total/fecha_creacion/fecha_limite/deudor (todos opcionales) — 409 si está anulada o si el nuevo valor_total queda por debajo de lo ya cobrado', body: { valor_total: 350000, concepto: 'Préstamo moto Mauricio (corregido)' } },
+                { grupo: 'CxC', metodo: 'DELETE', ruta: '/cxc/:id', descripcion: 'Anula una cuenta por cobrar (borrado lógico, 404 si no existe o ya está anulada). Los cobros ya registrados se conservan para auditoría' },
                 { grupo: 'Tesorería', metodo: 'GET', ruta: '/categorias-ingreso', descripcion: 'Catálogo de categorías de Ingresos_Tesoreria (selector para el front)' },
                 // Pago de MATERIAL — CxP agrupada por minero + abonos con prorrateo (2026-08-31)
                 { grupo: 'Pago Material', metodo: 'POST',   ruta: '/material',                descripcion: 'Agrupar volquetas de un minero en una cuenta por pagar', body: { entradas: [1, 2], concepto: 'Material Julio', fecha_limite: '2026-08-31' } },
@@ -211,6 +231,31 @@ export const API_MAP = {
                 { grupo: 'Pago Combustible', metodo: 'PATCH',  ruta: '/combustible/pagos/abonos/:idAbono',           descripcion: 'Corregir un abono de combustible' },
                 { grupo: 'Pago Combustible', metodo: 'DELETE', ruta: '/combustible/pagos/abonos/:idAbono',           descripcion: 'Eliminar un abono de combustible' },
                 { grupo: 'Pago Combustible', metodo: 'GET',    ruta: '/combustible/pagos/abonos',                    descripcion: 'Todos los abonos de combustible (todas las cuentas), paginados de a 50', params: { id_gasolinera: '', desde: '', hasta: '', metodo_pago: '', page: 1, limit: 50 } },
+                // Alquiler — CRUD del contrato real + catálogo de tipos + pago 1:1 (sin cascada mensual, a diferencia de flete/agua/combustible) (2026-10-17)
+                { grupo: 'Alquiler', metodo: 'GET',    ruta: '/alquileres/tipos',     descripcion: 'Listar tipos de alquiler (catálogo)' },
+                { grupo: 'Alquiler', metodo: 'GET',    ruta: '/alquileres/tipos/:id', descripcion: 'Ver un tipo de alquiler' },
+                { grupo: 'Alquiler', metodo: 'POST',   ruta: '/alquileres/tipos',     descripcion: 'Crear tipo de alquiler', body: { nombre: 'Vehículos' } },
+                { grupo: 'Alquiler', metodo: 'PUT',    ruta: '/alquileres/tipos/:id', descripcion: 'Editar tipo de alquiler' },
+                { grupo: 'Alquiler', metodo: 'DELETE', ruta: '/alquileres/tipos/:id', descripcion: 'Eliminar tipo de alquiler' },
+                { grupo: 'Alquiler', metodo: 'GET',    ruta: '/alquileres',     descripcion: 'Listar alquileres (contratos vigentes)' },
+                { grupo: 'Alquiler', metodo: 'POST',   ruta: '/alquileres',     descripcion: 'Crear alquiler', body: { id_tipo: 1, id_proveedor: 3, fecha_inicio: '2026-10-01', concepto: 'ALQUILER CAMIONETA OCTUBRE FAC 500', valor: 1500000 } },
+                { grupo: 'Alquiler', metodo: 'GET',    ruta: '/alquileres/:id', descripcion: 'Ver un alquiler' },
+                { grupo: 'Alquiler', metodo: 'PUT',    ruta: '/alquileres/:id', descripcion: 'Editar un alquiler' },
+                { grupo: 'Alquiler', metodo: 'DELETE', ruta: '/alquileres/:id', descripcion: 'Anular un alquiler (borrado lógico, deleted_at)' },
+                { grupo: 'Pago Alquiler', metodo: 'GET',    ruta: '/alquileres/:id/estado-pago', descripcion: 'Saldo, estado y abonos de ese alquiler (crea la cuenta por pagar si es el primer abono)' },
+                { grupo: 'Pago Alquiler', metodo: 'POST',   ruta: '/alquileres/:id/abonos',       descripcion: 'Registrar abono parcial o pago completo (no puede exceder el saldo pendiente)', body: { valor: 1500000, fecha_abono: '2026-10-17', metodo_pago: 'transferencia', comprobante_url: 'https://ejemplo.com/comprobante.png' } },
+                { grupo: 'Pago Alquiler', metodo: 'PATCH',  ruta: '/alquileres/abonos/:idAbono',  descripcion: 'Corregir un abono de alquiler' },
+                { grupo: 'Pago Alquiler', metodo: 'DELETE', ruta: '/alquileres/abonos/:idAbono',  descripcion: 'Eliminar un abono de alquiler' },
+                { grupo: 'Pago Alquiler', metodo: 'GET',    ruta: '/alquileres/abonos',           descripcion: 'Todos los abonos de alquiler (todas las cuentas), paginados de a 50', params: { id_alquiler: '', desde: '', hasta: '', metodo_pago: '', page: 1, limit: 50 } },
+                { grupo: 'Alquiler', metodo: 'GET',    ruta: '/alquileres?id_contrato=&mes=&anio=', descripcion: 'El listado de alquileres admite filtrar por contrato y/o por mes-año de fecha_inicio' },
+                // Contratos de Alquiler — arriendo de larga duración (ej. 1 año): al crearse genera
+                // automáticamente un Alquileres (cobro mensual) por cada mes del período, cada uno
+                // pagable con el motor de pago normal de Alquiler (2026-10-18)
+                { grupo: 'Contratos Alquiler', metodo: 'GET',    ruta: '/alquileres/contratos',     descripcion: 'Listar contratos de arriendo vigentes' },
+                { grupo: 'Contratos Alquiler', metodo: 'POST',   ruta: '/alquileres/contratos',     descripcion: 'Crear contrato: genera automáticamente 1 Alquiler por cada mes del período (ancla el día de fecha_inicio, recortado si el mes no lo tiene, ej. 31→28/29/30)', body: { id_tipo: 1, id_proveedor: 3, concepto: 'Alquiler camioneta placa ABC123', valor_mensual: 1500000, fecha_inicio: '2026-11-01', fecha_fin: '2027-10-31', contrato_url: 'https://ejemplo.com/contrato.pdf' } },
+                { grupo: 'Contratos Alquiler', metodo: 'GET',    ruta: '/alquileres/contratos/:id', descripcion: 'Detalle del contrato + los meses ya generados (con su estado de pago vía estado-pago de cada uno)' },
+                { grupo: 'Contratos Alquiler', metodo: 'PUT',    ruta: '/alquileres/contratos/:id', descripcion: 'Editar metadata del contrato (concepto, valor_mensual de referencia, contrato_url, fecha_fin) — NO regenera ni toca los meses ya creados', body: { contrato_url: 'https://ejemplo.com/contrato-firmado.pdf' } },
+                { grupo: 'Contratos Alquiler', metodo: 'DELETE', ruta: '/alquileres/contratos/:id', descripcion: 'Anular el contrato (borrado lógico) — los meses ya generados en Alquileres NO se tocan automáticamente, se anulan uno por uno si corresponde' },
                 // Proveedores — entidad real (transportadoras de mula, laboratorios, gasolineras, etc.) + su catálogo de categorías (2026-09-13)
                 { grupo: 'Proveedores', metodo: 'GET',    ruta: '/proveedores/categorias',     descripcion: 'Listar categorías de proveedor' },
                 { grupo: 'Proveedores', metodo: 'GET',    ruta: '/proveedores/categorias/:id', descripcion: 'Ver una categoría de proveedor' },

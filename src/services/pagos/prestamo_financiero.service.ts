@@ -37,6 +37,10 @@ export class PrestamoFinancieroService implements IPrestamoFinancieroService {
      * Un préstamo bancario desembolsado es dinero real de tesorería que entra a la
      * empresa (distinto de Deposito, caja menor de planta) — se registra también como
      * Ingresos_Tesoreria en la misma transacción. Ver EMPLEADOS_PRESTAMOS_plan.md Fase 2.
+     *
+     * También abre la CxP persistente de la deuda (categoría 'Préstamo financiero',
+     * 'pendiente' por monto_principal) — decisión 2026-10-23, para que el préstamo sí
+     * aparezca como deuda real en /pagos/cxp/mensual mientras no se termine de pagar.
      */
     async create(data: Partial<PrestamoFinancieroSQL>): Promise<PrestamoFinancieroSQL> {
         if (!data.monto_principal || Number(data.monto_principal) <= 0) {
@@ -44,12 +48,15 @@ export class PrestamoFinancieroService implements IPrestamoFinancieroService {
         }
         const fecha = data.fecha_adquisicion ? new Date(data.fecha_adquisicion) : new Date();
         const fechaSql = fecha.toISOString().slice(0, 10);
-        const concepto = `Desembolso préstamo ${data.nombre_prestamo || ''}`.trim();
+        const nombre = (data.nombre_prestamo || '').trim();
 
         return this.tx(async conn => {
             const id = await this.repository.create({ ...data, fecha_adquisicion: fecha, saldo_pendiente: data.saldo_pendiente ?? data.monto_principal }, conn);
             await this.repository.crearIngresoTesoreria(
-                { concepto, valor: Number(data.monto_principal), fecha: fechaSql, id_prestamo_fin: id }, conn
+                { concepto: `Desembolso préstamo ${nombre}`.trim(), valor: Number(data.monto_principal), fecha: fechaSql, id_prestamo_fin: id }, conn
+            );
+            await this.repository.crearCxPInicial(
+                { id_prestamo_fin: id, concepto: `Préstamo ${nombre}`.trim(), valor_total: Number(data.monto_principal), fecha: fechaSql }, conn
             );
             const entity = await this.repository.getById(id, conn);
             if (!entity) throw new Error("Error registrando el préstamo financiero");
@@ -69,8 +76,9 @@ export class PrestamoFinancieroService implements IPrestamoFinancieroService {
 
     /**
      * DELETE solo válido si fue un error de captura (sin abonos/ajustes). Como el
-     * desembolso también generó su Ingresos_Tesoreria espejo (Fase 2), se borra en la
-     * misma transacción — no es un movimiento financiero aparte, es la misma captura.
+     * desembolso también generó su Ingresos_Tesoreria espejo (Fase 2) y su CxP persistente
+     * (2026-10-23), ambos se borran en la misma transacción — no son movimientos aparte, son
+     * la misma captura.
      */
     async delete(id: number): Promise<boolean> {
         const existe = await this.repository.getById(id);
@@ -80,6 +88,7 @@ export class PrestamoFinancieroService implements IPrestamoFinancieroService {
         }
         return this.tx(async conn => {
             await this.repository.eliminarIngresoTesoreria(id, conn);
+            await this.repository.eliminarCxP(id, conn);
             return this.repository.delete(id, conn);
         });
     }
@@ -114,8 +123,8 @@ export class PrestamoFinancieroService implements IPrestamoFinancieroService {
     /**
      * Capitaliza el interés del período transcurrido desde el último movimiento (tasa_interes
      * es mensual, ver comentario de columna en Prestamos_Financieros). No es un movimiento de
-     * caja — no toca CxP/Tesorería, solo incrementa saldo_pendiente y deja rastro en
-     * Movimientos_Prestamo_Financiero.
+     * caja — no toca Tesorería. Sí sube valor_total de la CxP persistente del préstamo (2026-10-23),
+     * para que su saldo (valor_total-valor_pagado) siga igual a saldo_pendiente.
      */
     async acumularInteres(id: number, fecha?: string): Promise<MovimientoPrestamoFinancieroSQL> {
         const prestamo = await this.repository.getById(id);
@@ -133,7 +142,10 @@ export class PrestamoFinancieroService implements IPrestamoFinancieroService {
         const fechaStr = fechaCorte.toISOString().slice(0, 10);
 
         return this.tx(async conn => {
+            const cxp = await this.repository.obtenerCxP(id, conn);
+            if (!cxp) throw new Error('No se encontró la CxP persistente de este préstamo (dato inconsistente)');
             await this.repository.actualizarSaldo(id, nuevoSaldo, true, conn);
+            await this.repository.aumentarValorTotalCxP(cxp.id, interes, conn);
             const idMov = await this.repository.insertarMovimiento({
                 id_prestamo_fin: id, tipo: 'interes', fecha: fechaStr, valor: interes,
                 saldo_resultante: nuevoSaldo, id_abono_cxp: null,
@@ -144,9 +156,9 @@ export class PrestamoFinancieroService implements IPrestamoFinancieroService {
     }
 
     /**
-     * Registra un abono real al préstamo: abre y paga de inmediato una CxP (categoría
-     * 'Préstamo financiero', igual que el desembolso ya registra su Ingreso_Tesoreria),
-     * reduce saldo_pendiente y deja el movimiento en el historial.
+     * Registra un abono real al préstamo: paga sobre la CxP persistente del préstamo
+     * (categoría 'Préstamo financiero', la misma desde que se creó — 2026-10-23, antes abría
+     * una CxP nueva ya pagada cada vez), reduce saldo_pendiente y deja el movimiento en el historial.
      */
     async abonar(id: number, data: { valor: number; fecha_abono?: string; metodo_pago?: string; comprobante_url?: string; observaciones?: string }): Promise<MovimientoPrestamoFinancieroSQL> {
         const valor = Number(data.valor);
@@ -161,12 +173,13 @@ export class PrestamoFinancieroService implements IPrestamoFinancieroService {
 
         const fecha = data.fecha_abono || hoy();
         const nuevoSaldo = r2(saldoActual - valor);
-        const concepto = `Abono préstamo ${prestamo.nombre_prestamo}`;
 
         return this.tx(async conn => {
-            const { id_abono } = await this.repository.crearAbonoPrestamo({
-                id_prestamo_fin: id, concepto, valor, fecha_abono: fecha,
-                metodo_pago: data.metodo_pago, comprobante_url: data.comprobante_url, observaciones: data.observaciones
+            const cxp = await this.repository.obtenerCxP(id, conn);
+            if (!cxp) throw new Error('No se encontró la CxP persistente de este préstamo (dato inconsistente)');
+            const id_abono = await this.repository.registrarAbono(cxp.id, {
+                fecha_abono: fecha, valor, metodo_pago: data.metodo_pago,
+                comprobante_url: data.comprobante_url, observaciones: data.observaciones
             }, conn);
             await this.repository.actualizarSaldo(id, nuevoSaldo, nuevoSaldo > 0, conn);
             const idMov = await this.repository.insertarMovimiento({

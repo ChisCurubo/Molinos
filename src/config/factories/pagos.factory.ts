@@ -1,17 +1,26 @@
 import { Pool } from 'mysql2/promise';
-import { TipoAlquilerRepository } from '../../repositories/pagos/alquiler.repository';
+import { TipoAlquilerRepository, AlquilerRepository } from '../../repositories/pagos/alquiler.repository';
+import { PagoAlquilerRepository } from '../../repositories/pagos/pago_alquiler.repository';
+import { ContratoAlquilerRepository } from '../../repositories/pagos/contrato_alquiler.repository';
+import { GastoDirectoRepository } from '../../repositories/pagos/gasto_directo.repository';
 import { CategoriaCxCRepository, MySQLCuentasPorCobrarRepo } from '../../repositories/pagos/cxc.repository';
 import { MySQLCuentasPorPagarRepo, CategoriaCxPRepository } from '../../repositories/pagos/cxp.repository';
 import { TipoGastoOperativoRepository } from '../../repositories/pagos/gasto.repository';
 import { CategoriaProveedorRepository, ProveedorRepository } from '../../repositories/pagos/proveedor.repository';
 import { DeudaRepository } from '../../repositories/pagos/deuda.repository';
 import { VEstadoAlquileresRepository, VEstadoCombustibleRepository, VEstadoMulasRepository, VSaldosAFavorRepository } from '../../repositories/pagos/views/vistas.pagos.repository';
-import { TipoAlquilerService } from '../../services/pagos/alquiler.service';
+import { TipoAlquilerService, AlquilerService } from '../../services/pagos/alquiler.service';
+import { PagoAlquilerService } from '../../services/pagos/pago_alquiler.service';
+import { ContratoAlquilerService } from '../../services/pagos/contrato_alquiler.service';
+import { GastoDirectoService } from '../../services/pagos/gasto_directo.service';
 import { CategoriaCxCService, CuentasPorCobrarService } from '../../services/pagos/cxc.service';
 import { CuentasPorPagarService, CategoriaCxPService } from '../../services/pagos/cxp.service';
 import { TipoGastoOperativoService } from '../../services/pagos/gasto.service';
 import { CategoriaProveedorService, ProveedorService } from '../../services/pagos/proveedor.service';
-import { TipoAlquilerController } from '../../controllers/pagos/alquiler.controller';
+import { TipoAlquilerController, AlquilerController } from '../../controllers/pagos/alquiler.controller';
+import { PagoAlquilerController } from '../../controllers/pagos/pago_alquiler.controller';
+import { ContratoAlquilerController } from '../../controllers/pagos/contrato_alquiler.controller';
+import { GastoDirectoController } from '../../controllers/pagos/gasto_directo.controller';
 import { CategoriaCxCController, CuentasPorCobrarController } from '../../controllers/pagos/cxc.controller';
 import { CuentasPorPagarController, CategoriaCxPController } from '../../controllers/pagos/cxp.controller';
 import { TipoGastoOperativoController } from '../../controllers/pagos/gasto.controller';
@@ -54,6 +63,10 @@ export class PagosFactory {
 
     // ==========================================
     private tipoAlquilerRepository?: TipoAlquilerRepository;
+    private alquilerRepository?: AlquilerRepository;
+    private pagoAlquilerRepository?: PagoAlquilerRepository;
+    private contratoAlquilerRepository?: ContratoAlquilerRepository;
+    private gastoDirectoRepository?: GastoDirectoRepository;
     private categoriaCxCRepository?: CategoriaCxCRepository;
     private cuentasPorCobrarRepository?: MySQLCuentasPorCobrarRepo;
     private cuentasPorPagarRepository?: MySQLCuentasPorPagarRepo;
@@ -68,6 +81,10 @@ export class PagosFactory {
     private vSaldosAFavorRepository?: VSaldosAFavorRepository;
 
     private tipoAlquilerService?: TipoAlquilerService;
+    private alquilerService?: AlquilerService;
+    private pagoAlquilerService?: PagoAlquilerService;
+    private contratoAlquilerService?: ContratoAlquilerService;
+    private gastoDirectoService?: GastoDirectoService;
     private categoriaCxCService?: CategoriaCxCService;
     private cuentasPorCobrarService?: CuentasPorCobrarService;
     private cuentasPorPagarService?: CuentasPorPagarService;
@@ -77,6 +94,10 @@ export class PagosFactory {
     private proveedorService?: ProveedorService;
 
     private tipoAlquilerController?: TipoAlquilerController;
+    private alquilerController?: AlquilerController;
+    private pagoAlquilerController?: PagoAlquilerController;
+    private contratoAlquilerController?: ContratoAlquilerController;
+    private gastoDirectoController?: GastoDirectoController;
     private categoriaCxCController?: CategoriaCxCController;
     private cuentasPorCobrarController?: CuentasPorCobrarController;
     private cuentasPorPagarController?: CuentasPorPagarController;
@@ -120,6 +141,26 @@ export class PagosFactory {
     public getTipoAlquilerRepository(): TipoAlquilerRepository {
         if (!this.tipoAlquilerRepository) this.tipoAlquilerRepository = new TipoAlquilerRepository(this.db);
         return this.tipoAlquilerRepository;
+    }
+
+    public getAlquilerRepository(): AlquilerRepository {
+        if (!this.alquilerRepository) this.alquilerRepository = new AlquilerRepository(this.db);
+        return this.alquilerRepository;
+    }
+
+    public getPagoAlquilerRepository(): PagoAlquilerRepository {
+        if (!this.pagoAlquilerRepository) this.pagoAlquilerRepository = new PagoAlquilerRepository(this.db);
+        return this.pagoAlquilerRepository;
+    }
+
+    public getContratoAlquilerRepository(): ContratoAlquilerRepository {
+        if (!this.contratoAlquilerRepository) this.contratoAlquilerRepository = new ContratoAlquilerRepository(this.db);
+        return this.contratoAlquilerRepository;
+    }
+
+    public getGastoDirectoRepository(): GastoDirectoRepository {
+        if (!this.gastoDirectoRepository) this.gastoDirectoRepository = new GastoDirectoRepository(this.db);
+        return this.gastoDirectoRepository;
     }
 
     public getCategoriaCxCRepository(): CategoriaCxCRepository {
@@ -187,6 +228,26 @@ export class PagosFactory {
         return this.tipoAlquilerService;
     }
 
+    public getAlquilerService(): AlquilerService {
+        if (!this.alquilerService) this.alquilerService = new AlquilerService(this.getAlquilerRepository());
+        return this.alquilerService;
+    }
+
+    public getPagoAlquilerService(): PagoAlquilerService {
+        if (!this.pagoAlquilerService) this.pagoAlquilerService = new PagoAlquilerService(this.getPagoAlquilerRepository(), this.db);
+        return this.pagoAlquilerService;
+    }
+
+    public getContratoAlquilerService(): ContratoAlquilerService {
+        if (!this.contratoAlquilerService) this.contratoAlquilerService = new ContratoAlquilerService(this.getContratoAlquilerRepository(), this.db);
+        return this.contratoAlquilerService;
+    }
+
+    public getGastoDirectoService(): GastoDirectoService {
+        if (!this.gastoDirectoService) this.gastoDirectoService = new GastoDirectoService(this.getGastoDirectoRepository());
+        return this.gastoDirectoService;
+    }
+
     public getCategoriaCxCService(): CategoriaCxCService {
         if (!this.categoriaCxCService) this.categoriaCxCService = new CategoriaCxCService(this.getCategoriaCxCRepository());
         return this.categoriaCxCService;
@@ -198,7 +259,7 @@ export class PagosFactory {
     }
 
     public getCuentasPorCobrarService(): CuentasPorCobrarService {
-        if (!this.cuentasPorCobrarService) this.cuentasPorCobrarService = new CuentasPorCobrarService(this.getCuentasPorCobrarRepository());
+        if (!this.cuentasPorCobrarService) this.cuentasPorCobrarService = new CuentasPorCobrarService(this.getCuentasPorCobrarRepository(), this.db);
         return this.cuentasPorCobrarService;
     }
 
@@ -225,6 +286,26 @@ export class PagosFactory {
     public getTipoAlquilerController(): TipoAlquilerController {
         if (!this.tipoAlquilerController) this.tipoAlquilerController = new TipoAlquilerController(this.getTipoAlquilerService());
         return this.tipoAlquilerController;
+    }
+
+    public getAlquilerController(): AlquilerController {
+        if (!this.alquilerController) this.alquilerController = new AlquilerController(this.getAlquilerService());
+        return this.alquilerController;
+    }
+
+    public getPagoAlquilerController(): PagoAlquilerController {
+        if (!this.pagoAlquilerController) this.pagoAlquilerController = new PagoAlquilerController(this.getPagoAlquilerService());
+        return this.pagoAlquilerController;
+    }
+
+    public getContratoAlquilerController(): ContratoAlquilerController {
+        if (!this.contratoAlquilerController) this.contratoAlquilerController = new ContratoAlquilerController(this.getContratoAlquilerService());
+        return this.contratoAlquilerController;
+    }
+
+    public getGastoDirectoController(): GastoDirectoController {
+        if (!this.gastoDirectoController) this.gastoDirectoController = new GastoDirectoController(this.getGastoDirectoService());
+        return this.gastoDirectoController;
     }
 
     public getCategoriaCxCController(): CategoriaCxCController {

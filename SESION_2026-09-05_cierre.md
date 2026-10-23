@@ -2,6 +2,10 @@
 
 > Rama: `feat/con-front-Vicky` · BD: `molinos_erp_v4` · Backend TS/Express (capas + factories).
 > Resumen de todo lo hecho hoy y lo que sigue. **Nada commiteado todavía** (working tree).
+>
+> **✅ Bitácora resuelta — actualizado 2026-09-19.** El "sigue" de §3 (pase de AGUA) y las decisiones
+> de §4 (id_gasolinera opcional, DROP de triggers de viajes) ya están cerrados — ver `ESTADO_MODULOS.md`
+> §4 y §7. Se conserva como registro histórico de la sesión.
 
 ---
 

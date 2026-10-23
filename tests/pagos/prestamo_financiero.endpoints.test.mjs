@@ -41,17 +41,29 @@ const db = await mysql.createConnection({
     password: process.env.DB_PASSWORD, database: process.env.DB_NAME
 });
 
+const near = (a, b, eps = 1) => Math.abs(Number(a) - Number(b)) <= eps;
 const RUN = String(Date.now()).slice(-6);
-let idIntacto, idConActividad;
+let idIntacto, idConActividad, idDeudaReal;
 async function cleanup() {
     try {
-        // Fase 2 (Tesorería): todo préstamo creado por API genera un Ingresos_Tesoreria
-        // espejo (id_prestamo_fin) — hay que borrarlo antes que al préstamo por la FK.
-        for (const id of [idIntacto, idConActividad]) {
-            if (id) await db.query('DELETE FROM Ingresos_Tesoreria WHERE id_prestamo_fin = ?', [id]);
+        // Fase 2 (Tesorería): todo préstamo creado por API genera un Ingresos_Tesoreria espejo
+        // Y (2026-10-23) una CxP persistente (Cuentas_Por_Pagar + su fila en
+        // Cuentas_Por_Pagar_Relacion) — hay que borrar ambos antes que al préstamo por la FK.
+        for (const id of [idIntacto, idConActividad, idDeudaReal]) {
+            if (id) {
+                await db.query('DELETE FROM Ingresos_Tesoreria WHERE id_prestamo_fin = ?', [id]);
+                // Movimientos_Prestamo_Financiero.id_abono_cxp referencia Abonos_CxP sin cascada —
+                // hay que borrarlo antes de borrar la CxP (que cascada-borra sus Abonos_CxP).
+                await db.query('DELETE FROM Movimientos_Prestamo_Financiero WHERE id_prestamo_fin = ?', [id]);
+                await db.query(
+                    `DELETE FROM Cuentas_Por_Pagar WHERE id = (SELECT id_cuenta_pagar FROM Cuentas_Por_Pagar_Relacion WHERE id_prestamo_fin = ? LIMIT 1)`,
+                    [id]
+                );
+            }
         }
         if (idIntacto) await db.query('DELETE FROM prestamos_financieros WHERE id = ?', [idIntacto]);
         if (idConActividad) await db.query('DELETE FROM prestamos_financieros WHERE id = ?', [idConActividad]);
+        if (idDeudaReal) await db.query('DELETE FROM prestamos_financieros WHERE id = ?', [idDeudaReal]);
     } catch (e) { log('  (cleanup warn):', e.message); }
 }
 
@@ -78,6 +90,45 @@ try {
 
     r = await req('GET', '/pagos/prestamos-financieros');
     check('listado incluye el creado', r.status === 200 && (r.j?.data || []).some(p => p.id === idIntacto), `n=${r.j?.data?.length}`);
+
+    log('\n===== CxP persistente: deuda real visible en /cxp/mensual (2026-10-23) =====');
+    r = await req('POST', '/pagos/prestamos-financieros', {
+        nombre_prestamo: `ZZ_TEST_DEUDA_REAL_${RUN}`, fecha_adquisicion: '2026-09-19',
+        monto_principal: 4000000, tasa_interes: 2
+    });
+    idDeudaReal = r.j?.data?.id;
+    check('setup: 3er préstamo creado', r.status === 201 && !!idDeudaReal, `id=${idDeudaReal}`);
+
+    const [[relRow]] = await db.query('SELECT id_cuenta_pagar FROM Cuentas_Por_Pagar_Relacion WHERE id_prestamo_fin = ?', [idDeudaReal]);
+    const idCxp = relRow?.id_cuenta_pagar;
+    check('al crear, se abre exactamente 1 CxP persistente', !!idCxp, `idCxp=${idCxp}`);
+
+    const [[cxpInicial]] = await db.query('SELECT estado, valor_total, valor_pagado FROM Cuentas_Por_Pagar WHERE id = ?', [idCxp]);
+    check("la CxP nace 'pendiente' por el monto_principal, sin abonar", cxpInicial?.estado === 'pendiente' && near(cxpInicial?.valor_total, 4000000) && near(cxpInicial?.valor_pagado, 0), `row=${JSON.stringify(cxpInicial)}`);
+
+    const [[catPrestamo]] = await db.query("SELECT id FROM Categorias_CxP WHERE nombre = 'Préstamo financiero'");
+    r = await req('GET', `/pagos/cxp/mensual?mes=9&anio=2026&id_categoria=${catPrestamo?.id}`);
+    const enCxp = (r.j?.data?.cuentas || []).find(c => c.id === idCxp);
+    check('el préstamo SÍ aparece en /pagos/cxp/mensual como deuda pendiente', r.status === 200 && !!enCxp, `encontrado=${JSON.stringify(enCxp)}`);
+
+    r = await req('POST', `/pagos/prestamos-financieros/${idDeudaReal}/abonos`, { valor: 1000000, fecha_abono: '2026-10-01', metodo_pago: 'transferencia' });
+    check('abono registrado (201)', r.status === 201 && near(r.j?.data?.saldo_resultante, 3000000), `data=${JSON.stringify(r.j?.data)}`);
+
+    const [[relTrasAbono]] = await db.query('SELECT COUNT(*) AS n FROM Cuentas_Por_Pagar_Relacion WHERE id_prestamo_fin = ?', [idDeudaReal]);
+    check('sigue habiendo UNA sola CxP (no abrió una nueva por el abono)', relTrasAbono?.n === 1, `n=${relTrasAbono?.n}`);
+
+    const [[cxpTrasAbono]] = await db.query('SELECT id, estado, valor_total, valor_pagado FROM Cuentas_Por_Pagar WHERE id = ?', [idCxp]);
+    check("el abono se aplicó sobre la MISMA CxP (valor_pagado=1.000.000, sigue 'parcial')", cxpTrasAbono?.id === idCxp && cxpTrasAbono?.estado === 'parcial' && near(cxpTrasAbono?.valor_pagado, 1000000) && near(cxpTrasAbono?.valor_total, 4000000), `row=${JSON.stringify(cxpTrasAbono)}`);
+
+    // La fecha base del interés es el último movimiento (el abono del 2026-10-01), no la fecha
+    // de adquisición — hace falta un mes completo desde ESA fecha, no desde la adquisición.
+    // Margen holgado (no 2026-11-01 exacto) para no caer en el límite por el parseo de fecha UTC.
+    r = await req('POST', `/pagos/prestamos-financieros/${idDeudaReal}/interes`, { fecha: '2026-11-15' });
+    const interesEsperado = 3000000 * 0.02; // saldo tras el abono (3M) * 2% * 1 mes
+    check('interés capitalizado (201)', r.status === 201 && near(r.j?.data?.valor, interesEsperado), `data=${JSON.stringify(r.j?.data)}`);
+
+    const [[cxpTrasInteres]] = await db.query('SELECT valor_total, valor_pagado FROM Cuentas_Por_Pagar WHERE id = ?', [idCxp]);
+    check('el interés capitalizado sube valor_total de la MISMA CxP (sin tocar valor_pagado)', near(cxpTrasInteres?.valor_total, 4000000 + interesEsperado) && near(cxpTrasInteres?.valor_pagado, 1000000), `row=${JSON.stringify(cxpTrasInteres)}`);
 
     log('\n===== DELETE con guard (nuevo) =====');
     r = await req('DELETE', `/pagos/prestamos-financieros/${idIntacto}`);

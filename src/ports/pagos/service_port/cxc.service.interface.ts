@@ -11,4 +11,9 @@ export interface ICategoriaCxCService {
 
 export interface ICuentasPorCobrarService {
     listarPaginado(filtros: { mes?: number; anio?: number; id_categoria?: number; estado?: string; page?: number; limit?: number }): Promise<any>;
+    crear(data: any): Promise<any>;
+    obtenerPorId(id: number): Promise<any>;
+    abonar(idCxc: number, data: any): Promise<any>;
+    editar(id: number, data: any): Promise<any>;
+    anular(id: number): Promise<void>;
 }

@@ -4,6 +4,13 @@
 > ese mismo día, ver §6. Cubre todo lo que pasa DESPUÉS de que el concentrado sale de la planta rumbo a
 > Barranquilla: el despacho en mula, su pago, y los análisis de laboratorio que certifican tenor/peso
 > hasta la liquidación final con Transfigura.
+>
+> **Actualizado 2026-09-19:** `migracion_viaje_estado_2026-09-13.sql` confirmada aplicada (los 17/17 de
+> `tests/viaje_estado_mula.endpoints.test.mjs` el 2026-09-14 no pasarían sin `Viaje.estado` en la BD).
+> El pendiente de "consumir `Saldo_A_Favor` del proveedor" (§6, §8) se detalla ahora en
+> `PENDIENTE_CONSUMO_SALDO_A_FAVOR.md`. Lo que sigue realmente pendiente de este documento:
+> `Peso_Final_Transfigura` (§3.3, cero código) y los tipos de análisis Colas/Concentrado_Colas/Colas_Colas
+> (§3.4, sin lógica de negocio).
 
 ---
 
@@ -199,9 +206,11 @@ inicio, ver [[ports-service-faltantes-pagos]]):
 `routes/pagos/pago_mula.routes.ts` — wireado en `pagos.factory.ts` y `routes.pagos.ts`. Compila limpio
 (`npx tsc --noEmit`).
 
-**Esquema:** `migracion_mulas_2026-09-13.sql` (no aplicada aún) agrega a `Mulas`: `valor_correcto`
-("la cantidad que es", manual) y `diferencia` (columna generada `valor_correcto − valor`, positiva =
-cobraron de menos, negativa = cobraron de más). `molinos_coments_v4.sql` ya quedó documentado igual.
+**Esquema:** `migracion_mulas_2026-09-13.sql` agrega a `Mulas`: `valor_correcto` ("la cantidad que es",
+manual) y `diferencia` (columna generada `valor_correcto − valor`, positiva = cobraron de menos,
+negativa = cobraron de más). **Superado el mismo día por §8**: `migracion_mulas_ajuste_pago_2026-09-13.sql`
+elimina ambas columnas — el diseño final NO las tiene, ver §8. `molinos_v4.sql`/`molinos_coments_v4.sql`
+ya reflejan el estado final (sin `valor_correcto`/`diferencia`).
 
 **Endpoints:**
 ```
@@ -228,8 +237,8 @@ GET    /pagos/mulas/abonos?id_proveedor=&desde=&hasta=&metodo_pago=&page=&limit=
 **Abonos:** en vez de bloquear el sobrepago con un error, sigue el patrón ya usado en
 `pago_material` — el abono se capa al saldo pendiente y el excedente genera automáticamente un
 `Saldo_A_Favor` (`origen='pago_excedido'`, beneficiario `id_proveedor`) que el transportador puede
-consumir después (consumo aún no implementado en ningún módulo de pagos, pendiente transversal ya
-conocido — ver `ANTICIPOS_plan.md` §0.3).
+consumir después (consumo aún no implementado en ningún módulo de pagos salvo material — ver
+`PENDIENTE_CONSUMO_SALDO_A_FAVOR.md`).
 
 **Listado de mulas** (`GET /pagos/mulas`) hace `JOIN` directo contra las vistas `v_mulas` (retención/
 neto) y `v_estado_mulas` (pagado/saldo/estado) que ya existían en BD — no se reimplementó ese cálculo.
@@ -249,7 +258,7 @@ mula (el material sale físicamente ese día, sin importar cuándo se termine de
 Estados: `almacenado` (nace así, con o sin líneas) → `despachado` (tiene una Mula vinculada).
 
 - Migración `migracion_viaje_estado_2026-09-13.sql`: `Viaje.estado ENUM('almacenado','despachado')
-  NOT NULL DEFAULT 'almacenado'` + índice. **No aplicada aún.**
+  NOT NULL DEFAULT 'almacenado'` + índice. **✅ Aplicada** (confirmado 2026-09-19 por los tests de abajo).
 - `GET /material/viajes/disponibles-mula` — selector: viajes en `almacenado` que además tienen
   **al menos una línea** (`viaje_material`, o sea carga real asignada) — devuelve
   `{ id, numero_viaje, fecha, estado, num_lineas, toneladas_seco }`.
@@ -259,11 +268,8 @@ Estados: `almacenado` (nace así, con o sin líneas) → `despachado` (tiene una
   - Al **editar** (`PATCH .../mulas/:id`) y cambiar `id_viaje` (vincular otro, o `null` para
     desvincular): revierte el viaje anterior a `almacenado` y valida/despacha el nuevo.
   - Al **eliminar** una Mula (sin abonos) que tenía `id_viaje`: revierte ese viaje a `almacenado`.
-- Probado en `tests/viaje_estado_mula.endpoints.test.mjs` (pendiente de correr — falta aplicar la
-  migración de `Viaje.estado`).
-
-**Pendiente para el usuario:** aplicar `migracion_viaje_estado_2026-09-13.sql` (además de
-`migracion_mulas_2026-09-13.sql` si aún no se aplicó completa, incluyendo el fix de la vista).
+- **Probado: 17/17 OK** (`tests/viaje_estado_mula.endpoints.test.mjs`, corrido 2026-09-14 —
+  ver `docs/pruebas/REPORTE_PRUEBAS_VIAJE_ESTADO_MULA_2026-09-14.md`).
 
 ---
 
@@ -278,7 +284,8 @@ Al conectar el front, el usuario pidió simplificar el registro y pasar los abon
    el saldo de la CxP revela solo, de forma natural, si se pagó de más (→ `Saldo_A_Favor`) o de
    menos (→ queda como saldo pendiente).
    - Migración `migracion_mulas_ajuste_pago_2026-09-13.sql`: DROP de `valor_correcto`/`diferencia` +
-     nuevo comentario en `valor`. **No aplicada aún** (no bloquea: el código ya no las usa).
+     nuevo comentario en `valor`. Estado de aplicación irrelevante en la práctica (el código ya no usa
+     esas columnas exista o no); solo cosmético si sigue sin correr — pendiente menor, no bloqueante.
 2. **Los abonos pasan a ser en CASCADA por proveedor**, igual que flete/agua: `POST
    /pagos/mulas/proveedor/:idProveedor/abonos` reemplaza al viejo `POST /pagos/mulas/:id/abonos`.
    Un solo abono (ej. $10.000.000) se aplica del despacho más viejo al más nuevo entre TODAS las

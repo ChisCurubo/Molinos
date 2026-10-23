@@ -52,6 +52,12 @@ async function cleanup() {
         if (idCxpDummy) { await db.query('DELETE FROM Abonos_CxP WHERE id_cuenta_pagar=?', [idCxpDummy]); await db.query('DELETE FROM Cuentas_Por_Pagar WHERE id=?', [idCxpDummy]); }
         if (idIngresoManual) await db.query('DELETE FROM Ingresos_Tesoreria WHERE id=?', [idIngresoManual]);
         if (idIngresoPrestamo) await db.query('DELETE FROM Ingresos_Tesoreria WHERE id=?', [idIngresoPrestamo]);
+        // 2026-10-23: crear un préstamo también abre su CxP persistente (Cuentas_Por_Pagar +
+        // Cuentas_Por_Pagar_Relacion) — hay que borrarla, aunque FK_CHECKS=0 lo deje pasar sin esto.
+        if (idPrestamoFin) await db.query(
+            `DELETE FROM Cuentas_Por_Pagar WHERE id = (SELECT id_cuenta_pagar FROM Cuentas_Por_Pagar_Relacion WHERE id_prestamo_fin = ? LIMIT 1)`,
+            [idPrestamoFin]
+        );
         if (idPrestamoFin) await db.query('DELETE FROM prestamos_financieros WHERE id=?', [idPrestamoFin]);
         await db.query('SET FOREIGN_KEY_CHECKS=1');
     } catch (e) { log('  (cleanup warn):', e.message); }

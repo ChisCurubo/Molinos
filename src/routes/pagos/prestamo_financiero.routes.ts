@@ -199,7 +199,7 @@ router.post('/:id/interes', controller.acumularInteres);
  * @swagger
  * /pagos/prestamos-financieros/{id}/abonos:
  *   post:
- *     summary: Registrar un abono real al préstamo (reduce saldo_pendiente, genera CxP pagada de inmediato)
+ *     summary: Registrar un abono real al préstamo (reduce saldo_pendiente, abona la CxP persistente del préstamo)
  *     tags: [PrestamosFinancieros]
  *     security: [{ bearerAuth: [] }]
  *     parameters:

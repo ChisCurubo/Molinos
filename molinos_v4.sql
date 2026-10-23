@@ -502,10 +502,32 @@ CREATE TABLE Precio_Material (
 ) COMMENT='Escala de precios de compra de material por rango de tenor (gr Au/ton). Puede ser global (id_minero/id_zona NULL), específico por minero o por zona. El backend busca el precio activo según el tenor de la entrada.';
 
 
+-- Migración 2026-10-18: contrato de arriendo de larga duración (ej. 1 año). Al crearse, genera
+-- automáticamente un Alquileres por cada mes del período — cada uno se paga individualmente
+-- con el motor de pago normal de Alquiler. Sin columna estado: "vigente" = deleted_at IS NULL
+-- AND CURDATE() <= fecha_fin, igual que el resto del módulo no duplica el estado de pago.
+CREATE TABLE Contratos_Alquiler (
+    id             INT           AUTO_INCREMENT PRIMARY KEY  COMMENT 'Identificador único del contrato de arriendo',
+    id_tipo        INT           NULL                        COMMENT 'Categoría del alquiler — ver Tipos_Alquiler',
+    id_proveedor   INT           NOT NULL                    COMMENT 'Arrendador (empresa o persona) — ver Proveedores',
+    concepto       VARCHAR(255)  NOT NULL                    COMMENT 'Descripción base del contrato (Ej: Alquiler camioneta placa ABC123)',
+    valor_mensual  DECIMAL(15,2) NOT NULL                    COMMENT 'Valor de cada cuota mensual generada en Alquileres',
+    fecha_inicio   DATE          NOT NULL                    COMMENT 'Fecha de inicio del contrato',
+    fecha_fin      DATE          NOT NULL                    COMMENT 'Fecha de terminación del contrato (define cuántos meses se generan)',
+    contrato_url   VARCHAR(512)  NULL                        COMMENT 'Link al documento firmado del contrato (subido aparte, igual que los demás comprobantes del sistema)',
+    created_at     TIMESTAMP     DEFAULT CURRENT_TIMESTAMP  COMMENT 'Fecha y hora de registro del contrato',
+    deleted_at     TIMESTAMP     NULL DEFAULT NULL           COMMENT 'Borrado lógico: con fecha = contrato cancelado. Los meses ya generados en Alquileres NO se tocan automáticamente.',
+    FOREIGN KEY (id_tipo)      REFERENCES Tipos_Alquiler(id),
+    FOREIGN KEY (id_proveedor) REFERENCES Proveedores(id),
+    CONSTRAINT chk_contrato_fechas CHECK (fecha_fin >= fecha_inicio)
+) COMMENT='Contrato de arriendo de larga duración (ej. 1 año). Al crearse, genera automáticamente un Alquileres por cada mes del período.';
+
+
 CREATE TABLE Alquileres (
     id           INT           AUTO_INCREMENT PRIMARY KEY  COMMENT 'Identificador único del contrato de alquiler',
     id_tipo      INT                                       COMMENT 'Categoría del alquiler (Vehículos, Maquinaria Pesada, Herramientas) — ver Tipos_Alquiler',
     id_proveedor INT                                       COMMENT 'Empresa o persona que arrienda el equipo o vehículo — ver Proveedores',
+    id_contrato  INT           NULL                        COMMENT 'Contrato de arriendo que generó este cobro mensual (NULL = alquiler puntual, sin contrato) — ver Contratos_Alquiler. Migración 2026-10-18.',
     fecha_inicio DATE          NOT NULL                    COMMENT 'Fecha de inicio del período de alquiler facturado',
     concepto     VARCHAR(255)  NOT NULL                    COMMENT 'Descripción detallada del equipo o vehículo alquilado (Ej: ALQUILER CAMIONETA ABRIL FAC 363)',
     valor        DECIMAL(15,2) NOT NULL                    COMMENT 'Costo total pactado del alquiler en pesos colombianos',
@@ -513,6 +535,7 @@ CREATE TABLE Alquileres (
     deleted_at   TIMESTAMP     NULL DEFAULT NULL           COMMENT 'Borrado lógico: con fecha = alquiler anulado; NULL = alquiler vigente. El registro nunca se elimina.',
     FOREIGN KEY (id_tipo)      REFERENCES Tipos_Alquiler(id),
     FOREIGN KEY (id_proveedor) REFERENCES Proveedores(id),
+    FOREIGN KEY (id_contrato)  REFERENCES Contratos_Alquiler(id),
     INDEX idx_alquileres_fecha (fecha_inicio)
 ) COMMENT='Contratos de alquiler de equipos, vehículos y maquinaria. El estado de pago no se almacena aquí para evitar desincronización; se consulta dinámicamente en la vista v_estado_alquileres.';
 

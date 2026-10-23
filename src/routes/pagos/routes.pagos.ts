@@ -14,6 +14,7 @@ import pagoAguaRoutes from './pago_agua.routes';
 import combustibleRoutes from './combustible.routes';
 import anticipoRoutes from './anticipo.routes';
 import pagoMulaRoutes from './pago_mula.routes';
+import gastoDirectoRoutes from './gasto_directo.routes';
 import vistasRoutes from './vistas.pagos.routes';
 import ingresoTesoreriaRoutes from './ingreso_tesoreria.routes';
 import flujoCajaRoutes from './flujo_caja.routes';
@@ -32,6 +33,7 @@ router.use('/prestamos-financieros', prestamoFinancieroRoutes);
 router.use('/combustible', combustibleRoutes);
 router.use('/anticipos', anticipoRoutes);
 router.use('/mulas', pagoMulaRoutes);
+router.use('/gastos-directos', gastoDirectoRoutes);
 router.use('/ingresos', ingresoTesoreriaRoutes);
 
 /**

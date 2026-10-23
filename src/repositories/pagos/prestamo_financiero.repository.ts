@@ -68,33 +68,75 @@ export class PrestamoFinancieroRepository implements IPrestamoFinancieroReposito
         await conn.execute(`UPDATE prestamos_financieros SET saldo_pendiente = ?, activo = ? WHERE id = ?`, [nuevoSaldo, activo, id]);
     }
 
-    async crearAbonoPrestamo(data: {
-        id_prestamo_fin: number; concepto: string; valor: number; fecha_abono: string;
-        metodo_pago?: string; comprobante_url?: string; observaciones?: string;
-    }, conn: PoolConnection): Promise<{ id_cuenta_pagar: number; id_abono: number }> {
+    /**
+     * CxP persistente del préstamo (categoría 'Préstamo financiero', nace 'pendiente' por
+     * monto_principal). A diferencia del patrón viejo (una CxP nueva ya pagada por cada abono),
+     * esta SÍ aparece en /pagos/cxp/mensual como deuda real mientras no se termine de pagar —
+     * decisión 2026-10-23. Una sola fila en Cuentas_Por_Pagar_Relacion por préstamo (no una por abono).
+     */
+    async crearCxPInicial(data: { id_prestamo_fin: number; concepto: string; valor_total: number; fecha: string }, conn: PoolConnection): Promise<number> {
         const [cxpResult] = await conn.execute<ResultSetHeader>(
             `INSERT INTO Cuentas_Por_Pagar (id_categoria, concepto, valor_total, valor_pagado, estado, fecha_creacion)
              VALUES ((SELECT id FROM Categorias_CxP WHERE nombre='Préstamo financiero' LIMIT 1), ?, ?, 0, 'pendiente', ?)`,
-            [data.concepto, data.valor, data.fecha_abono]
+            [data.concepto, data.valor_total, data.fecha]
         );
         const idCxp = cxpResult.insertId;
+        await conn.execute(
+            `INSERT INTO Cuentas_Por_Pagar_Relacion (id_cuenta_pagar, id_prestamo_fin, monto_aplicado, concepto)
+             VALUES (?, ?, ?, ?)`,
+            [idCxp, data.id_prestamo_fin, data.valor_total, data.concepto]
+        );
+        return idCxp;
+    }
 
+    async obtenerCxP(id_prestamo_fin: number, conn?: PoolConnection): Promise<{ id: number; valor_total: number; valor_pagado: number } | null> {
+        const [rows] = await this.conn(conn).execute<RowDataPacket[]>(
+            `SELECT cp.id, cp.valor_total, cp.valor_pagado
+             FROM Cuentas_Por_Pagar_Relacion cpr
+             JOIN Cuentas_Por_Pagar cp ON cp.id = cpr.id_cuenta_pagar
+             WHERE cpr.id_prestamo_fin = ?`,
+            [id_prestamo_fin]
+        );
+        return rows.length ? (rows[0] as any) : null;
+    }
+
+    // Capitalizar interés crece la deuda total de la CxP — sin esto, saldo (valor_total-valor_pagado)
+    // se desincroniza de Prestamos_Financieros.saldo_pendiente.
+    async aumentarValorTotalCxP(idCxp: number, incremento: number, conn: PoolConnection): Promise<void> {
+        await conn.execute(`UPDATE Cuentas_Por_Pagar SET valor_total = valor_total + ? WHERE id = ?`, [incremento, idCxp]);
+        await this.recalcularEstadoCxP(idCxp, conn);
+    }
+
+    async registrarAbono(idCxp: number, data: { fecha_abono: string; valor: number; metodo_pago?: string; comprobante_url?: string; observaciones?: string }, conn: PoolConnection): Promise<number> {
         const [abonoResult] = await conn.execute<ResultSetHeader>(
             `INSERT INTO Abonos_CxP (id_cuenta_pagar, fecha_abono, valor, metodo_pago, comprobante_url, observaciones)
              VALUES (?, ?, ?, ?, ?, ?)`,
             [idCxp, data.fecha_abono, data.valor, data.metodo_pago || 'transferencia', data.comprobante_url ?? null, data.observaciones ?? null]
         );
-        const idAbono = abonoResult.insertId;
+        await this.recalcularEstadoCxP(idCxp, conn);
+        return abonoResult.insertId;
+    }
 
-        await conn.execute(`UPDATE Cuentas_Por_Pagar SET valor_pagado = ?, estado = 'pagado' WHERE id = ?`, [data.valor, idCxp]);
-
+    async recalcularEstadoCxP(idCxp: number, conn: PoolConnection): Promise<void> {
         await conn.execute(
-            `INSERT INTO Cuentas_Por_Pagar_Relacion (id_cuenta_pagar, id_prestamo_fin, monto_aplicado, concepto)
-             VALUES (?, ?, ?, ?)`,
-            [idCxp, data.id_prestamo_fin, data.valor, data.concepto]
+            `UPDATE Cuentas_Por_Pagar cp
+             SET valor_pagado = (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id),
+                 estado = CASE
+                    WHEN (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id) <= 0 THEN 'pendiente'
+                    WHEN (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id) >= cp.valor_total THEN 'pagado'
+                    ELSE 'parcial' END
+             WHERE cp.id = ? AND cp.estado != 'anulado'`,
+            [idCxp]
         );
+    }
 
-        return { id_cuenta_pagar: idCxp, id_abono: idAbono };
+    // Solo se usa cuando delete() ya validó que el préstamo no tiene abonos ni interés acumulado
+    // (saldo_pendiente === monto_principal) — Abonos_CxP está vacía, se puede borrar sin rastro que perder.
+    async eliminarCxP(id_prestamo_fin: number, conn: PoolConnection): Promise<void> {
+        await conn.execute(
+            `DELETE FROM Cuentas_Por_Pagar WHERE id = (SELECT id_cuenta_pagar FROM Cuentas_Por_Pagar_Relacion WHERE id_prestamo_fin = ? LIMIT 1)`,
+            [id_prestamo_fin]
+        );
     }
 
     async insertarMovimiento(data: {

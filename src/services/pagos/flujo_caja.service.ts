@@ -1,5 +1,5 @@
 import { IFlujoCajaRepository } from '../../ports/pagos/repository_port/flujo_caja.repository.interface';
-import { IFlujoCajaService, ResumenFlujoCaja, HistoricoFlujoCaja } from '../../ports/pagos/service_port/flujo_caja.service.interface';
+import { IFlujoCajaService, ResumenFlujoCaja, HistoricoFlujoCaja, FlujoCajaAnual, TransaccionLibroDTO } from '../../ports/pagos/service_port/flujo_caja.service.interface';
 
 const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -54,5 +54,43 @@ export class FlujoCajaService implements IFlujoCajaService {
             gastos_por_categoria: por_categoria.map(c => ({ categoria: c.categoria, color: c.color, total: r2(c.total) })),
             saldo_acumulado: r2(ingresos_total - gastos_total)
         };
+    }
+
+    async anual(anio: number): Promise<FlujoCajaAnual> {
+        if (!Number.isInteger(anio) || anio < 2000) throw err('anio inválido');
+
+        const porMes = await this.repo.totalesPorMesDelAnio(anio);
+        let ingresos_total = 0, gastos_total = 0;
+        const meses = Array.from({ length: 12 }, (_, i) => {
+            const mes = i + 1;
+            const t = porMes.get(mes)!;
+            const ingresos = r2(t.ingresos_tesoreria + t.cobros_cxc);
+            const gastos = r2(t.gastos_cxp);
+            ingresos_total += ingresos;
+            gastos_total += gastos;
+            return { mes, ingresos, gastos, saldo_mes: r2(ingresos - gastos) };
+        });
+
+        return {
+            anio,
+            ingresos_total: r2(ingresos_total),
+            gastos_total: r2(gastos_total),
+            saldo_anio: r2(ingresos_total - gastos_total),
+            meses
+        };
+    }
+
+    async libroGastos(mes: number, anio: number): Promise<TransaccionLibroDTO[]> {
+        if (!Number.isInteger(mes) || mes < 1 || mes > 12) throw err('mes debe estar entre 1 y 12');
+        if (!Number.isInteger(anio) || anio < 2000) throw err('anio inválido');
+        const rows = await this.repo.libroGastos(mes, anio);
+        return rows.map(r => ({ ...r, monto: r2(Number(r.monto)) }));
+    }
+
+    async libroCobros(mes: number, anio: number): Promise<TransaccionLibroDTO[]> {
+        if (!Number.isInteger(mes) || mes < 1 || mes > 12) throw err('mes debe estar entre 1 y 12');
+        if (!Number.isInteger(anio) || anio < 2000) throw err('anio inválido');
+        const rows = await this.repo.libroCobros(mes, anio);
+        return rows.map(r => ({ ...r, monto: r2(Number(r.monto)) }));
     }
 }
