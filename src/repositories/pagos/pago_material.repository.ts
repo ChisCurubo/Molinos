@@ -1,5 +1,7 @@
 import { Pool, PoolConnection, ResultSetHeader } from 'mysql2/promise';
 import { IPagoMaterialRepository, EntradaPagoMaterial } from '../../ports/pagos/repository_port/pago_material.repository.interface';
+import { aplicarImpuesto4x1000 } from './impuesto.repository';
+import { AppError } from '../../errors/app-error';
 
 /**
  * Repositorio del pago AGRUPADO de material (varias volquetas de un minero → 1 CxP).
@@ -17,7 +19,7 @@ export class PagoMaterialRepository implements IPagoMaterialRepository {
         const [rows] = await this.conn(conn).execute<any[]>(
             `SELECT id FROM Categorias_CxP WHERE nombre = 'Material' LIMIT 1`
         );
-        if (!rows.length) throw new Error("No existe la categoría 'Material' en Categorias_CxP");
+        if (!rows.length) throw AppError.http(500, "No existe la categoría 'Material' en Categorias_CxP");
         return Number(rows[0].id);
     }
 
@@ -219,15 +221,20 @@ export class PagoMaterialRepository implements IPagoMaterialRepository {
     async insertarAbono(abono: any, conn: PoolConnection): Promise<number> {
         const [result] = await conn.execute<ResultSetHeader>(
             `INSERT INTO Abonos_CxP
-                (id_cuenta_pagar, fecha_abono, valor, metodo_pago, id_saldo_favor, comprobante_url, observaciones)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                (id_cuenta_pagar, fecha_abono, valor, metodo_pago, id_saldo_favor, comprobante_url, observaciones, id_cuenta_bancaria)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 abono.id_cuenta_pagar, abono.fecha_abono, abono.valor,
                 abono.metodo_pago || 'transferencia',
                 abono.id_saldo_favor ?? null,
-                abono.comprobante_url ?? null, abono.observaciones ?? null
+                abono.comprobante_url ?? null, abono.observaciones ?? null,
+                abono.id_cuenta_bancaria ?? null
             ]
         );
+        await aplicarImpuesto4x1000(conn, {
+            id_abono_cxp: result.insertId, id_cuenta_bancaria: abono.id_cuenta_bancaria,
+            valor_base: abono.valor_impuesto_base ?? abono.valor, fecha: abono.fecha_abono
+        });
         return result.insertId;
     }
 

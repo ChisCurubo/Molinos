@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import { IEmpleadoService } from '../../ports/nomina/service_port/empleado.service.interface';
 import { EmpleadoService } from '../../services/nomina/empleado.service';
-import { PrestamoEmpleadoServiceInterface } from '../../ports/nomina/service_port/empleado.service.interface';
+import { PrestamoEmpleadoServiceInterface } from '../../ports/nomina/service_port/empleado.service.interface';
+import { fail } from '../../errors/responder';
+import { AppError } from '../../errors/app-error';
 
 // --- Original: empleado ---
 export class EmpleadoController {
@@ -12,7 +14,7 @@ export class EmpleadoController {
             const result = await this.service.create(req.body);
             res.status(201).json({ success: true, data: result });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -21,12 +23,12 @@ export class EmpleadoController {
             const id = parseInt(req.params.id as string, 10);
             const result = await this.service.getById(id);
             if (!result) {
-                res.status(404).json({ success: false, error: 'Registro no encontrado' });
+                fail(res, AppError.http(404, 'Registro no encontrado'));
                 return;
             }
             res.status(200).json({ success: true, data: result });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -35,12 +37,12 @@ export class EmpleadoController {
             const id = parseInt(req.params.id as string, 10);
             const result = await this.service.update(id, req.body);
             if (!result) {
-                res.status(404).json({ success: false, error: 'Registro no encontrado o sin cambios' });
+                fail(res, AppError.http(404, 'Registro no encontrado o sin cambios'));
                 return;
             }
             res.status(200).json({ success: true, data: result });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -49,12 +51,12 @@ export class EmpleadoController {
             const id = parseInt(req.params.id as string, 10);
             const deleted = await this.service.delete(id);
             if (!deleted) {
-                res.status(404).json({ success: false, error: 'Registro no encontrado' });
+                fail(res, AppError.http(404, 'Registro no encontrado'));
                 return;
             }
             res.status(200).json({ success: true, message: 'Registro eliminado' });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -63,7 +65,7 @@ export class EmpleadoController {
             const results = await this.service.list();
             res.status(200).json({ success: true, data: results });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 }
@@ -77,7 +79,7 @@ export class PrestamoEmpleadoController {
             const prestamo = await this.service.registrarPrestamo(req.body);
             res.status(201).json({ success: true, data: prestamo });
         } catch (error: any) {
-            res.status(400).json({ success: false, message: error.message });
+            fail(res, error, 400);
         }
     }
 
@@ -87,7 +89,7 @@ export class PrestamoEmpleadoController {
             const prestamos = await this.service.listarPrestamosPorEmpleado(Number(idEmpleado));
             res.status(200).json({ success: true, data: prestamos });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     }
 
@@ -96,12 +98,48 @@ export class PrestamoEmpleadoController {
             const id = Number(req.params.id);
             const prestamo = await this.service.updatePrestamo(id, req.body);
             if (!prestamo) {
-                res.status(404).json({ success: false, message: "Préstamo no encontrado o no actualizado" });
+                fail(res, AppError.http(404, "Préstamo no encontrado o no actualizado"));
                 return;
             }
             res.status(200).json({ success: true, data: prestamo });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: error.message });
+            fail(res, error);
+        }
+    }
+
+    async getById(req: Request, res: Response) {
+        try {
+            const prestamo = await this.service.getById(Number(req.params.id));
+            if (!prestamo) {
+                fail(res, AppError.http(404, "Préstamo no encontrado"));
+                return;
+            }
+            res.status(200).json({ success: true, data: prestamo });
+        } catch (error: any) {
+            fail(res, error);
+        }
+    }
+
+    async listAll(req: Request, res: Response) {
+        try {
+            const { id_empleado } = req.query as any;
+            const prestamos = await this.service.listAll({ id_empleado: id_empleado ? Number(id_empleado) : undefined });
+            res.status(200).json({ success: true, data: prestamos });
+        } catch (error: any) {
+            fail(res, error);
+        }
+    }
+
+    async delete(req: Request, res: Response) {
+        try {
+            const deleted = await this.service.delete(Number(req.params.id));
+            if (!deleted) {
+                fail(res, AppError.http(404, "Préstamo no encontrado"));
+                return;
+            }
+            res.status(200).json({ success: true, message: 'Préstamo eliminado' });
+        } catch (error: any) {
+            fail(res, error);
         }
     }
 }

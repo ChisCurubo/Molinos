@@ -1,0 +1,63 @@
+# Servidor BACKEND: API + MinIO. La BD es MySQL HeatWave Always Free (gestionada por Oracle, 10.0.1.30).
+# Variables en /opt/molinos/.env (las arma setup-back.sh con db.env + secrets.env + front_url.env; nunca van al repo).
+name: molinos-back
+services:
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      TZ: America/Bogota
+    volumes:
+      - minio-data:/data
+    ports:
+      - "127.0.0.1:9000:9000"   # API S3 (solo local / túnel SSH)
+      - "127.0.0.1:9001:9001"   # consola web (solo local / túnel SSH)
+
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/back/Dockerfile
+    restart: unless-stopped
+    depends_on: [minio]
+    environment:
+      # Dentro de Docker la IP es 172.x, no 10.0.1.10: por eso el modo va explícito (ver src/config/entorno.ts).
+      APP_MODE: oracle
+      ENV: production
+      SERVER_PORT: 3005
+      DB_HOST: ${DB_HOST}
+      DB_PORT: 3306
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: molinos_erp_v4
+      DB_SSL: "true"
+      DB_SSL_REJECT_UNAUTHORIZED: "false"   # HeatWave usa certificado propio de Oracle
+      JWT_SECRET: ${JWT_SECRET}
+      TRUST_PROXY: 1                        # Caddy delante (VM del front)
+      CORS_ORIGINS: ${FRONT_URL:-}
+      FRONTEND_URL: ${FRONT_URL:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      SUPER_ADMIN_USERNAME: chris
+      STORAGE_DRIVER: minio
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_SSL: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: molinos-comprobantes
+      TZ: America/Bogota
+      NODE_OPTIONS: --max-old-space-size=512
+    # Publicado en la red privada; la Security List de Oracle solo deja entrar desde la VCN (VM front)
+    ports:
+      - "3005:3005"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3005/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  minio-data:

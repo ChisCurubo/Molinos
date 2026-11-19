@@ -1,5 +1,7 @@
 import { Pool, PoolConnection, ResultSetHeader } from 'mysql2/promise';
 import { IPagoMulaRepository } from '../../ports/pagos/repository_port/pago_mula.repository.interface';
+import { aplicarImpuesto4x1000 } from './impuesto.repository';
+import { AppError } from '../../errors/app-error';
 
 /**
  * Repositorio del pago de MULAS. Ver IPagoMulaRepository para el diseño.
@@ -13,25 +15,20 @@ export class PagoMulaRepository implements IPagoMulaRepository {
         const [rows] = await this.conn(conn).execute<any[]>(
             `SELECT id FROM Categorias_CxP WHERE nombre = 'Mula' LIMIT 1`
         );
-        if (!rows.length) throw new Error("No existe la categoría 'Mula' en Categorias_CxP");
+        if (!rows.length) throw AppError.http(500, "No existe la categoría 'Mula' en Categorias_CxP");
         return Number(rows[0].id);
     }
 
-    async pctRetencionMula(conn?: PoolConnection): Promise<number> {
-        const [rows] = await this.conn(conn).execute<any[]>(
-            `SELECT valor FROM Tarifas_Calculo WHERE codigo = 'retencion_mula_pct' LIMIT 1`
-        );
-        if (!rows.length) throw new Error("No existe la tarifa 'retencion_mula_pct' en Tarifas_Calculo");
-        return Number(rows[0].valor);
-    }
-
     // ── Mula (el despacho) ──────────────────────────────────────────────────
-    async crearMula(data: { id_proveedor: number; id_viaje?: number; fecha: string; concepto?: string; factura_num?: string; foto_factura_url?: string; valor: number }, conn: PoolConnection): Promise<number> {
+    // Transporte NO lleva reteIVA (decisión del usuario, 2026-10-31) — a diferencia de Alquiler,
+    // Mulas no tiene campo valor_iva: solo aplica retefuente de 'Transporte de carga'.
+    // retencion_fuente_manual: override al crear — NULL=automático, 0=fuerza "no aplica", >0=fuerza ese valor.
+    async crearMula(data: { id_proveedor: number; id_viaje?: number; fecha: string; concepto?: string; factura_num?: string; foto_factura_url?: string; valor: number; retencion_fuente_manual?: number | null }, conn: PoolConnection): Promise<number> {
         const [result] = await conn.execute<ResultSetHeader>(
-            `INSERT INTO Mulas (id_proveedor, id_viaje, fecha, concepto, factura_num, foto_factura_url, valor)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO Mulas (id_proveedor, id_viaje, fecha, concepto, factura_num, foto_factura_url, valor, retencion_fuente_manual)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [data.id_proveedor, data.id_viaje ?? null, data.fecha, data.concepto ?? null,
-             data.factura_num ?? null, data.foto_factura_url ?? null, data.valor]
+             data.factura_num ?? null, data.foto_factura_url ?? null, data.valor, data.retencion_fuente_manual ?? null]
         );
         return result.insertId;
     }
@@ -100,7 +97,7 @@ export class PagoMulaRepository implements IPagoMulaRepository {
     }
 
     async actualizarMula(id: number, campos: any, conn: PoolConnection): Promise<void> {
-        const permitidos = ['id_viaje', 'fecha', 'concepto', 'factura_num', 'foto_factura_url', 'valor'];
+        const permitidos = ['id_viaje', 'fecha', 'concepto', 'factura_num', 'foto_factura_url', 'valor', 'retencion_fuente_manual'];
         const sets: string[] = []; const values: any[] = [];
         for (const k of permitidos) if (campos[k] !== undefined) { sets.push(`${k} = ?`); values.push(campos[k]); }
         if (sets.length === 0) return;
@@ -113,11 +110,14 @@ export class PagoMulaRepository implements IPagoMulaRepository {
     }
 
     // ── Cuenta (CxP) ─────────────────────────────────────────────────────────
-    async crearCuentaMula(data: { id_proveedor: number; concepto: string; valor_total: number; fecha_creacion: string }, conn: PoolConnection): Promise<number> {
+    // valor_total queda en BRUTO; valor_pagado arranca en valor_retenido (la retención ya
+    // cuenta como "pagada" fiscalmente al Estado desde la creación) — ver retencion.repository.ts.
+    // valor_iva de la cuenta queda en 0 (default de la columna): transporte no lleva reteIVA.
+    async crearCuentaMula(data: { id_proveedor: number; concepto: string; valor_total: number; valor_retenido: number; fecha_creacion: string }, conn: PoolConnection): Promise<number> {
         const [result] = await conn.execute<ResultSetHeader>(
-            `INSERT INTO Cuentas_Por_Pagar (id_categoria, concepto, id_proveedor, valor_total, valor_pagado, estado, fecha_creacion)
-             VALUES ((SELECT id FROM Categorias_CxP WHERE nombre='Mula' LIMIT 1), ?, ?, ?, 0, 'pendiente', ?)`,
-            [data.concepto, data.id_proveedor, data.valor_total, data.fecha_creacion]
+            `INSERT INTO Cuentas_Por_Pagar (id_categoria, concepto, id_proveedor, valor_total, valor_pagado, valor_retenido, estado, fecha_creacion)
+             VALUES ((SELECT id FROM Categorias_CxP WHERE nombre='Mula' LIMIT 1), ?, ?, ?, ?, ?, 'pendiente', ?)`,
+            [data.concepto, data.id_proveedor, data.valor_total, data.valor_retenido, data.valor_retenido, data.fecha_creacion]
         );
         return result.insertId;
     }
@@ -129,10 +129,10 @@ export class PagoMulaRepository implements IPagoMulaRepository {
         return rows.length ? rows[0] : null;
     }
 
-    async ajustarValorTotalCuenta(idCxp: number, nuevoValorTotal: number, conn: PoolConnection): Promise<void> {
+    async ajustarValorTotalCuenta(idCxp: number, nuevoValorTotal: number, nuevoValorRetenido: number, conn: PoolConnection): Promise<void> {
         await conn.execute(
-            `UPDATE Cuentas_Por_Pagar SET valor_total = ? WHERE id = ? AND estado != 'anulado'`,
-            [nuevoValorTotal, idCxp]
+            `UPDATE Cuentas_Por_Pagar SET valor_total = ?, valor_retenido = ? WHERE id = ? AND estado != 'anulado'`,
+            [nuevoValorTotal, nuevoValorRetenido, idCxp]
         );
     }
 
@@ -140,13 +140,14 @@ export class PagoMulaRepository implements IPagoMulaRepository {
         await conn.execute(`UPDATE Cuentas_Por_Pagar SET estado = 'anulado', deleted_at = NOW() WHERE id = ?`, [idCxp]);
     }
 
+    // valor_pagado = abonos reales + valor_retenido (la retención siempre cuenta como pagada).
     async recalcularCuenta(idCxp: number, conn: PoolConnection): Promise<void> {
         await conn.execute(
             `UPDATE Cuentas_Por_Pagar cp
-             SET valor_pagado = (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id),
+             SET valor_pagado = (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id) + cp.valor_retenido,
                  estado = CASE
-                    WHEN (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id) <= 0 THEN 'pendiente'
-                    WHEN (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id) >= cp.valor_total THEN 'pagado'
+                    WHEN (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id) + cp.valor_retenido <= 0 THEN 'pendiente'
+                    WHEN (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id) + cp.valor_retenido >= cp.valor_total THEN 'pagado'
                     ELSE 'parcial' END
              WHERE cp.id = ? AND cp.estado != 'anulado'`,
             [idCxp]
@@ -194,11 +195,14 @@ export class PagoMulaRepository implements IPagoMulaRepository {
     // ── Abonos ───────────────────────────────────────────────────────────────
     async insertarAbono(abono: any, conn: PoolConnection): Promise<number> {
         const [result] = await conn.execute<ResultSetHeader>(
-            `INSERT INTO Abonos_CxP (id_cuenta_pagar, fecha_abono, valor, metodo_pago, comprobante_url, observaciones)
-             VALUES (?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO Abonos_CxP (id_cuenta_pagar, fecha_abono, valor, metodo_pago, comprobante_url, observaciones, id_cuenta_bancaria)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [abono.id_cuenta_pagar, abono.fecha_abono, abono.valor,
-             abono.metodo_pago || 'transferencia', abono.comprobante_url ?? null, abono.observaciones ?? null]
+             abono.metodo_pago || 'transferencia', abono.comprobante_url ?? null, abono.observaciones ?? null, abono.id_cuenta_bancaria ?? null]
         );
+        await aplicarImpuesto4x1000(conn, {
+            id_abono_cxp: result.insertId, id_cuenta_bancaria: abono.id_cuenta_bancaria, valor_base: abono.valor, fecha: abono.fecha_abono
+        });
         return result.insertId;
     }
 

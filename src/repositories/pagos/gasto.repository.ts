@@ -1,7 +1,8 @@
 import { RowDataPacket, ResultSetHeader, Pool } from 'mysql2/promise';
 import { TipoGastoOperativoSQL } from '../../models/pagos/sql/tipo_gasto_operativo.sql';
 import { ITipoGastoOperativoRepository } from '../../ports/pagos/repository_port/gasto.repository.interface';
-
+
+import { ident } from '../../helpers/sql.helper';
 // --- Original: tipo_gasto_operativo ---
 export class TipoGastoOperativoRepository implements ITipoGastoOperativoRepository {
     constructor(private db: Pool) {}
@@ -12,7 +13,7 @@ export class TipoGastoOperativoRepository implements ITipoGastoOperativoReposito
         const placeholders = fields.map(() => '?').join(', ');
         
         const [result] = await this.db.query<ResultSetHeader>(
-            `INSERT INTO Tipos_Gasto_Operativo (${fields.join(', ')}) VALUES (${placeholders})`,
+            `INSERT INTO Tipos_Gasto_Operativo (${fields.map(ident).join(', ')}) VALUES (${placeholders})`,
             values
         );
         return result.insertId;
@@ -30,7 +31,7 @@ export class TipoGastoOperativoRepository implements ITipoGastoOperativoReposito
         
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }

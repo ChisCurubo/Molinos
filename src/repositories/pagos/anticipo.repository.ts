@@ -1,5 +1,7 @@
 import { Pool, PoolConnection, ResultSetHeader } from 'mysql2/promise';
 import { IAnticipoRepository, TerceroAnticipo } from '../../ports/pagos/repository_port/anticipo.repository.interface';
+import { aplicarImpuesto4x1000 } from './impuesto.repository';
+import { AppError } from '../../errors/app-error';
 
 // Whitelist fija — nunca se arma a partir de input del usuario sin pasar por este mapa.
 const COLUMNA_TERCERO: Record<TerceroAnticipo, string> = {
@@ -21,7 +23,7 @@ export class AnticipoRepository implements IAnticipoRepository {
         const [rows] = await this.conn(conn).execute<any[]>(
             `SELECT id FROM Categorias_CxP WHERE nombre = 'Anticipo' LIMIT 1`
         );
-        if (!rows.length) throw new Error("No existe la categoría 'Anticipo' en Categorias_CxP");
+        if (!rows.length) throw AppError.http(500, "No existe la categoría 'Anticipo' en Categorias_CxP");
         return Number(rows[0].id);
     }
 
@@ -126,11 +128,14 @@ export class AnticipoRepository implements IAnticipoRepository {
 
     async insertarAbono(abono: any, conn: PoolConnection): Promise<number> {
         const [result] = await conn.execute<ResultSetHeader>(
-            `INSERT INTO Abonos_CxP (id_cuenta_pagar, fecha_abono, valor, metodo_pago, comprobante_url, observaciones)
-             VALUES (?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO Abonos_CxP (id_cuenta_pagar, fecha_abono, valor, metodo_pago, comprobante_url, observaciones, id_cuenta_bancaria)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [abono.id_cuenta_pagar, abono.fecha_abono, abono.valor,
-             abono.metodo_pago || 'efectivo', abono.comprobante_url ?? null, abono.observaciones ?? null]
+             abono.metodo_pago || 'efectivo', abono.comprobante_url ?? null, abono.observaciones ?? null, abono.id_cuenta_bancaria ?? null]
         );
+        await aplicarImpuesto4x1000(conn, {
+            id_abono_cxp: result.insertId, id_cuenta_bancaria: abono.id_cuenta_bancaria, valor_base: abono.valor, fecha: abono.fecha_abono
+        });
         return result.insertId;
     }
 

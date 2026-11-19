@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "6b1b0c2b-0e60-47db-beb5-2f4f37a87ecc",
+    "_postman_id": "cb949f17-a5e5-4e8f-926c-ad60f7bcc9d6",
     "name": "Molinos ERP v4 API (unificada) v1.0.0",
     "description": "API del sistema ERP para empresa minera Molinos de Colombia\n\nGENERADA automaticamente desde /info (API_MAP) por scripts/build-postman.js.\nNo editar a mano: al cambiar endpoints en info.controller.ts, re-ejecuta el script.\nConfigura la variable base_url (por defecto http://localhost:3005/api/v1). El login auto-guarda {{token}}; el resto hereda Bearer {{token}} a nivel de coleccion.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -3168,7 +3168,7 @@
                     "prestamos-financieros"
                   ]
                 },
-                "description": "Crear préstamo financiero"
+                "description": "Crear préstamo financiero — también abre su CxP persistente (categoría \"Préstamo financiero\", pendiente por monto_principal) y su Ingreso_Tesoreria espejo. La CxP SÍ aparece en /pagos/cxp/mensual como deuda real mientras no se termine de pagar (2026-10-23)"
               },
               "response": []
             },
@@ -3189,6 +3189,1068 @@
                   ]
                 },
                 "description": "Actualizar préstamo financiero"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /prestamos-financieros/:id",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/prestamos-financieros/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "prestamos-financieros",
+                    ":id"
+                  ]
+                },
+                "description": "Actualizar parcialmente préstamo financiero"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /prestamos-financieros/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/prestamos-financieros/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "prestamos-financieros",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar préstamo financiero (409 si ya tiene abonos/ajustes: saldo_pendiente != monto_principal)"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /prestamos-financieros/:id/interes/proyeccion",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/prestamos-financieros/:id/interes/proyeccion?fecha=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "prestamos-financieros",
+                    ":id",
+                    "interes",
+                    "proyeccion"
+                  ],
+                  "query": [
+                    {
+                      "key": "fecha",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Proyectar el interés que se acumularía a hoy (o a `fecha`), sin persistir"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /prestamos-financieros/:id/interes",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/prestamos-financieros/:id/interes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "prestamos-financieros",
+                    ":id",
+                    "interes"
+                  ]
+                },
+                "description": "Acumular (capitalizar) el interés del período transcurrido desde el último movimiento",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fecha\": \"2026-10-01\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "POST /prestamos-financieros/:id/abonos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/prestamos-financieros/:id/abonos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "prestamos-financieros",
+                    ":id",
+                    "abonos"
+                  ]
+                },
+                "description": "Registrar un abono real (reduce saldo_pendiente, abona la CxP persistente del préstamo — 2026-10-23: ya no abre una CxP nueva por cada abono)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor\": 500000,\n  \"fecha_abono\": \"2026-10-01\",\n  \"metodo_pago\": \"transferencia\",\n  \"comprobante_url\": \"https://ejemplo.com/comprobante.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /prestamos-financieros/:id/movimientos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/prestamos-financieros/:id/movimientos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "prestamos-financieros",
+                    ":id",
+                    "movimientos"
+                  ]
+                },
+                "description": "Historial de movimientos (intereses + abonos), orden cronológico"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Tesorería",
+          "item": [
+            {
+              "name": "POST /ingresos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/ingresos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "ingresos"
+                  ]
+                },
+                "description": "Registrar ingreso de tesorería (aporte de socio, venta, cobro manual, etc.)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_categoria\": 3,\n  \"concepto\": \"Aporte socio Camilo\",\n  \"valor\": 2000000,\n  \"fecha\": \"2026-09-22\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /ingresos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/ingresos?id_categoria=&desde=&hasta=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "ingresos"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_categoria",
+                      "value": ""
+                    },
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Listar ingresos de tesorería"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /ingresos/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/ingresos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "ingresos",
+                    ":id"
+                  ]
+                },
+                "description": "Ver un ingreso por id"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /ingresos/:id",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/ingresos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "ingresos",
+                    ":id"
+                  ]
+                },
+                "description": "Editar un ingreso (409 si viene de un préstamo financiero)"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /ingresos/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/ingresos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "ingresos",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar un ingreso (409 si viene de un préstamo financiero)"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/flujo-caja",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/vistas/flujo-caja?mes=&anio=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "vistas",
+                    "flujo-caja"
+                  ],
+                  "query": [
+                    {
+                      "key": "mes",
+                      "value": ""
+                    },
+                    {
+                      "key": "anio",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Flujo de caja del mes: ingresos (tesorería + cobros CxC) vs. gastos (Abonos_CxP) con desglose por categoría (Material/Flete/Nómina/Mula/etc.), solo métodos de caja real"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/flujo-caja/historico",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/vistas/flujo-caja/historico",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "vistas",
+                    "flujo-caja",
+                    "historico"
+                  ]
+                },
+                "description": "Saldo acumulado histórico total, con gastos desglosados por categoría"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/flujo-caja/anual",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/vistas/flujo-caja/anual?anio=2026",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "vistas",
+                    "flujo-caja",
+                    "anual"
+                  ],
+                  "query": [
+                    {
+                      "key": "anio",
+                      "value": "2026"
+                    }
+                  ]
+                },
+                "description": "Flujo de caja de un año calendario completo, desglosado mes a mes (reemplaza el loop de 12 llamadas a /flujo-caja) — 2026-10-18"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/libro-gastos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/vistas/libro-gastos?mes=10&anio=2026",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "vistas",
+                    "libro-gastos"
+                  ],
+                  "query": [
+                    {
+                      "key": "mes",
+                      "value": "10"
+                    },
+                    {
+                      "key": "anio",
+                      "value": "2026"
+                    }
+                  ]
+                },
+                "description": "Libro de transacciones de gastos reales del período — un registro por abono, con beneficiario (minero/dueño volqueta/empleado/proveedor) resuelto. La suma de monto coincide con gastos.total de /flujo-caja — 2026-10-18"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /vistas/libro-cobros",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/vistas/libro-cobros?mes=10&anio=2026",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "vistas",
+                    "libro-cobros"
+                  ],
+                  "query": [
+                    {
+                      "key": "mes",
+                      "value": "10"
+                    },
+                    {
+                      "key": "anio",
+                      "value": "2026"
+                    }
+                  ]
+                },
+                "description": "Libro de transacciones de cobros reales del período — un registro por abono, con beneficiario resuelto — 2026-10-18"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /categorias-ingreso",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/categorias-ingreso",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "categorias-ingreso"
+                  ]
+                },
+                "description": "Catálogo de categorías de Ingresos_Tesoreria (selector para el front)"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Gasto Directo",
+          "item": [
+            {
+              "name": "GET /gastos-directos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/gastos-directos?desde=&hasta=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "gastos-directos"
+                  ],
+                  "query": [
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Listar gastos directos"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /gastos-directos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/gastos-directos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "gastos-directos"
+                  ]
+                },
+                "description": "Registrar un gasto directo — crea la CxP (categoría Gasto Directo) ya pagada con su abono",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"concepto\": \"Parqueadero planta\",\n  \"monto\": 15000,\n  \"fecha\": \"2026-10-22\",\n  \"metodo_pago\": \"efectivo\",\n  \"comprobante_url\": \"https://ejemplo.com/comprobante.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /gastos-directos/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/gastos-directos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "gastos-directos",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle de un gasto directo"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /gastos-directos/:id",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/gastos-directos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "gastos-directos",
+                    ":id"
+                  ]
+                },
+                "description": "Corrige un gasto mal digitado (concepto/monto/fecha/metodo_pago/comprobante_url/observaciones, todos opcionales) — 409 si ya está anulado",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"monto\": 18000,\n  \"comprobante_url\": \"https://ejemplo.com/comprobante-correcto.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /gastos-directos/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/gastos-directos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "gastos-directos",
+                    ":id"
+                  ]
+                },
+                "description": "Anula un gasto directo (borrado lógico, 404 si no existe o ya está anulado)"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "CxC",
+          "item": [
+            {
+              "name": "POST /cxc",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cxc",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cxc"
+                  ]
+                },
+                "description": "Crea la cuenta por cobrar. Sin \"abono\" queda pendiente; con \"abono\" queda cobrada (total o parcialmente) desde ya",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_categoria\": 5,\n  \"concepto\": \"Préstamo moto Mauricio\",\n  \"valor_total\": 500000,\n  \"id_empleado\": 3,\n  \"abono\": {\n    \"valor\": 100000,\n    \"comprobante_url\": \"https://ejemplo.com/comprobante.png\"\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /cxc/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cxc/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cxc",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle de una cuenta por cobrar, con sus abonos"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /cxc/:id/abonos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cxc/:id/abonos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cxc",
+                    ":id",
+                    "abonos"
+                  ]
+                },
+                "description": "Registra un cobro sobre una cuenta ya creada (409 si excede el saldo pendiente)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor\": 100000,\n  \"metodo\": \"efectivo\",\n  \"comprobante_url\": \"https://ejemplo.com/comprobante.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /cxc/:id",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cxc/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cxc",
+                    ":id"
+                  ]
+                },
+                "description": "Corrige concepto/id_categoria/valor_total/fecha_creacion/fecha_limite/deudor (todos opcionales) — 409 si está anulada o si el nuevo valor_total queda por debajo de lo ya cobrado",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor_total\": 350000,\n  \"concepto\": \"Préstamo moto Mauricio (corregido)\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /cxc/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cxc/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cxc",
+                    ":id"
+                  ]
+                },
+                "description": "Anula una cuenta por cobrar (borrado lógico, 404 si no existe o ya está anulada). Los cobros ya registrados se conservan para auditoría"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Cuentas Bancarias",
+          "item": [
+            {
+              "name": "POST /cuentas",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cuentas",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cuentas"
+                  ]
+                },
+                "description": "Crear cuenta bancaria",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"Bancolombia Ahorros 123\",\n  \"banco\": \"Bancolombia\",\n  \"numero_cuenta\": \"123456789\",\n  \"tipo_cuenta\": \"ahorros\",\n  \"propietario\": \"Camilo Curubo\",\n  \"id_empleado\": null,\n  \"exento_4x1000\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /cuentas",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cuentas",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cuentas"
+                  ]
+                },
+                "description": "Listar cuentas bancarias"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /cuentas/saldos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cuentas/saldos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cuentas",
+                    "saldos"
+                  ]
+                },
+                "description": "Saldo (ingresos - egresos - impuestos) de todas las cuentas"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /cuentas/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cuentas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cuentas",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle de una cuenta bancaria"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /cuentas/:id/saldo",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cuentas/:id/saldo",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cuentas",
+                    ":id",
+                    "saldo"
+                  ]
+                },
+                "description": "Saldo de una cuenta específica"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /cuentas/:id",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cuentas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cuentas",
+                    ":id"
+                  ]
+                },
+                "description": "Editar cuenta bancaria",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"exento_4x1000\": true,\n  \"activa\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /cuentas/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cuentas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cuentas",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar cuenta bancaria"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Impuestos",
+          "item": [
+            {
+              "name": "GET /impuestos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/impuestos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "impuestos"
+                  ]
+                },
+                "description": "Catálogo de impuestos (hoy solo 4x1000)"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /impuestos/aplicados",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/impuestos/aplicados?id_cuenta_bancaria=&desde=&hasta=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "impuestos",
+                    "aplicados"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_cuenta_bancaria",
+                      "value": ""
+                    },
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Listado de impuestos realmente cobrados"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Retenciones",
+          "item": [
+            {
+              "name": "GET /retenciones",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/retenciones",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "retenciones"
+                  ]
+                },
+                "description": "Catálogo: retefuente activa en Mulas (Transporte de carga, 1%) y Alquiler (Arrendamiento muebles, 4%); reteIVA (15%, \"ReteIVA general\") ACTIVA SOLO en Alquiler desde 2026-10-31 — pendiente confirmar con contador si corresponde"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /retenciones/aplicadas",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/retenciones/aplicadas?id_cuenta_pagar=&tipo=fuente&desde=&hasta=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "retenciones",
+                    "aplicadas"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_cuenta_pagar",
+                      "value": ""
+                    },
+                    {
+                      "key": "tipo",
+                      "value": "fuente"
+                    },
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Listado de retenciones realmente aplicadas (tipo=fuente y tipo=iva, ambas activas)"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /retenciones/aplicadas/:id",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/retenciones/aplicadas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "retenciones",
+                    "aplicadas",
+                    ":id"
+                  ]
+                },
+                "description": "Ajustar a mano el valor_retenido de una retención ya aplicada (guarda el valor_calculado_original la primera vez)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor_retenido\": 15000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
               },
               "response": []
             }
@@ -3827,7 +4889,7 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{base_url}}/pagos/combustible?desde=&hasta=&id_gasolinera=&id_dueno_volqueta=&tipo_consumo=",
+                  "raw": "{{base_url}}/pagos/combustible?desde=&hasta=&id_gasolinera=&id_dueno_volqueta=&tipo_consumo=&forma_pago=",
                   "host": [
                     "{{base_url}}"
                   ],
@@ -3855,10 +4917,47 @@
                     {
                       "key": "tipo_consumo",
                       "value": ""
+                    },
+                    {
+                      "key": "forma_pago",
+                      "value": ""
                     }
                   ]
                 },
-                "description": "Listar consumos/adelantos de ACPM"
+                "description": "Listar consumos/adelantos de combustible"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /combustible",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/combustible",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "combustible"
+                  ]
+                },
+                "description": "Registrar un tanqueo/suministro manual (planta/maquinaria/vehículo). forma_pago=credito exige id_gasolinera; tipo_consumo=vehiculo exige id_vehiculo o id_dueno_volqueta",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"tipo_consumo\": \"planta\",\n  \"forma_pago\": \"credito\",\n  \"id_gasolinera\": 4,\n  \"id_planta\": 1,\n  \"fecha\": \"2026-09-16\",\n  \"descripcion\": \"40 galones ACPM para tambores\",\n  \"valor\": 320000,\n  \"comprobante_url\": \"https://ejemplo.com/comprobante.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
               },
               "response": []
             },
@@ -3883,6 +4982,60 @@
               "response": []
             },
             {
+              "name": "PUT /combustible/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/combustible/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "combustible",
+                    ":id"
+                  ]
+                },
+                "description": "Editar un registro manual (400 si es ACPM automático de flete/agua)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor\": 340000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /combustible/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/combustible/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "combustible",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar un registro manual (400 si es ACPM automático de flete/agua)"
+              },
+              "response": []
+            },
+            {
               "name": "GET /combustible/dueno/:id/neto-flete",
               "request": {
                 "method": "GET",
@@ -3901,6 +5054,1452 @@
                   ]
                 },
                 "description": "Flete neto del dueño con arrastre de ACPM"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /combustible/resumen-mensual",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/combustible/resumen-mensual?anio=&forma_pago=&tipo_consumo=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "combustible",
+                    "resumen-mensual"
+                  ],
+                  "query": [
+                    {
+                      "key": "anio",
+                      "value": ""
+                    },
+                    {
+                      "key": "forma_pago",
+                      "value": ""
+                    },
+                    {
+                      "key": "tipo_consumo",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Total agrupado por mes, desglosado por forma_pago y tipo_consumo"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /combustible/kpis",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/combustible/kpis",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "combustible",
+                    "kpis"
+                  ]
+                },
+                "description": "Dashboard: mes actual vs anterior, variación %, promedio 12 meses, histórico, top gasolineras/dueños"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Pago Combustible",
+          "item": [
+            {
+              "name": "GET /combustible/pagos/deuda",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/combustible/pagos/deuda",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "combustible",
+                    "pagos",
+                    "deuda"
+                  ]
+                },
+                "description": "Dashboard: deuda pendiente por gasolinera"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /combustible/pagos/gasolinera/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/combustible/pagos/gasolinera/:id?mes=&anio=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "combustible",
+                    "pagos",
+                    "gasolinera",
+                    ":id"
+                  ],
+                  "query": [
+                    {
+                      "key": "mes",
+                      "value": ""
+                    },
+                    {
+                      "key": "anio",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Estado de cuenta de la gasolinera (meses + consumos + abonos)"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /combustible/pagos/gasolinera/:id/abonos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/combustible/pagos/gasolinera/:id/abonos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "combustible",
+                    "pagos",
+                    "gasolinera",
+                    ":id",
+                    "abonos"
+                  ]
+                },
+                "description": "Abonar en cascada (mes más viejo primero)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor\": 800000,\n  \"fecha_abono\": \"2026-09-16\",\n  \"metodo_pago\": \"transferencia\",\n  \"comprobante_url\": \"https://ejemplo.com/comprobante.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /combustible/pagos/abonos/:idAbono",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/combustible/pagos/abonos/:idAbono",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "combustible",
+                    "pagos",
+                    "abonos",
+                    ":idAbono"
+                  ]
+                },
+                "description": "Corregir un abono de combustible"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /combustible/pagos/abonos/:idAbono",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/combustible/pagos/abonos/:idAbono",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "combustible",
+                    "pagos",
+                    "abonos",
+                    ":idAbono"
+                  ]
+                },
+                "description": "Eliminar un abono de combustible"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /combustible/pagos/abonos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/combustible/pagos/abonos?id_gasolinera=&desde=&hasta=&metodo_pago=&page=1&limit=50",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "combustible",
+                    "pagos",
+                    "abonos"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_gasolinera",
+                      "value": ""
+                    },
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    },
+                    {
+                      "key": "metodo_pago",
+                      "value": ""
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    }
+                  ]
+                },
+                "description": "Todos los abonos de combustible (todas las cuentas), paginados de a 50"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Alquiler",
+          "item": [
+            {
+              "name": "GET /alquileres/tipos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/tipos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    "tipos"
+                  ]
+                },
+                "description": "Listar tipos de alquiler (catálogo)"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /alquileres/tipos/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/tipos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    "tipos",
+                    ":id"
+                  ]
+                },
+                "description": "Ver un tipo de alquiler"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /alquileres/tipos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/tipos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    "tipos"
+                  ]
+                },
+                "description": "Crear tipo de alquiler",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"Vehículos\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /alquileres/tipos/:id",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/tipos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    "tipos",
+                    ":id"
+                  ]
+                },
+                "description": "Editar tipo de alquiler"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /alquileres/tipos/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/tipos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    "tipos",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar tipo de alquiler"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /alquileres",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres"
+                  ]
+                },
+                "description": "Listar alquileres (contratos vigentes)"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /alquileres",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres"
+                  ]
+                },
+                "description": "Crear alquiler. valor_iva opcional (base de reteIVA, activa). retencion_fuente_manual/reteiva_manual opcionales: omitir=automático (catálogo), 0=fuerza que no aplique, >0=fuerza ese valor exacto",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_tipo\": 1,\n  \"id_proveedor\": 3,\n  \"fecha_inicio\": \"2026-10-01\",\n  \"concepto\": \"ALQUILER CAMIONETA OCTUBRE FAC 500\",\n  \"valor\": 1500000,\n  \"valor_iva\": 0,\n  \"retencion_fuente_manual\": null,\n  \"reteiva_manual\": null\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /alquileres/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    ":id"
+                  ]
+                },
+                "description": "Ver un alquiler"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /alquileres/:id",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    ":id"
+                  ]
+                },
+                "description": "Editar un alquiler"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /alquileres/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    ":id"
+                  ]
+                },
+                "description": "Anular un alquiler (borrado lógico, deleted_at)"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /alquileres?id_contrato=&mes=&anio=",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres?id_contrato=&mes=&anio=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres?id_contrato=&mes=&anio="
+                  ]
+                },
+                "description": "El listado de alquileres admite filtrar por contrato y/o por mes-año de fecha_inicio"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Pago Alquiler",
+          "item": [
+            {
+              "name": "GET /alquileres/:id/estado-pago",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/:id/estado-pago",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    ":id",
+                    "estado-pago"
+                  ]
+                },
+                "description": "Saldo, estado y abonos de ese alquiler (crea la cuenta por pagar si es el primer abono)"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /alquileres/:id/abonos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/:id/abonos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    ":id",
+                    "abonos"
+                  ]
+                },
+                "description": "Registrar abono parcial o pago completo (no puede exceder el saldo pendiente)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor\": 1500000,\n  \"fecha_abono\": \"2026-10-17\",\n  \"metodo_pago\": \"transferencia\",\n  \"comprobante_url\": \"https://ejemplo.com/comprobante.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /alquileres/abonos/:idAbono",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/abonos/:idAbono",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    "abonos",
+                    ":idAbono"
+                  ]
+                },
+                "description": "Corregir un abono de alquiler"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /alquileres/abonos/:idAbono",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/abonos/:idAbono",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    "abonos",
+                    ":idAbono"
+                  ]
+                },
+                "description": "Eliminar un abono de alquiler"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /alquileres/abonos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/abonos?id_alquiler=&desde=&hasta=&metodo_pago=&page=1&limit=50",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    "abonos"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_alquiler",
+                      "value": ""
+                    },
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    },
+                    {
+                      "key": "metodo_pago",
+                      "value": ""
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    }
+                  ]
+                },
+                "description": "Todos los abonos de alquiler (todas las cuentas), paginados de a 50"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Contratos Alquiler",
+          "item": [
+            {
+              "name": "GET /alquileres/contratos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/contratos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    "contratos"
+                  ]
+                },
+                "description": "Listar contratos de arriendo vigentes"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /alquileres/contratos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/contratos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    "contratos"
+                  ]
+                },
+                "description": "Crear contrato: genera automáticamente 1 Alquiler por cada mes del período (ancla el día de fecha_inicio, recortado si el mes no lo tiene, ej. 31→28/29/30)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_tipo\": 1,\n  \"id_proveedor\": 3,\n  \"concepto\": \"Alquiler camioneta placa ABC123\",\n  \"valor_mensual\": 1500000,\n  \"fecha_inicio\": \"2026-11-01\",\n  \"fecha_fin\": \"2027-10-31\",\n  \"contrato_url\": \"https://ejemplo.com/contrato.pdf\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /alquileres/contratos/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/contratos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    "contratos",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle del contrato + los meses ya generados (con su estado de pago vía estado-pago de cada uno)"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /alquileres/contratos/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/contratos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    "contratos",
+                    ":id"
+                  ]
+                },
+                "description": "Editar metadata del contrato (concepto, valor_mensual de referencia, contrato_url, fecha_fin) — NO regenera ni toca los meses ya creados",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"contrato_url\": \"https://ejemplo.com/contrato-firmado.pdf\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /alquileres/contratos/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/alquileres/contratos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "alquileres",
+                    "contratos",
+                    ":id"
+                  ]
+                },
+                "description": "Anular el contrato (borrado lógico) — los meses ya generados en Alquileres NO se tocan automáticamente, se anulan uno por uno si corresponde"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Proveedores",
+          "item": [
+            {
+              "name": "GET /proveedores/categorias",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/proveedores/categorias",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "proveedores",
+                    "categorias"
+                  ]
+                },
+                "description": "Listar categorías de proveedor"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /proveedores/categorias/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/proveedores/categorias/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "proveedores",
+                    "categorias",
+                    ":id"
+                  ]
+                },
+                "description": "Ver una categoría de proveedor"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /proveedores/categorias",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/proveedores/categorias",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "proveedores",
+                    "categorias"
+                  ]
+                },
+                "description": "Crear categoría de proveedor",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"Transportadora Mula\",\n  \"descripcion\": \"\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /proveedores/categorias/:id",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/proveedores/categorias/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "proveedores",
+                    "categorias",
+                    ":id"
+                  ]
+                },
+                "description": "Editar categoría de proveedor"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /proveedores/categorias/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/proveedores/categorias/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "proveedores",
+                    "categorias",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar categoría de proveedor"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /proveedores",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/proveedores",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "proveedores"
+                  ]
+                },
+                "description": "Listar proveedores"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /proveedores",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/proveedores",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "proveedores"
+                  ]
+                },
+                "description": "Crear proveedor",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"Transportes El Faro\",\n  \"id_categoria\": 1,\n  \"nit\": \"900123456-7\",\n  \"telefono\": \"3001234567\",\n  \"declarante_renta\": false,\n  \"exento_retencion\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /proveedores/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/proveedores/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "proveedores",
+                    ":id"
+                  ]
+                },
+                "description": "Ver un proveedor"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /proveedores/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/proveedores/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "proveedores",
+                    ":id"
+                  ]
+                },
+                "description": "Actualizar proveedor — declarante_renta/exento_retencion aplican a retefuente Y reteIVA (Mulas/Alquiler); exento_retencion=true bloquea ambas",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"declarante_renta\": true,\n  \"exento_retencion\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /proveedores/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/proveedores/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "proveedores",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar proveedor (409 si está en uso por una FK, ej. despachos de mula)"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Pago Mula",
+          "item": [
+            {
+              "name": "POST /mulas",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/mulas",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "mulas"
+                  ]
+                },
+                "description": "Registrar un despacho de mula. Solo lleva retefuente (transporte de carga, 1%) — NO lleva reteIVA, esa solo aplica a Alquiler. retencion_fuente_manual opcional: omitir=automático, 0=fuerza que no aplique, >0=fuerza ese valor",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_proveedor\": 1,\n  \"valor\": 3500000,\n  \"fecha\": \"2026-09-13\",\n  \"id_viaje\": null,\n  \"retencion_fuente_manual\": null\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /mulas",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/mulas?id_proveedor=&id_viaje=&estado=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "mulas"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_proveedor",
+                      "value": ""
+                    },
+                    {
+                      "key": "id_viaje",
+                      "value": ""
+                    },
+                    {
+                      "key": "estado",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Listar despachos"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /mulas/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/mulas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "mulas",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle de un despacho"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /mulas/:id",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/mulas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "mulas",
+                    ":id"
+                  ]
+                },
+                "description": "Editar un despacho (incluye vincular/desvincular id_viaje)"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /mulas/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/mulas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "mulas",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar un despacho (solo si no tiene abonos)"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /mulas/proveedor/:idProveedor/abonos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/mulas/proveedor/:idProveedor/abonos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "mulas",
+                    "proveedor",
+                    ":idProveedor",
+                    "abonos"
+                  ]
+                },
+                "description": "Abonar en cascada al proveedor (despacho más viejo primero)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor\": 1000000,\n  \"fecha_abono\": \"2026-09-13\",\n  \"metodo_pago\": \"transferencia\",\n  \"comprobante_url\": \"https://ejemplo.com/comprobante.png\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /mulas/abonos/:idAbono",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/mulas/abonos/:idAbono",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "mulas",
+                    "abonos",
+                    ":idAbono"
+                  ]
+                },
+                "description": "Corregir un abono de mula"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /mulas/abonos/:idAbono",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/mulas/abonos/:idAbono",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "mulas",
+                    "abonos",
+                    ":idAbono"
+                  ]
+                },
+                "description": "Eliminar un abono de mula"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /mulas/abonos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/mulas/abonos?id_proveedor=&desde=&hasta=&metodo_pago=&page=1&limit=50",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "mulas",
+                    "abonos"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_proveedor",
+                      "value": ""
+                    },
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    },
+                    {
+                      "key": "metodo_pago",
+                      "value": ""
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    }
+                  ]
+                },
+                "description": "Todos los abonos de mula (todos los despachos), paginados de a 50"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /mulas/resumen",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/mulas/resumen?desde=&hasta=&id_proveedor=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "mulas",
+                    "resumen"
+                  ],
+                  "query": [
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    },
+                    {
+                      "key": "id_proveedor",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "KPIs del período (despachos, facturado, retenido, pagado, pendiente, descuadres)"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /mulas/viajes",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/mulas/viajes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "mulas",
+                    "viajes"
+                  ]
+                },
+                "description": "Trazabilidad por viaje: proveedor + cuenta + abonos"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Anticipos",
+          "item": [
+            {
+              "name": "POST /anticipos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/anticipos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "anticipos"
+                  ]
+                },
+                "description": "Registrar un anticipo (genera CxP pagada de inmediato + espejo en Saldo_A_Favor origen=anticipo)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"tercero\": \"minero\",\n  \"id\": 1,\n  \"monto\": 500000,\n  \"comprobante_url\": \"https://ejemplo.com/comprobante.png\",\n  \"fecha\": \"2026-09-13\",\n  \"metodo_pago\": \"efectivo\",\n  \"descripcion\": \"Adelanto de material\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /anticipos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/anticipos?tercero=minero%7Cdueno_volqueta%7Cproveedor&id=&estado=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "anticipos"
+                  ],
+                  "query": [
+                    {
+                      "key": "tercero",
+                      "value": "minero|dueno_volqueta|proveedor"
+                    },
+                    {
+                      "key": "id",
+                      "value": ""
+                    },
+                    {
+                      "key": "estado",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Listar anticipos"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /anticipos/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/anticipos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "anticipos",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle de un anticipo + historial de descuentos aplicados"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /anticipos/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/anticipos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "anticipos",
+                    ":id"
+                  ]
+                },
+                "description": "Anular un anticipo (solo si monto_usado = 0, nada se ha consumido aún)"
               },
               "response": []
             }
@@ -3994,6 +6593,26 @@
               "response": []
             },
             {
+              "name": "PATCH /empleados/:id",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    ":id"
+                  ]
+                },
+                "description": "Actualizar parcialmente empleado"
+              },
+              "response": []
+            },
+            {
               "name": "DELETE /empleados/:id",
               "request": {
                 "method": "DELETE",
@@ -4010,6 +6629,152 @@
                   ]
                 },
                 "description": "Eliminar empleado"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Salario Empleados",
+          "item": [
+            {
+              "name": "POST /empleados/:id/salario",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/:id/salario",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    ":id",
+                    "salario"
+                  ]
+                },
+                "description": "Nueva vigencia salarial (cierra la anterior)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"tipo_pago\": \"FIJO_MENSUAL\",\n  \"tarifa_monto\": 1500000,\n  \"aplica_aux_transp\": true,\n  \"fecha_inicio\": \"2026-09-19\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /empleados/:id/salario",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/:id/salario",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    ":id",
+                    "salario"
+                  ]
+                },
+                "description": "Configuración salarial vigente del empleado"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /empleados/:id/salario/historial",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/:id/salario/historial",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    ":id",
+                    "salario",
+                    "historial"
+                  ]
+                },
+                "description": "Historial de vigencias salariales del empleado"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /empleados/salario/:idSalario",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/salario/:idSalario",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "salario",
+                    ":idSalario"
+                  ]
+                },
+                "description": "Editar una vigencia salarial puntual"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /empleados/salario/:idSalario",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/salario/:idSalario",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "salario",
+                    ":idSalario"
+                  ]
+                },
+                "description": "Editar parcialmente una vigencia salarial"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /empleados/salario/:idSalario",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/salario/:idSalario",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "salario",
+                    ":idSalario"
+                  ]
+                },
+                "description": "Eliminar una vigencia salarial"
               },
               "response": []
             }
@@ -4161,7 +6926,71 @@
                     "turnos"
                   ]
                 },
-                "description": "Crear turno"
+                "description": "Crear turno (409 si ya existe uno para ese empleado en esa fecha)"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /turnos/upsert",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/nomina/turnos/upsert",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "turnos",
+                    "upsert"
+                  ]
+                },
+                "description": "Crear/actualizar el turno de un empleado en un día — grilla de asistencia /nomina/calendario, a lo sumo un turno por (id_empleado, fecha). es_festivo suma +75% de recargo dominical/festivo aparte del domingo, que se detecta solo",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_empleado\": 1,\n  \"fecha\": \"2026-09-27\",\n  \"id_tipo_turno\": 2,\n  \"horas_trabajadas\": 8,\n  \"presente\": true,\n  \"es_festivo\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /turnos/dia",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/turnos/dia?id_empleado=1&fecha=2026-09-27",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "turnos",
+                    "dia"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_empleado",
+                      "value": "1"
+                    },
+                    {
+                      "key": "fecha",
+                      "value": "2026-09-27"
+                    }
+                  ]
+                },
+                "description": "\"Sin turno (limpiar)\": borra el turno de un empleado en un día si existía"
               },
               "response": []
             },
@@ -4204,6 +7033,194 @@
                 "description": "Eliminar turno"
               },
               "response": []
+            },
+            {
+              "name": "GET /turnos/tipos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/turnos/tipos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "turnos",
+                    "tipos"
+                  ]
+                },
+                "description": "Catálogo de tipos de turno (mañana/tarde/noche) con su recargo_porcentaje PROPIO (política interna) — el recargo nocturno legal (+35%) y dominical/festivo (+75%) se calculan aparte y se suman solos, no van en este campo"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /turnos/tipos/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/turnos/tipos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "turnos",
+                    "tipos",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle de un tipo de turno"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /turnos/tipos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/nomina/turnos/tipos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "turnos",
+                    "tipos"
+                  ]
+                },
+                "description": "Crear tipo de turno. nombre requerido, horas en formato HH:MM[:SS], recargo_porcentaje entre 0 y 200",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"TURNO 4\",\n  \"hora_inicio\": \"06:00\",\n  \"hora_fin\": \"14:00\",\n  \"recargo_porcentaje\": 0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /turnos/tipos/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/nomina/turnos/tipos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "turnos",
+                    "tipos",
+                    ":id"
+                  ]
+                },
+                "description": "Editar tipo de turno (mismas validaciones que crear)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"recargo_porcentaje\": 30\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /turnos/tipos/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/turnos/tipos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "turnos",
+                    "tipos",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar tipo de turno"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Jornada Nocturna Legal",
+          "item": [
+            {
+              "name": "GET /jornada-nocturna-legal",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/jornada-nocturna-legal",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "jornada-nocturna-legal"
+                  ]
+                },
+                "description": "Histórico del corte legal de jornada nocturna (Ley 2101/2021), más reciente primero — la noche siempre termina a las 06:00, solo su inicio se ha movido"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /jornada-nocturna-legal",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/nomina/jornada-nocturna-legal",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "jornada-nocturna-legal"
+                  ]
+                },
+                "description": "Registrar un nuevo corte (cuando la ley vuelva a mover la jornada nocturna). 409 si ya existe un corte vigente desde esa fecha",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"hora_inicio_nocturno\": \"19:00\",\n  \"vigente_desde\": \"2025-07-15\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
             }
           ]
         },
@@ -4227,6 +7244,54 @@
                   ]
                 },
                 "description": "Crear préstamo a empleado"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /empleados/prestamos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/prestamos?id_empleado=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "prestamos"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_empleado",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Listado general de préstamos de empleados"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /empleados/prestamos/detalle/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/prestamos/detalle/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "prestamos",
+                    "detalle",
+                    ":id"
+                  ]
+                },
+                "description": "Ver un préstamo de empleado por id"
               },
               "response": []
             },
@@ -4273,6 +7338,48 @@
               "response": []
             },
             {
+              "name": "PATCH /empleados/prestamos/:id",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/prestamos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "prestamos",
+                    ":id"
+                  ]
+                },
+                "description": "Actualizar parcialmente préstamo del empleado"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /empleados/prestamos/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/prestamos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "prestamos",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar préstamo del empleado (409 si tiene CxP/CxC asociada)"
+              },
+              "response": []
+            },
+            {
               "name": "GET /vistas/saldo-prestamos-empleado",
               "request": {
                 "method": "GET",
@@ -4310,6 +7417,440 @@
                   ]
                 },
                 "description": "Saldo de préstamos de un empleado"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Nómina Quincenal",
+          "item": [
+            {
+              "name": "GET /empleados/liquidaciones/preview",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/liquidaciones/preview?id_empleado=&anio=&mes=&quincena=1%7C2",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "liquidaciones",
+                    "preview"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_empleado",
+                      "value": ""
+                    },
+                    {
+                      "key": "anio",
+                      "value": ""
+                    },
+                    {
+                      "key": "mes",
+                      "value": ""
+                    },
+                    {
+                      "key": "quincena",
+                      "value": "1|2"
+                    }
+                  ]
+                },
+                "description": "Previsualizar cálculo de una quincena (fijo/variable), sin persistir. Incluye aporte_salud/aporte_pension (seguridad social, se resta del neto), total_recargo_dominical_festivo (informativo, ya incluido en el bruto) y detalle_turnos[] (% de recargo y monto por cada turno de la quincena)"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /empleados/liquidaciones/preview-grupal",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/liquidaciones/preview-grupal?anio=&mes=&quincena=1%7C2",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "liquidaciones",
+                    "preview-grupal"
+                  ],
+                  "query": [
+                    {
+                      "key": "anio",
+                      "value": ""
+                    },
+                    {
+                      "key": "mes",
+                      "value": ""
+                    },
+                    {
+                      "key": "quincena",
+                      "value": "1|2"
+                    }
+                  ]
+                },
+                "description": "Previsualizar todos los empleados de una quincena en un solo request (errores puntuales por empleado no tumban el lote); cada preview trae los mismos campos que /preview, incluido detalle_turnos"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /empleados/liquidaciones",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/liquidaciones",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "liquidaciones"
+                  ]
+                },
+                "description": "Confirmar liquidación: genera CxP de Nómina, descuenta cuotas de préstamos activos y aportes de seguridad social (8% del IBC)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_empleado\": 1,\n  \"anio\": 2026,\n  \"mes\": 9,\n  \"quincena\": 1,\n  \"otros_descuentos\": 0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /empleados/liquidaciones",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/liquidaciones?id_empleado=&anio=&mes=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "liquidaciones"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_empleado",
+                      "value": ""
+                    },
+                    {
+                      "key": "anio",
+                      "value": ""
+                    },
+                    {
+                      "key": "mes",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Historial de liquidaciones"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /empleados/liquidaciones/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/liquidaciones/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "liquidaciones",
+                    ":id"
+                  ]
+                },
+                "description": "Ver una liquidación por id"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /empleados/liquidaciones/borrador",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/liquidaciones/borrador",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "liquidaciones",
+                    "borrador"
+                  ]
+                },
+                "description": "Crear borrador editable (no genera CxP ni descuenta préstamos)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_empleado\": 1,\n  \"anio\": 2026,\n  \"mes\": 10,\n  \"quincena\": 1,\n  \"otros_descuentos\": 0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /empleados/liquidaciones/:id",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/liquidaciones/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "liquidaciones",
+                    ":id"
+                  ]
+                },
+                "description": "Editar otros_descuentos de un borrador (409 si ya está confirmado)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"otros_descuentos\": 20000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "POST /empleados/liquidaciones/:id/confirmar",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/liquidaciones/:id/confirmar",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "liquidaciones",
+                    ":id",
+                    "confirmar"
+                  ]
+                },
+                "description": "Promover un borrador a confirmado: genera CxP y descuenta cuotas de préstamos activos"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Bonos",
+          "item": [
+            {
+              "name": "POST /empleados/bonos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/bonos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "bonos"
+                  ]
+                },
+                "description": "Registrar bono a un empleado (genera CxP, categoría Bono empleado)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_empleado\": 1,\n  \"fecha\": \"2026-09-21\",\n  \"concepto\": \"Bono de producción\",\n  \"valor\": 100000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /empleados/bonos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/bonos?id_empleado=&desde=&hasta=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "bonos"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_empleado",
+                      "value": ""
+                    },
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Listar bonos"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /empleados/bonos/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/bonos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "bonos",
+                    ":id"
+                  ]
+                },
+                "description": "Ver un bono por id"
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /empleados/bonos/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/bonos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    "bonos",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar un bono (409 si ya tiene abonos)"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Ficha Empleado",
+          "item": [
+            {
+              "name": "GET /empleados/:id/ficha",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/:id/ficha?anio=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    ":id",
+                    "ficha"
+                  ],
+                  "query": [
+                    {
+                      "key": "anio",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Ficha 360: datos, salario vigente, liquidaciones, bonos, préstamos activos, prestaciones estimadas"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /empleados/:id/prestaciones",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/nomina/empleados/:id/prestaciones?anio=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "nomina",
+                    "empleados",
+                    ":id",
+                    "prestaciones"
+                  ],
+                  "query": [
+                    {
+                      "key": "anio",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Prestaciones sociales estimadas del año (cesantías, intereses, prima, vacaciones)"
               },
               "response": []
             }
@@ -4396,6 +7937,302 @@
                   ]
                 },
                 "description": "Catálogos en memoria (minas, mineros, zonas, dueños de volqueta)"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "inventario_productos  (/api/v1/inventario-productos)",
+      "description": "Requiere token (Bearer heredado).",
+      "item": [
+        {
+          "name": "Productos",
+          "item": [
+            {
+              "name": "GET /productos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/productos?categoria=bola_molino&q=&bajo_minimo=true&limit=50&offset=0",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "productos"
+                  ],
+                  "query": [
+                    {
+                      "key": "categoria",
+                      "value": "bola_molino"
+                    },
+                    {
+                      "key": "q",
+                      "value": ""
+                    },
+                    {
+                      "key": "bajo_minimo",
+                      "value": "true"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0"
+                    }
+                  ]
+                },
+                "description": "Listar productos con stock/costo promedio/valor ya resueltos (promedio ponderado)"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /productos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/productos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "productos"
+                  ]
+                },
+                "description": "Crear producto",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"Bola de molino 3\\\"\",\n  \"categoria\": \"bola_molino\",\n  \"unidad\": \"kg\",\n  \"stock_minimo\": 500\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /productos/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/productos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "productos",
+                    ":id"
+                  ]
+                },
+                "description": "Ver un producto"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /productos/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/productos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "productos",
+                    ":id"
+                  ]
+                },
+                "description": "Editar producto",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"stock_minimo\": 600\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /productos/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/productos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "productos",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar producto (cascada: borra también su cardex de movimientos)"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Movimientos",
+          "item": [
+            {
+              "name": "GET /movimientos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/movimientos?id_producto=1&tipo=salida&desde=2026-01-01&hasta=2026-12-31&limit=50&offset=0",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "movimientos"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_producto",
+                      "value": "1"
+                    },
+                    {
+                      "key": "tipo",
+                      "value": "salida"
+                    },
+                    {
+                      "key": "desde",
+                      "value": "2026-01-01"
+                    },
+                    {
+                      "key": "hasta",
+                      "value": "2026-12-31"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0"
+                    }
+                  ]
+                },
+                "description": "Listar cardex (filtra por producto para el kardex de uno solo)"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /movimientos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/movimientos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "movimientos"
+                  ]
+                },
+                "description": "Registrar entrada (compra) o salida (consumo). costo_unitario obligatorio en entrada; en salida lo calcula el backend por promedio ponderado. 400 STOCK_INSUFICIENTE si la salida supera el stock",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_producto\": 1,\n  \"fecha\": \"2026-11-02\",\n  \"tipo\": \"entrada\",\n  \"cantidad\": 300,\n  \"costo_unitario\": 12000,\n  \"nota\": \"Compra proveedor X\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /movimientos/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/movimientos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "movimientos",
+                    ":id"
+                  ]
+                },
+                "description": "Borrar movimiento (recalcula los saldos de los movimientos posteriores de ese producto)"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Resumen",
+          "item": [
+            {
+              "name": "GET /resumen",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/resumen?desde=2026-01-01&hasta=2026-12-31",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "resumen"
+                  ],
+                  "query": [
+                    {
+                      "key": "desde",
+                      "value": "2026-01-01"
+                    },
+                    {
+                      "key": "hasta",
+                      "value": "2026-12-31"
+                    }
+                  ]
+                },
+                "description": "KPIs: total_productos, valor_total_inventario, productos_bajo_minimo, gastado_en_compras"
               },
               "response": []
             }

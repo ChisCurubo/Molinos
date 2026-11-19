@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
-import { IPagoMulaService } from '../../ports/pagos/service_port/pago_mula.service.interface';
+import { IPagoMulaService } from '../../ports/pagos/service_port/pago_mula.service.interface';
+import { fail } from '../../errors/responder';
 
 export class PagoMulaController {
     constructor(private service: IPagoMulaService) {}
 
     private fail(res: Response, error: any) {
-        res.status(error?.status || 400).json({ success: false, message: error.message });
+        fail(res, error, 400);
     }
 
     // POST /pagos/mulas — registrar despacho. Body: { id_proveedor, valor (lo que se debe pagar),

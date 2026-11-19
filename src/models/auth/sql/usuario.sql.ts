@@ -7,6 +7,7 @@ export interface UsuarioSQL {
     id_rol: number;
     id_empleado?: number;
     activo: boolean;
+    debe_cambiar_password?: boolean;
     ultimo_acceso?: Date;
     created_at: Date;
 }

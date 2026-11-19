@@ -1,0 +1,3 @@
+# Scripts de shell y compose: siempre LF (en Linux CRLF los rompe)
+*.sh text eol=lf
+*.yml text eol=lf

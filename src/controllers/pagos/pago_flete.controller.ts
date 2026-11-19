@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
-import { IPagoFleteService } from '../../ports/pagos/service_port/pago_flete.service.interface';
+import { IPagoFleteService } from '../../ports/pagos/service_port/pago_flete.service.interface';
+import { fail } from '../../errors/responder';
 
 export class PagoFleteController {
     constructor(private service: IPagoFleteService) {}
 
     private fail(res: Response, error: any) {
-        res.status(error?.status || 400).json({ success: false, message: error.message });
+        fail(res, error, 400);
     }
 
     // GET /pagos/flete/deuda  → dashboard: deuda por dueño (con positivos de gasolina)

@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { IUsuarioService } from '../../ports/auth/service_port/usuario.service.interface';
-import { UsuarioService } from '../../services/auth/usuario.service';
+import { UsuarioService } from '../../services/auth/usuario.service';
+import { fail } from '../../errors/responder';
+import { AppError } from '../../errors/app-error';
 
 export class UsuarioController {
     constructor(private usuarioService: IUsuarioService) {}
@@ -10,7 +12,7 @@ export class UsuarioController {
             const usuario = await this.usuarioService.create(req.body);
             res.status(201).json({ success: true, data: usuario });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -19,12 +21,12 @@ export class UsuarioController {
             const id = parseInt(req.params.id as string, 10);
             const usuario = await this.usuarioService.getById(id);
             if (!usuario) {
-                res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+                fail(res, AppError.http(404, 'Usuario no encontrado'));
                 return;
             }
             res.status(200).json({ success: true, data: usuario });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -33,12 +35,12 @@ export class UsuarioController {
             const id = parseInt(req.params.id as string, 10);
             const usuario = await this.usuarioService.update(id, req.body);
             if (!usuario) {
-                res.status(404).json({ success: false, error: 'Usuario no encontrado o sin cambios' });
+                fail(res, AppError.http(404, 'Usuario no encontrado o sin cambios'));
                 return;
             }
             res.status(200).json({ success: true, data: usuario });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -47,12 +49,12 @@ export class UsuarioController {
             const id = parseInt(req.params.id as string, 10);
             const deleted = await this.usuarioService.delete(id);
             if (!deleted) {
-                res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+                fail(res, AppError.http(404, 'Usuario no encontrado'));
                 return;
             }
             res.status(200).json({ success: true, message: 'Usuario eliminado' });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -61,7 +63,7 @@ export class UsuarioController {
             const usuarios = await this.usuarioService.list();
             res.status(200).json({ success: true, data: usuarios });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 }

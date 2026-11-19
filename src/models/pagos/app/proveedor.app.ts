@@ -6,6 +6,7 @@ export interface ProveedorApp {
     id: number;
     nombre: string;
     categoria?: CategoriaProveedorApp;
+    tipo: string;
     contacto: string;
     telefono: string;
     ciudad: string;

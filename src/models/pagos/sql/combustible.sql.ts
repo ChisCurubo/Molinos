@@ -4,6 +4,7 @@ export interface CombustibleSQL {
     id: number;
     id_gasolinera: number;
     tipo_consumo: string;
+    forma_pago: string;
     id_dueno_volqueta?: number;
     id_vehiculo?: number;
     id_planta?: number;

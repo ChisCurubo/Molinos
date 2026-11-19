@@ -48,6 +48,7 @@ import { IMaterialEntradaRepository } from '../../ports/material/repository_port
 import { IConcentradoRepository } from '../../ports/material/concentrado.interface';
 import { IExcedenteRepository } from '../../ports/material/excedente.interface';
 import { PoolConnection } from 'mysql2/promise';
+import { AppError } from '../../errors/app-error';
 
 export class AnalisisService implements IAnalisisService {
     private analisisRepo: IAnalisisRepository;
@@ -123,9 +124,9 @@ export class AnalisisService implements IAnalisisService {
 
             if (data.id_tipo_analisis === 1) {
                 // TIPO 1: CRUDO
-                if (!data.id_entrada) throw new Error("id_entrada es requerido para análisis tipo 1");
+                if (!data.id_entrada) throw AppError.validacion("id_entrada es requerido para análisis tipo 1");
                 const entrada = await this.materialRepo.obtenerPorId(data.id_entrada, conn);
-                if (!entrada) throw new Error("Entrada no encontrada");
+                if (!entrada) throw AppError.noEncontrado("Entrada no encontrada");
 
                 // Si no viene numero_analisis, se autogenera como "AN-{mina}-{numero_volqueta}".
                 if (!data.numero_analisis) {
@@ -213,9 +214,9 @@ export class AnalisisService implements IAnalisisService {
 
             } else if (data.id_tipo_analisis === 2) {
                 // TIPO 2: CONCENTRADO
-                if (!data.id_material_concentrado) throw new Error("id_material_concentrado es requerido para análisis tipo 2");
+                if (!data.id_material_concentrado) throw AppError.validacion("id_material_concentrado es requerido para análisis tipo 2");
                 const lote = await this.concentradoRepo.obtenerLotePorId(data.id_material_concentrado, conn);
-                if (!lote) throw new Error("Lote de concentrado no encontrado");
+                if (!lote) throw AppError.noEncontrado("Lote de concentrado no encontrado");
 
                 const toneladas_brutas = lote.toneladas_humedo || data.toneladas || 0;
                 const toneladas_humedas = toneladas_brutas * porcentaje_decimal;
@@ -229,7 +230,7 @@ export class AnalisisService implements IAnalisisService {
 
                 await this.analisisRepo.insertar(data, conn);
             } else {
-                throw new Error("Tipo de análisis no soportado");
+                throw AppError.validacion("Tipo de análisis no soportado");
             }
 
             await conn.commit();
@@ -256,7 +257,7 @@ export class AnalisisService implements IAnalisisService {
             await conn.beginTransaction();
 
             const analisisExistente = await this.analisisRepo.obtenerPorIdentificador(identificador, conn);
-            if (!analisisExistente) throw new Error('Análisis no encontrado.');
+            if (!analisisExistente) throw AppError.noEncontrado('Análisis no encontrado.');
 
             let porcentaje_decimal = analisisExistente.porcentaje_humedad;
             if (data.porcentaje_humedad !== undefined) {
@@ -273,7 +274,7 @@ export class AnalisisService implements IAnalisisService {
                 }
 
                 const entrada = await this.materialRepo.obtenerPorId(idEntradaActual, conn);
-                if (!entrada) throw new Error("Entrada no encontrada");
+                if (!entrada) throw AppError.noEncontrado("Entrada no encontrada");
 
                 // Base bruta: lo enviado > `ton` guardado > peso de llegada de la entrada (fallback).
                 const toneladas_brutas = data.toneladas !== undefined
@@ -295,7 +296,7 @@ export class AnalisisService implements IAnalisisService {
 
                 const success = await this.analisisRepo.actualizar(identificador, data, conn);
                 if (!success) {
-                    throw new Error('No se pudo actualizar el análisis.');
+                    throw AppError.http(500, 'No se pudo actualizar el análisis.');
                 }
 
                 const gramos_humedad = toneladas_humedas;
@@ -365,7 +366,7 @@ export class AnalisisService implements IAnalisisService {
                 }
 
                 const lote = await this.concentradoRepo.obtenerLotePorId(idLoteActual, conn);
-                if (!lote) throw new Error("Lote de concentrado no encontrado");
+                if (!lote) throw AppError.noEncontrado("Lote de concentrado no encontrado");
 
                 const toneladas_brutas = lote.toneladas_humedo || data.toneladas || 0;
                 const toneladas_humedas = toneladas_brutas * porcentaje_decimal;
@@ -382,10 +383,10 @@ export class AnalisisService implements IAnalisisService {
 
                 const success = await this.analisisRepo.actualizar(identificador, data, conn);
                 if (!success) {
-                    throw new Error('No se pudo actualizar el análisis.');
+                    throw AppError.http(500, 'No se pudo actualizar el análisis.');
                 }
             } else {
-                throw new Error("Tipo de análisis no soportado");
+                throw AppError.validacion("Tipo de análisis no soportado");
             }
 
             await conn.commit();
@@ -400,7 +401,7 @@ export class AnalisisService implements IAnalisisService {
     async agregarValorAnalisis(identificador: string | number, valor_analisis: number): Promise<void> {
         const success = await this.analisisRepo.actualizarValor(identificador, valor_analisis);
         if (!success) {
-            throw new Error('No se pudo actualizar el valor del análisis o no se encontró.');
+            throw AppError.http(500, 'No se pudo actualizar el valor del análisis o no se encontró.');
         }
     }
 

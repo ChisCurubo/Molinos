@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
-import { IVehiculoService } from '../../ports/material/service_port/volqueta.service.interface';
+import { IVehiculoService } from '../../ports/material/service_port/volqueta.service.interface';
+import { fail } from '../../errors/responder';
+import { AppError } from '../../errors/app-error';
 
 // Controller → Service (interfaz) → Repository, según el patrón de capas del proyecto.
 
 const ok = (res: Response, data: any) => res.status(200).json({ success: true, data });
-const notFound = (res: Response) => res.status(404).json({ success: false, error: 'Recurso no encontrado' });
-const err = (res: Response, e: any) => res.status(500).json({ success: false, error: e.message || String(e) });
+const notFound = (res: Response) => fail(res, AppError.http(404, 'Recurso no encontrado'));
+const err = (res: Response, e: any) => fail(res, e);
 
 export class VehiculoController {
     private service: IVehiculoService;

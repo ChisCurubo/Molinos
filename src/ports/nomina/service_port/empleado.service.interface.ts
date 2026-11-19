@@ -12,7 +12,10 @@ export interface IEmpleadoService {
 
 // --- Original: prestamo_empleado ---
 export interface PrestamoEmpleadoServiceInterface {
-    registrarPrestamo(prestamo: Partial<PrestamoEmpleadoSQL>): Promise<PrestamoEmpleadoSQL>;
+    registrarPrestamo(prestamo: Partial<PrestamoEmpleadoSQL>): Promise<any>;
     listarPrestamosPorEmpleado(id_empleado: number): Promise<PrestamoEmpleadoSQL[]>;
     updatePrestamo(id: number, data: Partial<PrestamoEmpleadoSQL>): Promise<PrestamoEmpleadoSQL | null>;
+    getById(id: number): Promise<PrestamoEmpleadoSQL | null>;
+    delete(id: number): Promise<boolean>;
+    listAll(filtros?: { id_empleado?: number }): Promise<PrestamoEmpleadoSQL[]>;
 }

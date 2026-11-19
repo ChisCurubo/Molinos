@@ -1,5 +1,5 @@
 import { PoolConnection } from 'mysql2/promise';
-import { CombustibleRow } from '../repository_port/combustible.repository.interface';
+import { CombustibleRow, CrearCombustibleDTO, ResumenMensualCombustibleRow } from '../repository_port/combustible.repository.interface';
 
 // Parámetros para sincronizar el ACPM (una fila 'vehiculo' de Combustible) de un origen.
 export interface SyncAcpmParams {
@@ -18,6 +18,15 @@ export interface ICombustibleService {
     eliminarAcpmAgua(idAgua: number, conn: PoolConnection): Promise<void>;
     sumaAcpmEntrada(idEntrada: number, conn?: PoolConnection): Promise<number>;
     calcularNetoFletePorDueno(idDueno: number): Promise<any>;
-    listar(filtros: { desde?: string; hasta?: string; id_gasolinera?: number; id_dueno_volqueta?: number; tipo_consumo?: string }): Promise<CombustibleRow[]>;
+    listar(filtros: { desde?: string; hasta?: string; id_gasolinera?: number; id_dueno_volqueta?: number; tipo_consumo?: string; forma_pago?: string }): Promise<CombustibleRow[]>;
     obtenerPorId(id: number): Promise<CombustibleRow | null>;
+
+    // --- Registro manual (tanqueos de planta/maquinaria/vehículo, no atados a un viaje) ---
+    registrar(data: CrearCombustibleDTO): Promise<CombustibleRow>;
+    actualizar(id: number, data: Partial<CrearCombustibleDTO>): Promise<CombustibleRow>;
+    eliminar(id: number): Promise<void>;
+
+    // --- Reportes / KPIs ---
+    resumenMensual(filtros: { anio?: number; forma_pago?: string; tipo_consumo?: string }): Promise<ResumenMensualCombustibleRow[]>;
+    kpis(): Promise<any>;
 }

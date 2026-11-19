@@ -5,7 +5,10 @@ import { TipoTurnoSQL } from '../../../models/nomina/sql/tipo_turno.sql';
 export interface ITurnoRepository {
     create(data: Omit<TurnoSQL, 'id'>): Promise<number>;
     getById(id: number): Promise<TurnoSQL | null>;
+    getByEmpleadoAndFecha(id_empleado: number, fecha: string): Promise<TurnoSQL | null>;
     update(id: number, data: Partial<TurnoSQL>): Promise<boolean>;
+    upsert(id_empleado: number, fecha: string, data: Partial<Omit<TurnoSQL, 'id' | 'id_empleado' | 'fecha'>>): Promise<TurnoSQL>;
+    deleteByEmpleadoAndFecha(id_empleado: number, fecha: string): Promise<boolean>;
     delete(id: number): Promise<boolean>;
     list(): Promise<TurnoSQL[]>;
     listByEmpleadoAndMonth(id_empleado: number, mes: number, anio: number): Promise<TurnoSQL[]>;

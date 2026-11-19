@@ -2,6 +2,7 @@ import { Pool } from 'mysql2/promise';
 import { IViajesRepository } from '../../ports/material/viajes.interface';
 import { IViajesService } from '../../ports/material/service_port/viajes.service.interface';
 import { TriggerLogicRepository } from '../../ports/db_triggers/trigger_logic.repository.interface';
+import { AppError } from '../../errors/app-error';
 
 export class ViajesService implements IViajesService {
     private repo: IViajesRepository;
@@ -17,19 +18,19 @@ export class ViajesService implements IViajesService {
     // Crear viaje: lo único requerido es el número de viaje. fecha y comentarios son opcionales.
     async crearCabeceraViaje(data: any): Promise<number> {
         const numero = (data.numero_viaje ?? '').toString().trim();
-        if (!numero) throw new Error('El número de viaje es obligatorio');
+        if (!numero) throw AppError.validacion('El número de viaje es obligatorio');
         return await this.repo.crearCabeceraViaje({ ...data, numero_viaje: numero });
     }
 
     // Editar la cabecera de un viaje (número, fecha, comentarios).
     async actualizarCabeceraViajeTx(id: number, data: any): Promise<any> {
         const viaje = await this.repo.obtenerViajePorId(id);
-        if (!viaje) { const e: any = new Error('Viaje no encontrado'); e.status = 404; throw e; }
+        if (!viaje) { throw AppError.noEncontrado('Viaje no encontrado'); }
 
         const campos: any = {};
         if (data.numero_viaje !== undefined) {
             const numero = data.numero_viaje.toString().trim();
-            if (!numero) throw new Error('El número de viaje no puede quedar vacío');
+            if (!numero) throw AppError.validacion('El número de viaje no puede quedar vacío');
             campos.numero_viaje = numero;
         }
         if (data.fecha !== undefined) campos.fecha = data.fecha;
@@ -59,7 +60,7 @@ export class ViajesService implements IViajesService {
     // Detalle de un viaje (reutiliza el listado filtrando por id, ya trae líneas + agregados).
     async obtenerViajeDetalle(id: number): Promise<any> {
         const arr = await this.listarViajes({ id });
-        if (arr.length === 0) { const e: any = new Error('Viaje no encontrado'); e.status = 404; throw e; }
+        if (arr.length === 0) { throw AppError.noEncontrado('Viaje no encontrado'); }
         return arr[0];
     }
 
@@ -143,7 +144,7 @@ export class ViajesService implements IViajesService {
     // los materiales de origen con cuánto aportó cada uno.
     async trazabilidadDeViaje(idViaje: number): Promise<any> {
         const viaje = await this.repo.obtenerViajePorId(idViaje);
-        if (!viaje) { const e: any = new Error('Viaje no encontrado'); e.status = 404; throw e; }
+        if (!viaje) { throw AppError.noEncontrado('Viaje no encontrado'); }
 
         const lineas = await this.repo.obtenerLineasConLote(idViaje);
         const idLotes = [...new Set(lineas.map(l => Number(l.id_lote)).filter(Boolean))];
@@ -172,7 +173,7 @@ export class ViajesService implements IViajesService {
     // TRAZABILIDAD 2: desde una línea de viaje → su lote y los materiales de origen.
     async trazabilidadDeLinea(idLinea: number): Promise<any> {
         const linea = await this.repo.obtenerLineaViajePorId(idLinea);
-        if (!linea) { const e: any = new Error('Línea de viaje no encontrada'); e.status = 404; throw e; }
+        if (!linea) { throw AppError.noEncontrado('Línea de viaje no encontrada'); }
 
         const [viaje, lote, aportes] = await Promise.all([
             this.repo.obtenerViajePorId(linea.id_viaje),
@@ -230,13 +231,13 @@ export class ViajesService implements IViajesService {
         await conn.beginTransaction();
         try {
             const lote = await this.repo.obtenerLoteConAnalisis(data.id_material_concentrado, conn);
-            if (!lote) throw new Error('Lote de concentrado no encontrado');
+            if (!lote) throw AppError.noEncontrado('Lote de concentrado no encontrado');
 
             const esRemanente = data.es_remanente ? 1 : 0;
             const disponibleHumedo = Number(lote.toneladas_disponibles) || 0;
             const humedad = Number(lote.porcentaje_humedad) || 0;
             const factor = 1 - humedad; // seco = humedo * factor
-            if (factor <= 0) throw new Error('La humedad del lote es inválida (>= 100%)');
+            if (factor <= 0) throw AppError.validacion('La humedad del lote es inválida (>= 100%)');
             const disponibleSeco = disponibleHumedo * factor;
 
             // El front trabaja en SECO: manda concentrado_seco. Derivamos el húmedo (seco/factor)
@@ -245,10 +246,10 @@ export class ViajesService implements IViajesService {
 
             // Los remanentes son concentrado que ya salió y sobró en otro viaje: no descuentan stock.
             if (!esRemanente) {
-                if (disponibleHumedo <= 0) throw new Error('El lote no tiene concentrado disponible para despachar');
-                if (seco <= 0) throw new Error('La cantidad de concentrado (seco) a despachar debe ser mayor a 0');
+                if (disponibleHumedo <= 0) throw AppError.reglaNegocio('El lote no tiene concentrado disponible para despachar');
+                if (seco <= 0) throw AppError.validacion('La cantidad de concentrado (seco) a despachar debe ser mayor a 0');
                 if (humedo > disponibleHumedo + 1e-6) {
-                    throw new Error(`Solo hay ${this.r4(disponibleSeco)} t secas disponibles en el lote; se solicitaron ${this.r4(seco)}`);
+                    throw AppError.validacion(`Solo hay ${this.r4(disponibleSeco)} t secas disponibles en el lote; se solicitaron ${this.r4(seco)}`);
                 }
             }
 
@@ -327,7 +328,7 @@ export class ViajesService implements IViajesService {
         await conn.beginTransaction();
         try {
             const old = await this.repo.obtenerLineaViajePorId(idLinea, conn);
-            if (!old) { const e: any = new Error('Línea de viaje no encontrada'); e.status = 404; throw e; }
+            if (!old) { throw AppError.noEncontrado('Línea de viaje no encontrada'); }
 
             const campos: any = {};
             if (data.concepto !== undefined) campos.concepto = data.concepto;
@@ -338,13 +339,13 @@ export class ViajesService implements IViajesService {
             const cambiaCantidad = data.concentrado_seco !== undefined && data.concentrado_seco !== null;
             if (cambiaCantidad && Number(old.es_remanente) === 0 && old.id_material_concentrado) {
                 const nuevoSeco = Number(data.concentrado_seco);
-                if (nuevoSeco <= 0) throw new Error('La cantidad (seco) debe ser mayor a 0');
+                if (nuevoSeco <= 0) throw AppError.validacion('La cantidad (seco) debe ser mayor a 0');
 
                 const lote = await this.repo.obtenerEstadoYStockLote(old.id_material_concentrado, conn);
-                if (!lote) throw new Error('Lote de concentrado no encontrado');
+                if (!lote) throw AppError.noEncontrado('Lote de concentrado no encontrado');
                 const humedad = Number(lote.porcentaje_humedad) || 0;
                 const factor = 1 - humedad;
-                if (factor <= 0) throw new Error('La humedad del lote es inválida (>= 100%)');
+                if (factor <= 0) throw AppError.validacion('La humedad del lote es inválida (>= 100%)');
 
                 // El front manda SECO; convertimos a húmedo para mover el stock (que está en húmedo).
                 const nuevoHumedo = this.r4(nuevoSeco / factor);
@@ -355,7 +356,7 @@ export class ViajesService implements IViajesService {
                     const disp = Number(lote.toneladas_disponibles) || 0;
                     if (delta > disp + 1e-6) {
                         const dispSeco = this.r4(disp * factor);
-                        throw new Error(`Solo hay ${dispSeco} t secas adicionales disponibles en el lote`);
+                        throw AppError.validacion(`Solo hay ${dispSeco} t secas adicionales disponibles en el lote`);
                     }
                     const nuevaDisp = await this.repo.descontarStockConcentrado(old.id_material_concentrado, delta, old.id_viaje, conn);
                     if (nuevaDisp <= 0) await this.repo.marcarEntradasIncluidasViaje(old.id_material_concentrado, conn);
@@ -407,7 +408,10 @@ export class ViajesService implements IViajesService {
         await conn.beginTransaction();
         try {
             const viaje = await this.repo.obtenerViajePorId(idViaje, conn);
-            if (!viaje) throw new Error('Viaje no encontrado');
+            if (!viaje) throw AppError.noEncontrado('Viaje no encontrado');
+            if (viaje.estado === 'despachado') {
+                throw AppError.http(409, 'No se puede eliminar un viaje ya despachado');
+            }
 
             const lineas = await this.repo.obtenerLineasDeViaje(idViaje, conn);
             for (const linea of lineas) {
@@ -434,7 +438,12 @@ export class ViajesService implements IViajesService {
         await conn.beginTransaction();
         try {
             const old = await this.repo.obtenerLineaViajePorId(idLinea, conn);
-            if (!old) throw new Error('Línea de viaje no encontrada');
+            if (!old) throw AppError.noEncontrado('Línea de viaje no encontrada');
+
+            const viaje = await this.repo.obtenerViajePorId(old.id_viaje, conn);
+            if (viaje?.estado === 'despachado') {
+                throw AppError.http(409, 'No se puede eliminar una línea de un viaje ya despachado');
+            }
 
             await this.repo.eliminarLineaViaje(idLinea, conn);
             await this.revertirStockDeLinea(old, conn);

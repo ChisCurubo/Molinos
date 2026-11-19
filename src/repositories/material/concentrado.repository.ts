@@ -1,6 +1,7 @@
 import { PoolConnection, ResultSetHeader, Pool } from 'mysql2/promise';
 import { IConcentradoRepository } from '../../ports/material/concentrado.interface';
-
+
+import { ident } from '../../helpers/sql.helper';
 export class ConcentradoRepository implements IConcentradoRepository {
     private db: Pool;
 
@@ -100,7 +101,7 @@ export class ConcentradoRepository implements IConcentradoRepository {
         const values: any[] = [];
 
         Object.keys(data).forEach(key => {
-            setParams.push(`${key} = ?`);
+            setParams.push(`${ident(key)} = ?`);
             values.push(data[key]);
         });
         

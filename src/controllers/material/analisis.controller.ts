@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { IAnalisisService } from '../../ports/material/service_port/analisis.service.interface';
-import { CreateAnalisisDTO } from '../../models/material/sql/analisis.sql';
+import { CreateAnalisisDTO } from '../../models/material/sql/analisis.sql';
+import { fail } from '../../errors/responder';
+import { AppError } from '../../errors/app-error';
 
 export class AnalisisController {
   private analisisService: IAnalisisService;
@@ -18,7 +20,7 @@ export class AnalisisController {
       if (data.id_material_concentrado) {
         data.id_tipo_analisis = 2;
         if (data.porcentaje_humedad === undefined || data.au_concentrado === undefined) {
-          res.status(400).json({ success: false, message: 'Faltan campos obligatorios: porcentaje_humedad, au_concentrado (análisis de concentrado).' });
+          fail(res, AppError.http(400, 'Faltan campos obligatorios: porcentaje_humedad, au_concentrado (análisis de concentrado).'));
           return;
         }
         if (!data.numero_analisis) data.numero_analisis = `AN-LOTE-${data.id_material_concentrado}`;
@@ -32,7 +34,7 @@ export class AnalisisController {
 
       // CASO ENTRADA (tipo cabeza / crudo)
       if (!data.id_entrada || !data.numero_analisis || data.toneladas === undefined || data.porcentaje_humedad === undefined || data.au_concentrado === undefined || data.au_falso === undefined || data.ag_concentrado === undefined) {
-        res.status(400).json({ success: false, message: 'Faltan campos obligatorios para el análisis.' });
+        fail(res, AppError.http(400, 'Faltan campos obligatorios para el análisis.'));
         return;
       }
 
@@ -44,7 +46,7 @@ export class AnalisisController {
       });
     } catch (error: any) {
       console.error('Error al registrar análisis:', error);
-      res.status(500).json({ success: false, message: 'Error interno del servidor al procesar el análisis.', error: error.message });
+      fail(res, error);
     }
   };
 
@@ -55,7 +57,7 @@ export class AnalisisController {
     try {
       const b = req.body;
       if (!b.id_entrada || b.porcentaje_humedad === undefined || b.au_concentrado === undefined) {
-        res.status(400).json({ success: false, message: 'Faltan campos obligatorios: id_entrada, porcentaje_humedad, au_concentrado' });
+        fail(res, AppError.http(400, 'Faltan campos obligatorios: id_entrada, porcentaje_humedad, au_concentrado'));
         return;
       }
       const data: CreateAnalisisDTO = {
@@ -73,7 +75,7 @@ export class AnalisisController {
       await this.analisisService.vincularAnalisisAEntrada(data);
       res.status(201).json({ success: true, message: 'Análisis de cabeza registrado y cálculos de material actualizados.' });
     } catch (e: any) {
-      res.status(e?.status || 500).json({ success: false, error: e.message || String(e), ...(e?.code && { code: e.code }) });
+      fail(res, e);
     }
   };
 
@@ -83,7 +85,7 @@ export class AnalisisController {
       await this.analisisService.eliminarAnalisis(Number(req.params.id));
       res.status(200).json({ success: true, message: 'Análisis eliminado' });
     } catch (e: any) {
-      res.status(e?.status || 500).json({ success: false, error: e.message || String(e), ...(e?.code && { code: e.code }) });
+      fail(res, e);
     }
   };
 
@@ -93,7 +95,7 @@ export class AnalisisController {
           const data = await this.analisisService.obtenerTodosPorEntrada(Number(id_entrada));
           res.status(200).json({ success: true, data });
       } catch (error: any) {
-          res.status(500).json({ success: false, message: 'Error interno.', error: error.message });
+          fail(res, error);
       }
   };
 
@@ -102,39 +104,39 @@ export class AnalisisController {
       try {
           const idEntrada = req.query.id_entrada;
           if (!idEntrada) {
-              res.status(400).json({ success: false, message: 'id_entrada es requerido' });
+              fail(res, AppError.http(400, 'id_entrada es requerido'));
               return;
           }
           const data = await this.analisisService.obtenerTodosPorEntrada(Number(idEntrada));
           res.status(200).json({ success: true, data });
       } catch (error: any) {
-          res.status(500).json({ success: false, message: 'Error interno.', error: error.message });
+          fail(res, error);
       }
   };
 
   public getById = async (req: Request, res: Response): Promise<void> => {
     try {
       const data = await this.analisisService.obtenerPorId(Number(req.params.id));
-      if (!data) { res.status(404).json({ success: false, error: 'Análisis no encontrado' }); return; }
+      if (!data) { fail(res, AppError.http(404, 'Análisis no encontrado')); return; }
       res.status(200).json({ success: true, data });
-    } catch (e: any) { res.status(500).json({ success: false, error: e.message || String(e) }); }
+    } catch (e: any) { fail(res, e); }
   };
 
   public obtenerCabeza = async (req: Request, res: Response): Promise<void> => {
       try {
           const data = await this.analisisService.obtenerCabezaPorEntrada(Number(req.params.id_entrada));
-          if (!data) { res.status(404).json({ success: false, error: 'No hay análisis Cabeza para esta entrada' }); return; }
+          if (!data) { fail(res, AppError.http(404, 'No hay análisis Cabeza para esta entrada')); return; }
           res.status(200).json({ success: true, data });
-      } catch (e: any) { res.status(500).json({ success: false, error: e.message || String(e) }); }
+      } catch (e: any) { fail(res, e); }
   };
 
   public actualizarAnalisis = async (req: Request, res: Response): Promise<void> => {
     try {
       const identificador = String(req.params.id);
-      if (!req.params.id) { res.status(400).json({ success: false, message: 'Identificador de análisis inválido' }); return; }
+      if (!req.params.id) { fail(res, AppError.http(400, 'Identificador de análisis inválido')); return; }
       await this.analisisService.actualizarAnalisis(identificador, req.body);
       res.status(200).json({ success: true, message: 'Análisis actualizado exitosamente' });
-    } catch (e: any) { res.status(500).json({ success: false, error: e.message || String(e) }); }
+    } catch (e: any) { fail(res, e); }
   };
 
   public agregarValor = async (req: Request, res: Response): Promise<void> => {
@@ -142,32 +144,32 @@ export class AnalisisController {
       const identificador = String(req.params.id);
       const valor = req.body.valor_analisis;
       if (!req.params.id || valor === undefined) { 
-          res.status(400).json({ success: false, message: 'Faltan campos: id/numero_analisis o valor_analisis' }); return; 
+          fail(res, AppError.http(400, 'Faltan campos: id/numero_analisis o valor_analisis')); return; 
       }
       await this.analisisService.agregarValorAnalisis(identificador, Number(valor));
       res.status(200).json({ success: true, message: 'Valor del análisis actualizado exitosamente' });
-    } catch (e: any) { res.status(500).json({ success: false, error: e.message || String(e) }); }
+    } catch (e: any) { fail(res, e); }
   };
 
   public listarPorMinero = async (req: Request, res: Response): Promise<void> => {
       try { res.status(200).json({ success: true, data: await this.analisisService.listarPorMinero(Number(req.params.id_minero)) }); }
-      catch (e: any) { res.status(500).json({ success: false, error: e.message || String(e) }); }
+      catch (e: any) { fail(res, e); }
   };
 
   public listarPorMina = async (req: Request, res: Response): Promise<void> => {
       try { res.status(200).json({ success: true, data: await this.analisisService.listarPorMina(Number(req.params.id_mina)) }); }
-      catch (e: any) { res.status(500).json({ success: false, error: e.message || String(e) }); }
+      catch (e: any) { fail(res, e); }
   };
 
   public listarPorFecha = async (req: Request, res: Response): Promise<void> => {
       try { res.status(200).json({ success: true, data: await this.analisisService.listarPorFecha(String(req.params.fecha)) }); }
-      catch (e: any) { res.status(500).json({ success: false, error: e.message || String(e) }); }
+      catch (e: any) { fail(res, e); }
   };
 
   // GET /material/analisis/concentrado/:id_lote — análisis del concentrado de un lote.
   public obtenerPorConcentrado = async (req: Request, res: Response): Promise<void> => {
       try { res.status(200).json({ success: true, data: await this.analisisService.obtenerAnalisisDeConcentrado(Number(req.params.id_lote)) }); }
-      catch (e: any) { res.status(500).json({ success: false, error: e.message || String(e) }); }
+      catch (e: any) { fail(res, e); }
   };
 
 
@@ -176,7 +178,7 @@ export class AnalisisController {
       try {
           await this.analisisService.actualizarEstadoPago(Number(req.params.id), req.body.estado);
           res.status(200).json({ success: true, data: { updated: true } });
-      } catch (e: any) { res.status(500).json({ success: false, error: e.message || String(e) }); }
+      } catch (e: any) { fail(res, e); }
   };
 }
 

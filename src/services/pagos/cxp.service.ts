@@ -5,6 +5,7 @@ import { ICategoriaCxPService } from '../../ports/pagos/service_port/cxp.service
 import { ICategoriaCxPRepository } from '../../ports/pagos/repository_port/cxp.repository.interface';
 import { CategoriaCxPRepository } from '../../repositories/pagos/cxp.repository';
 import { CategoriaCxpSQL } from '../../models/pagos/sql/categoria_cxp.sql';
+import { AppError } from '../../errors/app-error';
 
 // --- Original: cuentas_por_pagar ---
 export class CuentasPorPagarService implements CuentasPorPagarServiceInterface {
@@ -16,7 +17,7 @@ export class CuentasPorPagarService implements CuentasPorPagarServiceInterface {
 
     async obtenerCuenta(id: number): Promise<CuentaPorPagarSQL> {
         const cuenta = await this.repo.getById(id);
-        if (!cuenta) throw new Error('Cuenta no encontrada');
+        if (!cuenta) throw AppError.noEncontrado('Cuenta no encontrada');
         return cuenta;
     }
 
@@ -26,6 +27,18 @@ export class CuentasPorPagarService implements CuentasPorPagarServiceInterface {
 
     async listarCuentasPorEstado(estado: string): Promise<CuentaPorPagarSQL[]> {
         return await this.repo.listByEstado(estado);
+    }
+
+    // Mes a mes, 50 por página (tope), filtrable por categoría/estado.
+    async listarPaginado(filtros: { mes?: number; anio?: number; id_categoria?: number; estado?: string; page?: number; limit?: number }): Promise<any> {
+        const page = Math.max(1, Number(filtros.page) || 1);
+        const limit = Math.min(50, Math.max(1, Number(filtros.limit) || 50));
+        const { rows, total } = await this.repo.listarPaginado({ ...filtros, page, limit });
+        return { cuentas: rows, pagination: { page, limit, total, total_pages: Math.ceil(total / limit) || 1 } };
+    }
+
+    registrarAbono(idCxp: number, abono: any) {
+        return this.repo.registrarAbono(idCxp, abono);
     }
 
     async actualizarEstadoPago(id: number, pagoAdicional: number): Promise<boolean> {

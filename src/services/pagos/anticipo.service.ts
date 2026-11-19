@@ -1,8 +1,9 @@
 import { Pool, PoolConnection } from 'mysql2/promise';
 import { IAnticipoRepository, TerceroAnticipo } from '../../ports/pagos/repository_port/anticipo.repository.interface';
 import { IAnticipoService } from '../../ports/pagos/service_port/anticipo.service.interface';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const TERCEROS_VALIDOS: TerceroAnticipo[] = ['minero', 'dueno_volqueta', 'proveedor'];
 const NOMBRE_TERCERO: Record<TerceroAnticipo, string> = {
@@ -54,7 +55,8 @@ export class AnticipoService implements IAnticipoService {
             await this.repo.insertarAbono({
                 id_cuenta_pagar: idCxp, fecha_abono: fecha, valor: monto,
                 metodo_pago: data.metodo_pago || 'efectivo',
-                comprobante_url: comprobante, observaciones: data.observaciones
+                comprobante_url: comprobante, observaciones: data.observaciones,
+                id_cuenta_bancaria: data.id_cuenta_bancaria
             }, conn);
             await this.repo.recalcularCuenta(idCxp, conn);
             await this.repo.crearSaldoAFavorAnticipo({

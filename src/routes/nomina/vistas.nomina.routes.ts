@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { factory } from '../../config/factory';
-import { Request, Response } from 'express';
+import { Request, Response } from 'express';
+import { fail } from '../../errors/responder';
 
 const router = Router();
 const repo = factory.nomina.getVSaldoPrestamosEmpleadoRepository();
 const ok = (res: Response, data: any) => res.status(200).json({ success: true, data });
-const err = (res: Response, e: any) => res.status(500).json({ success: false, error: e.message || String(e) });
+const err = (res: Response, e: any) => fail(res, e);
 
 /**
  * @swagger

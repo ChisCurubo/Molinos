@@ -6,6 +6,8 @@ import { InfoFactory } from './factories/info.factory';
 import { NominaFactory } from './factories/nomina.factory';
 import { PagosFactory } from './factories/pagos.factory';
 import { MaterialFactory } from './factories/material.factory';
+import { InventarioProductosFactory } from './factories/inventario_productos.factory';
+import { ArchivosFactory } from './factories/archivos.factory';
 import { CacheService } from '../services/cache/cache.service';
 
 class AppFactory {
@@ -20,6 +22,8 @@ class AppFactory {
     public nomina: NominaFactory;
     public pagos: PagosFactory;
     public material: MaterialFactory;
+    public inventarioProductos: InventarioProductosFactory;
+    public archivos: ArchivosFactory;
 
     private constructor() {
         this.db = Database.getInstance();
@@ -28,6 +32,8 @@ class AppFactory {
         this.nomina = new NominaFactory(this.db);
         this.pagos = new PagosFactory(this.db);
         this.material = new MaterialFactory(this.db);
+        this.inventarioProductos = new InventarioProductosFactory(this.db);
+        this.archivos = new ArchivosFactory();
     }
 
     public static getInstance(): AppFactory {

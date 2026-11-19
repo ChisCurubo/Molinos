@@ -5,6 +5,8 @@ import { TipoTurnoSQL } from '../../../models/nomina/sql/tipo_turno.sql';
 export interface ITurnoService {
     create(data: any): Promise<TurnoSQL>;
     getById(id: number): Promise<TurnoSQL | null>;
+    upsert(data: { id_empleado: number; fecha: string; id_tipo_turno?: number; horas_trabajadas?: number; presente?: boolean; id_planta_proceso?: number; comentarios?: string }): Promise<TurnoSQL>;
+    eliminarPorEmpleadoYFecha(id_empleado: number, fecha: string): Promise<boolean>;
     update(id: number, data: any): Promise<TurnoSQL | null>;
     delete(id: number): Promise<boolean>;
     list(): Promise<TurnoSQL[]>;

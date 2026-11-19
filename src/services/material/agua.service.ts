@@ -3,6 +3,7 @@ import { CreateAguaPlantaDTO, AguaPlantaSQL, IAguaPlantaRepository } from '../..
 import { IAguaPlantaService } from '../../ports/material/service_port/agua.service.interface';
 import { IVehiculoRepository } from '../../ports/material/repository_port/volqueta.repository.interface';
 import { CombustibleService } from '../../services/pagos/combustible.service';
+import { AppError } from '../../errors/app-error';
 
 export class AguaPlantaService implements IAguaPlantaService {
     private repo: IAguaPlantaRepository;
@@ -19,12 +20,12 @@ export class AguaPlantaService implements IAguaPlantaService {
 
     async registrar(data: CreateAguaPlantaDTO): Promise<number> {
         if (!data.id_vehiculo) {
-            throw new Error('id_vehiculo es requerido');
+            throw AppError.validacion('id_vehiculo es requerido');
         }
 
         const vehiculo = await this.vehiculoRepo.getById(data.id_vehiculo);
         if (!vehiculo) {
-            throw new Error('Vehículo no encontrado');
+            throw AppError.noEncontrado('Vehículo no encontrado');
         }
 
         data.id_dueno_volqueta = vehiculo.dueno_id;

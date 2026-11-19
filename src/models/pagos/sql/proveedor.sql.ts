@@ -4,6 +4,7 @@ export interface ProveedorSQL {
     id: number;
     nombre: string;
     id_categoria: number;
+    tipo: string;
     contacto: string;
     telefono: string;
     ciudad: string;
@@ -11,6 +12,8 @@ export interface ProveedorSQL {
     nequi: boolean;
     compra_realizada: string;
     estado: string;
+    declarante_renta: boolean;
+    exento_retencion: boolean;
     created_at: Date;
     updated_at: Date;
 }

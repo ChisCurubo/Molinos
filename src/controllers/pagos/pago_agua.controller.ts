@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
-import { IPagoAguaService } from '../../ports/pagos/service_port/pago_agua.service.interface';
+import { IPagoAguaService } from '../../ports/pagos/service_port/pago_agua.service.interface';
+import { fail } from '../../errors/responder';
 
 export class PagoAguaController {
     constructor(private service: IPagoAguaService) {}
 
     private fail(res: Response, error: any) {
-        res.status(error?.status || 400).json({ success: false, message: error.message });
+        fail(res, error, 400);
     }
 
     // GET /pagos/agua/deuda  → dashboard: deuda por dueño (con positivos de gasolina)

@@ -15,5 +15,5 @@ export interface IProveedorService {
     getById(id: number): Promise<any | null>;
     update(id: number, data: any): Promise<any | null>;
     delete(id: number): Promise<boolean>;
-    list(filtros: { id_categoria?: number; estado?: string; q?: string }): Promise<any[]>;
+    list(filtros: { id_categoria?: number; tipo?: string; estado?: string; q?: string }): Promise<any[]>;
 }

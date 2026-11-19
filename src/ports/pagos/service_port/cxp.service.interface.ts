@@ -7,7 +7,9 @@ export interface CuentasPorPagarServiceInterface {
     obtenerCuenta(id: number): Promise<CuentaPorPagarSQL>;
     listarCuentas(): Promise<CuentaPorPagarSQL[]>;
     listarCuentasPorEstado(estado: string): Promise<CuentaPorPagarSQL[]>;
+    listarPaginado(filtros: { mes?: number; anio?: number; id_categoria?: number; estado?: string; page?: number; limit?: number }): Promise<any>;
     actualizarEstadoPago(id: number, pagoAdicional: number): Promise<boolean>;
+    registrarAbono(idCxp: number, abono: any): Promise<{ id_abono: number; estado: string; saldo: number }>;
 }
 
 // --- Original: categoria_cxp ---

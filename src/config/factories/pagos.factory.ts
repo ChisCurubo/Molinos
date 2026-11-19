@@ -1,18 +1,27 @@
 import { Pool } from 'mysql2/promise';
-import { TipoAlquilerRepository } from '../../repositories/pagos/alquiler.repository';
-import { CategoriaCxCRepository } from '../../repositories/pagos/cxc.repository';
+import { TipoAlquilerRepository, AlquilerRepository } from '../../repositories/pagos/alquiler.repository';
+import { PagoAlquilerRepository } from '../../repositories/pagos/pago_alquiler.repository';
+import { ContratoAlquilerRepository } from '../../repositories/pagos/contrato_alquiler.repository';
+import { GastoDirectoRepository } from '../../repositories/pagos/gasto_directo.repository';
+import { CategoriaCxCRepository, MySQLCuentasPorCobrarRepo } from '../../repositories/pagos/cxc.repository';
 import { MySQLCuentasPorPagarRepo, CategoriaCxPRepository } from '../../repositories/pagos/cxp.repository';
 import { TipoGastoOperativoRepository } from '../../repositories/pagos/gasto.repository';
 import { CategoriaProveedorRepository, ProveedorRepository } from '../../repositories/pagos/proveedor.repository';
 import { DeudaRepository } from '../../repositories/pagos/deuda.repository';
 import { VEstadoAlquileresRepository, VEstadoCombustibleRepository, VEstadoMulasRepository, VSaldosAFavorRepository } from '../../repositories/pagos/views/vistas.pagos.repository';
-import { TipoAlquilerService } from '../../services/pagos/alquiler.service';
-import { CategoriaCxCService } from '../../services/pagos/cxc.service';
+import { TipoAlquilerService, AlquilerService } from '../../services/pagos/alquiler.service';
+import { PagoAlquilerService } from '../../services/pagos/pago_alquiler.service';
+import { ContratoAlquilerService } from '../../services/pagos/contrato_alquiler.service';
+import { GastoDirectoService } from '../../services/pagos/gasto_directo.service';
+import { CategoriaCxCService, CuentasPorCobrarService } from '../../services/pagos/cxc.service';
 import { CuentasPorPagarService, CategoriaCxPService } from '../../services/pagos/cxp.service';
 import { TipoGastoOperativoService } from '../../services/pagos/gasto.service';
 import { CategoriaProveedorService, ProveedorService } from '../../services/pagos/proveedor.service';
-import { TipoAlquilerController } from '../../controllers/pagos/alquiler.controller';
-import { CategoriaCxCController } from '../../controllers/pagos/cxc.controller';
+import { TipoAlquilerController, AlquilerController } from '../../controllers/pagos/alquiler.controller';
+import { PagoAlquilerController } from '../../controllers/pagos/pago_alquiler.controller';
+import { ContratoAlquilerController } from '../../controllers/pagos/contrato_alquiler.controller';
+import { GastoDirectoController } from '../../controllers/pagos/gasto_directo.controller';
+import { CategoriaCxCController, CuentasPorCobrarController } from '../../controllers/pagos/cxc.controller';
 import { CuentasPorPagarController, CategoriaCxPController } from '../../controllers/pagos/cxp.controller';
 import { TipoGastoOperativoController } from '../../controllers/pagos/gasto.controller';
 import { CategoriaProveedorController, ProveedorController } from '../../controllers/pagos/proveedor.controller';
@@ -21,12 +30,21 @@ import { DeudaService } from '../../services/pagos/deuda.service';
 import { PrestamoFinancieroRepository } from '../../repositories/pagos/prestamo_financiero.repository';
 import { PrestamoFinancieroService } from '../../services/pagos/prestamo_financiero.service';
 import { PrestamoFinancieroController } from '../../controllers/pagos/prestamo_financiero.controller';
+import { IngresoTesoreriaRepository } from '../../repositories/pagos/ingreso_tesoreria.repository';
+import { IngresoTesoreriaService } from '../../services/pagos/ingreso_tesoreria.service';
+import { IngresoTesoreriaController } from '../../controllers/pagos/ingreso_tesoreria.controller';
+import { FlujoCajaRepository } from '../../repositories/pagos/flujo_caja.repository';
+import { FlujoCajaService } from '../../services/pagos/flujo_caja.service';
+import { FlujoCajaController } from '../../controllers/pagos/flujo_caja.controller';
 import { PagoMaterialRepository } from '../../repositories/pagos/pago_material.repository';
 import { PagoMaterialService } from '../../services/pagos/pago_material.service';
 import { PagoMaterialController } from '../../controllers/pagos/pago_material.controller';
 import { CombustibleRepository } from '../../repositories/pagos/combustible.repository';
 import { CombustibleService } from '../../services/pagos/combustible.service';
 import { CombustibleController } from '../../controllers/pagos/combustible.controller';
+import { PagoCombustibleRepository } from '../../repositories/pagos/pago_combustible.repository';
+import { PagoCombustibleService } from '../../services/pagos/pago_combustible.service';
+import { PagoCombustibleController } from '../../controllers/pagos/pago_combustible.controller';
 import { PagoFleteRepository } from '../../repositories/pagos/pago_flete.repository';
 import { PagoFleteService } from '../../services/pagos/pago_flete.service';
 import { PagoFleteController } from '../../controllers/pagos/pago_flete.controller';
@@ -39,13 +57,27 @@ import { AnticipoController } from '../../controllers/pagos/anticipo.controller'
 import { PagoMulaRepository } from '../../repositories/pagos/pago_mula.repository';
 import { PagoMulaService } from '../../services/pagos/pago_mula.service';
 import { PagoMulaController } from '../../controllers/pagos/pago_mula.controller';
+import { CuentaBancariaRepository } from '../../repositories/pagos/cuenta_bancaria.repository';
+import { CuentaBancariaService } from '../../services/pagos/cuenta_bancaria.service';
+import { CuentaBancariaController } from '../../controllers/pagos/cuenta_bancaria.controller';
+import { ImpuestoRepository } from '../../repositories/pagos/impuesto.repository';
+import { ImpuestoService } from '../../services/pagos/impuesto.service';
+import { ImpuestoController } from '../../controllers/pagos/impuesto.controller';
+import { RetencionRepository } from '../../repositories/pagos/retencion.repository';
+import { RetencionService } from '../../services/pagos/retencion.service';
+import { RetencionController } from '../../controllers/pagos/retencion.controller';
 
 export class PagosFactory {
     constructor(private db: Pool) {}
 
     // ==========================================
     private tipoAlquilerRepository?: TipoAlquilerRepository;
+    private alquilerRepository?: AlquilerRepository;
+    private pagoAlquilerRepository?: PagoAlquilerRepository;
+    private contratoAlquilerRepository?: ContratoAlquilerRepository;
+    private gastoDirectoRepository?: GastoDirectoRepository;
     private categoriaCxCRepository?: CategoriaCxCRepository;
+    private cuentasPorCobrarRepository?: MySQLCuentasPorCobrarRepo;
     private cuentasPorPagarRepository?: MySQLCuentasPorPagarRepo;
     private categoriaCxPRepository?: CategoriaCxPRepository;
     private tipoGastoOperativoRepository?: TipoGastoOperativoRepository;
@@ -58,7 +90,12 @@ export class PagosFactory {
     private vSaldosAFavorRepository?: VSaldosAFavorRepository;
 
     private tipoAlquilerService?: TipoAlquilerService;
+    private alquilerService?: AlquilerService;
+    private pagoAlquilerService?: PagoAlquilerService;
+    private contratoAlquilerService?: ContratoAlquilerService;
+    private gastoDirectoService?: GastoDirectoService;
     private categoriaCxCService?: CategoriaCxCService;
+    private cuentasPorCobrarService?: CuentasPorCobrarService;
     private cuentasPorPagarService?: CuentasPorPagarService;
     private categoriaCxPService?: CategoriaCxPService;
     private tipoGastoOperativoService?: TipoGastoOperativoService;
@@ -66,7 +103,12 @@ export class PagosFactory {
     private proveedorService?: ProveedorService;
 
     private tipoAlquilerController?: TipoAlquilerController;
+    private alquilerController?: AlquilerController;
+    private pagoAlquilerController?: PagoAlquilerController;
+    private contratoAlquilerController?: ContratoAlquilerController;
+    private gastoDirectoController?: GastoDirectoController;
     private categoriaCxCController?: CategoriaCxCController;
+    private cuentasPorCobrarController?: CuentasPorCobrarController;
     private cuentasPorPagarController?: CuentasPorPagarController;
     private categoriaCxPController?: CategoriaCxPController;
     private tipoGastoOperativoController?: TipoGastoOperativoController;
@@ -77,12 +119,21 @@ export class PagosFactory {
     private prestamoFinancieroRepository?: PrestamoFinancieroRepository;
     private prestamoFinancieroService?: PrestamoFinancieroService;
     private prestamoFinancieroController?: PrestamoFinancieroController;
+    private ingresoTesoreriaRepository?: IngresoTesoreriaRepository;
+    private ingresoTesoreriaService?: IngresoTesoreriaService;
+    private ingresoTesoreriaController?: IngresoTesoreriaController;
+    private flujoCajaRepository?: FlujoCajaRepository;
+    private flujoCajaService?: FlujoCajaService;
+    private flujoCajaController?: FlujoCajaController;
     private pagoMaterialRepository?: PagoMaterialRepository;
     private pagoMaterialService?: PagoMaterialService;
     private pagoMaterialController?: PagoMaterialController;
     private combustibleRepository?: CombustibleRepository;
     private combustibleService?: CombustibleService;
     private combustibleController?: CombustibleController;
+    private pagoCombustibleRepository?: PagoCombustibleRepository;
+    private pagoCombustibleService?: PagoCombustibleService;
+    private pagoCombustibleController?: PagoCombustibleController;
     private pagoFleteRepository?: PagoFleteRepository;
     private pagoFleteService?: PagoFleteService;
     private pagoFleteController?: PagoFleteController;
@@ -95,10 +146,39 @@ export class PagosFactory {
     private pagoMulaRepository?: PagoMulaRepository;
     private pagoMulaService?: PagoMulaService;
     private pagoMulaController?: PagoMulaController;
+    private cuentaBancariaRepository?: CuentaBancariaRepository;
+    private cuentaBancariaService?: CuentaBancariaService;
+    private cuentaBancariaController?: CuentaBancariaController;
+    private impuestoRepository?: ImpuestoRepository;
+    private impuestoService?: ImpuestoService;
+    private impuestoController?: ImpuestoController;
+    private retencionRepository?: RetencionRepository;
+    private retencionService?: RetencionService;
+    private retencionController?: RetencionController;
 
     public getTipoAlquilerRepository(): TipoAlquilerRepository {
         if (!this.tipoAlquilerRepository) this.tipoAlquilerRepository = new TipoAlquilerRepository(this.db);
         return this.tipoAlquilerRepository;
+    }
+
+    public getAlquilerRepository(): AlquilerRepository {
+        if (!this.alquilerRepository) this.alquilerRepository = new AlquilerRepository(this.db);
+        return this.alquilerRepository;
+    }
+
+    public getPagoAlquilerRepository(): PagoAlquilerRepository {
+        if (!this.pagoAlquilerRepository) this.pagoAlquilerRepository = new PagoAlquilerRepository(this.db);
+        return this.pagoAlquilerRepository;
+    }
+
+    public getContratoAlquilerRepository(): ContratoAlquilerRepository {
+        if (!this.contratoAlquilerRepository) this.contratoAlquilerRepository = new ContratoAlquilerRepository(this.db);
+        return this.contratoAlquilerRepository;
+    }
+
+    public getGastoDirectoRepository(): GastoDirectoRepository {
+        if (!this.gastoDirectoRepository) this.gastoDirectoRepository = new GastoDirectoRepository(this.db);
+        return this.gastoDirectoRepository;
     }
 
     public getCategoriaCxCRepository(): CategoriaCxCRepository {
@@ -109,6 +189,11 @@ export class PagosFactory {
     public getCuentasPorPagarRepository(): MySQLCuentasPorPagarRepo {
         if (!this.cuentasPorPagarRepository) this.cuentasPorPagarRepository = new MySQLCuentasPorPagarRepo(this.db);
         return this.cuentasPorPagarRepository;
+    }
+
+    public getCuentasPorCobrarRepository(): MySQLCuentasPorCobrarRepo {
+        if (!this.cuentasPorCobrarRepository) this.cuentasPorCobrarRepository = new MySQLCuentasPorCobrarRepo(this.db);
+        return this.cuentasPorCobrarRepository;
     }
 
     public getCategoriaCxPRepository(): CategoriaCxPRepository {
@@ -161,6 +246,26 @@ export class PagosFactory {
         return this.tipoAlquilerService;
     }
 
+    public getAlquilerService(): AlquilerService {
+        if (!this.alquilerService) this.alquilerService = new AlquilerService(this.getAlquilerRepository());
+        return this.alquilerService;
+    }
+
+    public getPagoAlquilerService(): PagoAlquilerService {
+        if (!this.pagoAlquilerService) this.pagoAlquilerService = new PagoAlquilerService(this.getPagoAlquilerRepository(), this.db);
+        return this.pagoAlquilerService;
+    }
+
+    public getContratoAlquilerService(): ContratoAlquilerService {
+        if (!this.contratoAlquilerService) this.contratoAlquilerService = new ContratoAlquilerService(this.getContratoAlquilerRepository(), this.db);
+        return this.contratoAlquilerService;
+    }
+
+    public getGastoDirectoService(): GastoDirectoService {
+        if (!this.gastoDirectoService) this.gastoDirectoService = new GastoDirectoService(this.getGastoDirectoRepository());
+        return this.gastoDirectoService;
+    }
+
     public getCategoriaCxCService(): CategoriaCxCService {
         if (!this.categoriaCxCService) this.categoriaCxCService = new CategoriaCxCService(this.getCategoriaCxCRepository());
         return this.categoriaCxCService;
@@ -169,6 +274,11 @@ export class PagosFactory {
     public getCuentasPorPagarService(): CuentasPorPagarService {
         if (!this.cuentasPorPagarService) this.cuentasPorPagarService = new CuentasPorPagarService(this.getCuentasPorPagarRepository());
         return this.cuentasPorPagarService;
+    }
+
+    public getCuentasPorCobrarService(): CuentasPorCobrarService {
+        if (!this.cuentasPorCobrarService) this.cuentasPorCobrarService = new CuentasPorCobrarService(this.getCuentasPorCobrarRepository(), this.db);
+        return this.cuentasPorCobrarService;
     }
 
     public getCategoriaCxPService(): CategoriaCxPService {
@@ -196,6 +306,26 @@ export class PagosFactory {
         return this.tipoAlquilerController;
     }
 
+    public getAlquilerController(): AlquilerController {
+        if (!this.alquilerController) this.alquilerController = new AlquilerController(this.getAlquilerService());
+        return this.alquilerController;
+    }
+
+    public getPagoAlquilerController(): PagoAlquilerController {
+        if (!this.pagoAlquilerController) this.pagoAlquilerController = new PagoAlquilerController(this.getPagoAlquilerService());
+        return this.pagoAlquilerController;
+    }
+
+    public getContratoAlquilerController(): ContratoAlquilerController {
+        if (!this.contratoAlquilerController) this.contratoAlquilerController = new ContratoAlquilerController(this.getContratoAlquilerService());
+        return this.contratoAlquilerController;
+    }
+
+    public getGastoDirectoController(): GastoDirectoController {
+        if (!this.gastoDirectoController) this.gastoDirectoController = new GastoDirectoController(this.getGastoDirectoService());
+        return this.gastoDirectoController;
+    }
+
     public getCategoriaCxCController(): CategoriaCxCController {
         if (!this.categoriaCxCController) this.categoriaCxCController = new CategoriaCxCController(this.getCategoriaCxCService());
         return this.categoriaCxCController;
@@ -204,6 +334,11 @@ export class PagosFactory {
     public getCuentasPorPagarController(): CuentasPorPagarController {
         if (!this.cuentasPorPagarController) this.cuentasPorPagarController = new CuentasPorPagarController(this.getCuentasPorPagarService());
         return this.cuentasPorPagarController;
+    }
+
+    public getCuentasPorCobrarController(): CuentasPorCobrarController {
+        if (!this.cuentasPorCobrarController) this.cuentasPorCobrarController = new CuentasPorCobrarController(this.getCuentasPorCobrarService());
+        return this.cuentasPorCobrarController;
     }
 
     public getCategoriaCxPController(): CategoriaCxPController {
@@ -249,13 +384,44 @@ export class PagosFactory {
     }
 
     public getPrestamoFinancieroService(): PrestamoFinancieroService {
-        if (!this.prestamoFinancieroService) this.prestamoFinancieroService = new PrestamoFinancieroService(this.getPrestamoFinancieroRepository());
+        if (!this.prestamoFinancieroService) this.prestamoFinancieroService = new PrestamoFinancieroService(this.getPrestamoFinancieroRepository(), this.db);
         return this.prestamoFinancieroService;
     }
 
     public getPrestamoFinancieroController(): PrestamoFinancieroController {
         if (!this.prestamoFinancieroController) this.prestamoFinancieroController = new PrestamoFinancieroController(this.getPrestamoFinancieroService());
         return this.prestamoFinancieroController;
+    }
+
+    // ===== Tesorería: ingresos + flujo de caja =====
+    public getIngresoTesoreriaRepository(): IngresoTesoreriaRepository {
+        if (!this.ingresoTesoreriaRepository) this.ingresoTesoreriaRepository = new IngresoTesoreriaRepository(this.db);
+        return this.ingresoTesoreriaRepository;
+    }
+
+    public getIngresoTesoreriaService(): IngresoTesoreriaService {
+        if (!this.ingresoTesoreriaService) this.ingresoTesoreriaService = new IngresoTesoreriaService(this.getIngresoTesoreriaRepository());
+        return this.ingresoTesoreriaService;
+    }
+
+    public getIngresoTesoreriaController(): IngresoTesoreriaController {
+        if (!this.ingresoTesoreriaController) this.ingresoTesoreriaController = new IngresoTesoreriaController(this.getIngresoTesoreriaService());
+        return this.ingresoTesoreriaController;
+    }
+
+    public getFlujoCajaRepository(): FlujoCajaRepository {
+        if (!this.flujoCajaRepository) this.flujoCajaRepository = new FlujoCajaRepository(this.db);
+        return this.flujoCajaRepository;
+    }
+
+    public getFlujoCajaService(): FlujoCajaService {
+        if (!this.flujoCajaService) this.flujoCajaService = new FlujoCajaService(this.getFlujoCajaRepository());
+        return this.flujoCajaService;
+    }
+
+    public getFlujoCajaController(): FlujoCajaController {
+        if (!this.flujoCajaController) this.flujoCajaController = new FlujoCajaController(this.getFlujoCajaService());
+        return this.flujoCajaController;
     }
 
     // ===== Pago agrupado de material (CxP + abonos) =====
@@ -288,6 +454,24 @@ export class PagosFactory {
     public getCombustibleController(): CombustibleController {
         if (!this.combustibleController) this.combustibleController = new CombustibleController(this.getCombustibleService());
         return this.combustibleController;
+    }
+
+    // ===== Pago de combustible a la gasolinera (CxP por mes + abonos en cascada) =====
+    public getPagoCombustibleRepository(): PagoCombustibleRepository {
+        if (!this.pagoCombustibleRepository) this.pagoCombustibleRepository = new PagoCombustibleRepository(this.db);
+        return this.pagoCombustibleRepository;
+    }
+
+    public getPagoCombustibleService(): PagoCombustibleService {
+        if (!this.pagoCombustibleService) this.pagoCombustibleService = new PagoCombustibleService(
+            this.getPagoCombustibleRepository(), this.db
+        );
+        return this.pagoCombustibleService;
+    }
+
+    public getPagoCombustibleController(): PagoCombustibleController {
+        if (!this.pagoCombustibleController) this.pagoCombustibleController = new PagoCombustibleController(this.getPagoCombustibleService());
+        return this.pagoCombustibleController;
     }
 
     // ===== Pago de flete al dueño (CxP por mes + abonos en cascada) =====
@@ -354,5 +538,52 @@ export class PagosFactory {
     public getPagoMulaController(): PagoMulaController {
         if (!this.pagoMulaController) this.pagoMulaController = new PagoMulaController(this.getPagoMulaService());
         return this.pagoMulaController;
+    }
+
+    // ===== Cuentas Bancarias + Impuestos (4x1000) =====
+    public getCuentaBancariaRepository(): CuentaBancariaRepository {
+        if (!this.cuentaBancariaRepository) this.cuentaBancariaRepository = new CuentaBancariaRepository(this.db);
+        return this.cuentaBancariaRepository;
+    }
+
+    public getCuentaBancariaService(): CuentaBancariaService {
+        if (!this.cuentaBancariaService) this.cuentaBancariaService = new CuentaBancariaService(this.getCuentaBancariaRepository());
+        return this.cuentaBancariaService;
+    }
+
+    public getCuentaBancariaController(): CuentaBancariaController {
+        if (!this.cuentaBancariaController) this.cuentaBancariaController = new CuentaBancariaController(this.getCuentaBancariaService());
+        return this.cuentaBancariaController;
+    }
+
+    public getImpuestoRepository(): ImpuestoRepository {
+        if (!this.impuestoRepository) this.impuestoRepository = new ImpuestoRepository(this.db);
+        return this.impuestoRepository;
+    }
+
+    public getImpuestoService(): ImpuestoService {
+        if (!this.impuestoService) this.impuestoService = new ImpuestoService(this.getImpuestoRepository());
+        return this.impuestoService;
+    }
+
+    public getImpuestoController(): ImpuestoController {
+        if (!this.impuestoController) this.impuestoController = new ImpuestoController(this.getImpuestoService());
+        return this.impuestoController;
+    }
+
+    // ===== Retención en la fuente (Fase 1: Mulas y Alquiler) =====
+    public getRetencionRepository(): RetencionRepository {
+        if (!this.retencionRepository) this.retencionRepository = new RetencionRepository(this.db);
+        return this.retencionRepository;
+    }
+
+    public getRetencionService(): RetencionService {
+        if (!this.retencionService) this.retencionService = new RetencionService(this.getRetencionRepository(), this.db);
+        return this.retencionService;
+    }
+
+    public getRetencionController(): RetencionController {
+        if (!this.retencionController) this.retencionController = new RetencionController(this.getRetencionService());
+        return this.retencionController;
     }
 }

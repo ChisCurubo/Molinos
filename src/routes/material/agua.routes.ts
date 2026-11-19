@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { AguaPlantaController } from '../../controllers/material/agua.controller';
 import { factory } from '../../config/factory';
 
+import { upComprobante } from '../../helpers/upload.middleware';
 const router = Router();
 const controller = factory.material.getAguaPlantaController();
 
@@ -50,7 +51,7 @@ const controller = factory.material.getAguaPlantaController();
  *         description: Viaje de agua registrado
  *           
  */
-router.post('/', controller.registrar);
+router.post('/', upComprobante, controller.registrar);
 
 /**
  * @swagger
@@ -191,7 +192,7 @@ router.get('/:id', controller.obtener);
  *       200:
  *         description: Viaje de agua actualizado
  */
-router.put('/:id', controller.actualizar);
+router.put('/:id', upComprobante, controller.actualizar);
 
 /**
  * @swagger

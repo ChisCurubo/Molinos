@@ -9,7 +9,8 @@ import { ITarifaCalculoRepository } from '../../ports/material/repository_port/m
 import { ProveedorSQL } from '../../models/pagos/sql/proveedor.sql';
 import { IProveedorRepository, IMaterialEntradaRepository } from '../../ports/material/repository_port/material.repository.interface';
 import { HttpError } from '../../helpers/http_error';
-
+
+import { ident } from '../../helpers/sql.helper';
 // --- Original: material_planta_entrada ---
 export class MaterialEntradaRepository implements IMaterialEntradaRepository {
   constructor(private db: Pool) {}
@@ -497,7 +498,7 @@ export class MaterialEntradaRepository implements IMaterialEntradaRepository {
     const values: any[] = [];
     for (const [key, value] of Object.entries(campos)) {
       if (value !== undefined) {
-        fields.push(`${key} = ?`);
+        fields.push(`${ident(key)} = ?`);
         values.push(value);
       }
     }
@@ -563,7 +564,7 @@ export class TipoMaterialRepository implements ITipoMaterialRepository {
         const placeholders = fields.map(() => '?').join(', ');
 
         const [result] = await this.db.query<ResultSetHeader>(
-            `INSERT INTO Tipos_Material (${fields.join(', ')}) VALUES (${placeholders})`,
+            `INSERT INTO Tipos_Material (${fields.map(ident).join(', ')}) VALUES (${placeholders})`,
             values
         );
         return result.insertId;
@@ -581,7 +582,7 @@ export class TipoMaterialRepository implements ITipoMaterialRepository {
 
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }
@@ -648,7 +649,7 @@ export class PrecioMaterialRepository implements IPrecioMaterialRepository {
 
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }
@@ -841,7 +842,7 @@ export class TarifaCalculoRepository implements ITarifaCalculoRepository {
         const placeholders = fields.map(() => '?').join(', ');
 
         const [result] = await this.db.query<ResultSetHeader>(
-            `INSERT INTO Tarifas_Calculo (${fields.join(', ')}) VALUES (${placeholders})`,
+            `INSERT INTO Tarifas_Calculo (${fields.map(ident).join(', ')}) VALUES (${placeholders})`,
             values
         );
         return result.insertId;
@@ -859,7 +860,7 @@ export class TarifaCalculoRepository implements ITarifaCalculoRepository {
 
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }
@@ -912,7 +913,7 @@ export class ProveedorRepository implements IProveedorRepository {
         const placeholders = fields.map(() => '?').join(', ');
 
         const [result] = await this.db.query<ResultSetHeader>(
-            `INSERT INTO Proveedores (${fields.join(', ')}) VALUES (${placeholders})`,
+            `INSERT INTO Proveedores (${fields.map(ident).join(', ')}) VALUES (${placeholders})`,
             values
         );
         return result.insertId;
@@ -930,7 +931,7 @@ export class ProveedorRepository implements IProveedorRepository {
 
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }

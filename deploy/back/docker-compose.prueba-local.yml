@@ -1,0 +1,20 @@
+# SOLO PRUEBAS LOCALES (Docker Desktop): no usar en el servidor. Prueba el modo oracle contra TU MySQL local.
+# Uso (desde la raíz del repo, con DB_USER/DB_PASSWORD en tu .env):
+#   docker compose --env-file .env -f deploy/back/docker-compose.yml -f deploy/back/docker-compose.prueba-local.yml up --build -d
+name: molinos-back
+services:
+  minio:
+    environment:
+      MINIO_ROOT_USER: prueba-admin
+      MINIO_ROOT_PASSWORD: prueba-clave-12345
+  api:
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    environment:
+      DB_HOST: host.docker.internal
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-prueba}   # el modo oracle exige clave no vacía: pon la tuya en .env
+      DB_SSL: "false"
+      COOKIE_SECURE: "false"
+      JWT_SECRET: prueba-local-jwt-secret-solo-para-pruebas-0123456789
+      MINIO_ACCESS_KEY: prueba-admin
+      MINIO_SECRET_KEY: prueba-clave-12345

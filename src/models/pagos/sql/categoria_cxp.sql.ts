@@ -5,4 +5,6 @@ export interface CategoriaCxpSQL {
     nombre: string;
     descripcion: string;
     color: string;
+    id_concepto_retencion?: number;
+    id_concepto_reteiva?: number;
 }

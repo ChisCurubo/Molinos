@@ -5,6 +5,7 @@ import { PoolConnection } from 'mysql2/promise';
 export interface CrearCombustibleDTO {
     id_gasolinera?: number | null;
     tipo_consumo?: string;            // por defecto 'vehiculo'
+    forma_pago?: string;              // 'efectivo' | 'credito', por defecto 'credito'
     id_dueno_volqueta?: number | null;
     id_vehiculo?: number | null;
     id_planta?: number | null;
@@ -22,6 +23,7 @@ export interface CombustibleRow {
     id_gasolinera: number | null;
     gasolinera: string | null;
     tipo_consumo: string;
+    forma_pago: string;
     id_dueno_volqueta: number | null;
     dueno_volqueta: string | null;
     id_vehiculo: number | null;
@@ -34,6 +36,9 @@ export interface CombustibleRow {
     valor: number;
     comprobante_url: string | null;
     created_at: string;
+    estado_pago: string;       // pendiente | parcial | pagado (efectivo siempre 'pagado')
+    total_pagado: number;
+    saldo_pendiente: number;
 }
 
 // Flete de una entrada con su ACPM (para la cascada de arrastre por dueño).
@@ -46,12 +51,45 @@ export interface FleteConAcpmRow {
     acpm: number;             // Σ Combustible de la entrada (tipo vehiculo)
 }
 
+// Agregado mensual de combustible (para el resumen y los KPIs).
+export interface ResumenMensualCombustibleRow {
+    periodo: string;             // 'YYYY-MM'
+    cantidad: number;
+    total: number;
+    total_efectivo: number;      // ya resuelto (adelantos / caja menor)
+    total_credito: number;       // pendiente de agrupar a la gasolinera
+    total_vehiculo: number;
+    total_planta: number;
+    total_maquinaria: number;
+    total_otro: number;
+}
+
+export interface TopGasolineraRow {
+    id_gasolinera: number;
+    gasolinera: string | null;
+    total: number;
+    cantidad: number;
+}
+
+export interface TopDuenoAdelantoRow {
+    id_dueno_volqueta: number;
+    dueno_volqueta: string | null;
+    total_adelantado: number;
+    cantidad: number;
+}
+
 export interface ICombustibleRepository {
     // --- Escritura (transaccional) ---
     crear(data: CrearCombustibleDTO, conn?: PoolConnection): Promise<number>;
     actualizarValor(id: number, valor: number, comprobante_url: string | null | undefined, conn?: PoolConnection): Promise<void>;
     eliminarPorEntrada(idEntrada: number, conn?: PoolConnection): Promise<void>;
     eliminarPorAgua(idAgua: number, conn?: PoolConnection): Promise<void>;
+
+    // --- Registro manual (tanqueos de planta/maquinaria/vehículo no atados a un viaje) ---
+    actualizar(id: number, data: Partial<CrearCombustibleDTO>): Promise<void>;
+    eliminar(id: number): Promise<void>;
+    // ¿Ya está agrupado en una Cuenta_Por_Pagar (módulo de pago a la gasolinera)?
+    estadoCxpDeCombustible(id: number, conn?: PoolConnection): Promise<{ materializado: boolean; abonado: number }>;
 
     // --- Sincronización (el ACPM de flete/agua es 1 fila 'vehiculo' por origen) ---
     // Devuelve la fila 'vehiculo' de ACPM de una entrada de material, si existe (para editar/borrar).
@@ -67,6 +105,11 @@ export interface ICombustibleRepository {
     fletesConAcpmPorDueno(idDueno: number, conn?: PoolConnection): Promise<FleteConAcpmRow[]>;
 
     // --- Listados (base para la futura CxP a la gasolinera) ---
-    listar(filtros: { desde?: string; hasta?: string; id_gasolinera?: number; id_dueno_volqueta?: number; tipo_consumo?: string }): Promise<CombustibleRow[]>;
+    listar(filtros: { desde?: string; hasta?: string; id_gasolinera?: number; id_dueno_volqueta?: number; tipo_consumo?: string; forma_pago?: string }): Promise<CombustibleRow[]>;
     obtenerPorId(id: number): Promise<CombustibleRow | null>;
+
+    // --- Reportes / KPIs ---
+    resumenMensual(filtros: { anio?: number; forma_pago?: string; tipo_consumo?: string }): Promise<ResumenMensualCombustibleRow[]>;
+    topGasolinerasPorValor(limite: number): Promise<TopGasolineraRow[]>;
+    topDuenosPorAdelanto(limite: number): Promise<TopDuenoAdelantoRow[]>;
 }
