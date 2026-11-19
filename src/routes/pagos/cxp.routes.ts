@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { factory } from '../../config/factory';
 
+import { upComprobante } from '../../helpers/upload.middleware';
+import { validarDinero } from '../../helpers/validar.middleware';
 const router = Router();
 
 // Init CxP
@@ -11,6 +13,7 @@ const categoriaCxpController = factory.pagos.getCategoriaCxPController();
 router.get('/mensual', cxpController.listarMensual.bind(cxpController));
 router.post('/', cxpController.registrar.bind(cxpController));
 router.get('/', cxpController.listar.bind(cxpController));
+router.post('/:id/abonos', upComprobante, validarDinero, cxpController.abonar.bind(cxpController));
 router.post('/:id/pagar', cxpController.pagar.bind(cxpController));
 
 // CxP Categorias

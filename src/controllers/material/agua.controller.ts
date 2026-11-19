@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
-import { IAguaPlantaService } from '../../ports/material/service_port/agua.service.interface';
+import { IAguaPlantaService } from '../../ports/material/service_port/agua.service.interface';
+import { fail } from '../../errors/responder';
+import { AppError } from '../../errors/app-error';
 
 export class AguaPlantaController {
     private service: IAguaPlantaService;
@@ -13,7 +15,7 @@ export class AguaPlantaController {
             const id = await this.service.registrar(req.body);
             res.status(201).json({ success: true, message: 'Viaje de agua registrado', data: { id } });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+            fail(res, error);
         }
     };
     public actualizar = async (req: Request, res: Response): Promise<void> => {
@@ -22,10 +24,10 @@ export class AguaPlantaController {
             if (success) {
                 res.status(200).json({ success: true, message: 'Viaje de agua actualizado' });
             } else {
-                res.status(404).json({ success: false, message: 'Viaje de agua no encontrado' });
+                fail(res, AppError.http(404, 'Viaje de agua no encontrado'));
             }
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+            fail(res, error);
         }
     };
 
@@ -33,17 +35,17 @@ export class AguaPlantaController {
         try {
             const id = Number(req.params.id);
             if (!id) {
-                res.status(400).json({ success: false, message: 'ID inválido' });
+                fail(res, AppError.http(400, 'ID inválido'));
                 return;
             }
             const ok = await this.service.eliminar(id);
             if (ok) {
                 res.status(200).json({ success: true, message: 'Viaje de agua eliminado' });
             } else {
-                res.status(404).json({ success: false, message: 'Viaje de agua no encontrado' });
+                fail(res, AppError.http(404, 'Viaje de agua no encontrado'));
             }
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+            fail(res, error);
         }
     };
 
@@ -51,13 +53,13 @@ export class AguaPlantaController {
         try {
             const { desde, hasta } = req.query;
             if (!desde || !hasta) {
-                res.status(400).json({ success: false, message: 'Se requieren fechas desde y hasta' });
+                fail(res, AppError.http(400, 'Se requieren fechas desde y hasta'));
                 return;
             }
             const viajes = await this.service.listar(desde as string, hasta as string);
             res.status(200).json({ success: true, data: viajes });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+            fail(res, error);
         }
     };
 
@@ -65,13 +67,13 @@ export class AguaPlantaController {
         try {
             const { desde, hasta } = req.query;
             if (!desde || !hasta) {
-                res.status(400).json({ success: false, message: 'Se requieren fechas desde y hasta' });
+                fail(res, AppError.http(400, 'Se requieren fechas desde y hasta'));
                 return;
             }
             const resumen = await this.service.resumenPorDueno(desde as string, hasta as string);
             res.status(200).json({ success: true, data: resumen });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+            fail(res, error);
         }
     };
 
@@ -79,17 +81,17 @@ export class AguaPlantaController {
         try {
             const id = Number(req.params.id);
             if (!id) {
-                res.status(400).json({ success: false, message: 'ID inválido' });
+                fail(res, AppError.http(400, 'ID inválido'));
                 return;
             }
             const viaje = await this.service.obtenerPorId(id);
             if (!viaje) {
-                res.status(404).json({ success: false, message: 'Viaje de agua no encontrado' });
+                fail(res, AppError.http(404, 'Viaje de agua no encontrado'));
                 return;
             }
             res.status(200).json({ success: true, data: viaje });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+            fail(res, error);
         }
     };
 
@@ -103,7 +105,7 @@ export class AguaPlantaController {
                 const m = Number(mes);
                 const a = Number(anio);
                 if (m < 1 || m > 12 || !a) {
-                    res.status(400).json({ success: false, message: 'mes (1-12) y anio válidos requeridos' });
+                    fail(res, AppError.http(400, 'mes (1-12) y anio válidos requeridos'));
                     return;
                 }
                 const ultimoDia = new Date(a, m, 0).getDate();
@@ -113,14 +115,14 @@ export class AguaPlantaController {
             }
 
             if (!desde || !hasta) {
-                res.status(400).json({ success: false, message: 'Se requieren fechas desde y hasta (o mes y anio)' });
+                fail(res, AppError.http(400, 'Se requieren fechas desde y hasta (o mes y anio)'));
                 return;
             }
 
             const reporte = await this.service.reporteMensual(desde, hasta);
             res.status(200).json({ success: true, data: reporte });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+            fail(res, error);
         }
     };
 
@@ -128,7 +130,7 @@ export class AguaPlantaController {
         try {
             const idDueno = Number(req.params.id_dueno);
             if (!idDueno) {
-                res.status(400).json({ success: false, message: 'ID de dueño inválido' });
+                fail(res, AppError.http(400, 'ID de dueño inválido'));
                 return;
             }
             const viajes = await this.service.listarPorDueno(idDueno);
@@ -142,7 +144,7 @@ export class AguaPlantaController {
                 } 
             });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+            fail(res, error);
         }
     };
 }

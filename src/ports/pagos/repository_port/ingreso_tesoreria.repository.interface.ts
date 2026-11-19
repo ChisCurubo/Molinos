@@ -3,6 +3,7 @@ import { CategoriaIngresoSQL, IngresoTesoreriaSQL } from '../../../models/pagos/
 
 export interface FiltrosIngresoTesoreria {
     id_categoria?: number;
+    id_cuenta_bancaria?: number;
     desde?: string;
     hasta?: string;
 }

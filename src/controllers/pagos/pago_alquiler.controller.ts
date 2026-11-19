@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
 import { IPagoAlquilerService } from '../../ports/pagos/service_port/pago_alquiler.service.interface';
+import { fail } from '../../errors/responder';
 
 export class PagoAlquilerController {
     constructor(private service: IPagoAlquilerService) {}
 
     private fail(res: Response, error: any) {
-        res.status(error?.status || 400).json({ success: false, message: error.message });
+        fail(res, error, 400);
     }
 
     // GET /pagos/alquileres/:id/estado-pago  → saldo, estado y abonos de ese alquiler

@@ -1,8 +1,10 @@
+import { AppError } from '../../errors/app-error';
 import { Request, Response } from 'express';
 import { IInventarioService } from '../../ports/material/inventario.interface';
+import { fail } from '../../errors/responder';
 
 const ok = (res: Response, data: any) => res.status(200).json({ success: true, data });
-const err = (res: Response, e: any, status = 500) => res.status(status).json({ success: false, error: e.message || String(e) });
+const err = (res: Response, e: any, status = 500) => fail(res, e, status);
 
 export class InventarioController {
     constructor(private service: IInventarioService) {}
@@ -35,7 +37,7 @@ export class InventarioController {
         try {
             const idLote = parseInt(req.params.id as string);
             if (isNaN(idLote)) {
-                err(res, new Error('ID de lote inválido'), 400);
+                err(res, AppError.peticionInvalida('ID de lote inválido'));
                 return;
             }
             ok(res, await this.service.obtenerResumenLote(idLote));

@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
-import { IAnticipoService } from '../../ports/pagos/service_port/anticipo.service.interface';
+import { IAnticipoService } from '../../ports/pagos/service_port/anticipo.service.interface';
+import { fail } from '../../errors/responder';
 
 export class AnticipoController {
     constructor(private service: IAnticipoService) {}
 
     private fail(res: Response, error: any) {
-        res.status(error?.status || 400).json({ success: false, message: error.message });
+        fail(res, error, 400);
     }
 
     // POST /pagos/anticipos  { tercero, id, monto, comprobante_url, fecha?, metodo_pago?, descripcion?, observaciones? }

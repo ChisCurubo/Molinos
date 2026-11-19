@@ -1,9 +1,13 @@
 import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { aplicarImpuesto4x1000 } from './impuesto.repository';
 import { CuentasPorPagarRepositoryInterface } from '../../ports/pagos/repository_port/cxp.repository.interface';
 import { CuentaPorPagarSQL } from '../../models/pagos/sql/cuenta_por_pagar.sql';
 import { CategoriaCxpSQL } from '../../models/pagos/sql/categoria_cxp.sql';
 import { ICategoriaCxPRepository } from '../../ports/pagos/repository_port/cxp.repository.interface';
 
+
+import { ident } from '../../helpers/sql.helper';
+import { AppError } from '../../errors/app-error';
 // --- Original: cuentas_por_pagar ---
 export class MySQLCuentasPorPagarRepo implements CuentasPorPagarRepositoryInterface {
     constructor(private pool: Pool) {}
@@ -21,6 +25,51 @@ export class MySQLCuentasPorPagarRepo implements CuentasPorPagarRepositoryInterf
         ];
         const [result] = await this.pool.execute<ResultSetHeader>(query, values);
         return { id: result.insertId, ...cuenta } as CuentaPorPagarSQL;
+    }
+
+    /**
+     * Abono a una CxP de nómina, bono o préstamo de empleado (las que no tienen módulo propio de pago).
+     * Una sola transacción: bloquea la cuenta, valida que no se pague de más, inserta el abono con su
+     * comprobante, aplica 4x1000 y recalcula valor_pagado/estado (la retención cuenta como pagada).
+     */
+    async registrarAbono(idCxp: number, a: any): Promise<{ id_abono: number; estado: string; saldo: number }> {
+        const conn = await this.pool.getConnection();
+        try {
+            await conn.beginTransaction();
+            const [rows] = await conn.execute<RowDataPacket[]>(
+                `SELECT cp.id, cp.estado, cp.valor_total, cp.valor_pagado, cp.valor_retenido, cat.nombre AS categoria
+                 FROM Cuentas_Por_Pagar cp JOIN Categorias_CxP cat ON cat.id = cp.id_categoria
+                 WHERE cp.id = ? AND cp.deleted_at IS NULL FOR UPDATE`, [idCxp]);
+            const cp = rows[0];
+            if (!cp) throw AppError.noEncontrado('Cuenta por pagar no encontrada');
+            if (!['Nómina', 'Bono empleado', 'Préstamo empleado'].includes(cp.categoria))
+                throw AppError.reglaNegocio(`La categoría "${cp.categoria}" se paga desde su propio módulo`);
+            if (cp.estado === 'anulado') throw AppError.reglaNegocio('La cuenta está anulada');
+            const valor = Number(a.valor);
+            if (!(valor > 0)) throw AppError.validacion('valor debe ser mayor a 0');
+            const saldo = Number(cp.valor_total) - Number(cp.valor_pagado);
+            if (valor > saldo + 0.005) throw AppError.reglaNegocio(`El abono (${valor}) supera el saldo pendiente (${saldo})`);
+
+            const fecha = a.fecha_abono || new Date().toISOString().slice(0, 10);
+            const [r] = await conn.execute<ResultSetHeader>(
+                `INSERT INTO Abonos_CxP (id_cuenta_pagar, fecha_abono, valor, metodo_pago, comprobante_url, observaciones, id_cuenta_bancaria)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [idCxp, fecha, valor, a.metodo_pago || 'transferencia', a.comprobante_url ?? null, a.observaciones ?? null, a.id_cuenta_bancaria ?? null]);
+            await aplicarImpuesto4x1000(conn, { id_abono_cxp: r.insertId, id_cuenta_bancaria: a.id_cuenta_bancaria, valor_base: valor, fecha });
+            await conn.execute(
+                `UPDATE Cuentas_Por_Pagar cp
+                 SET valor_pagado = (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id) + cp.valor_retenido,
+                     estado = CASE WHEN (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id) + cp.valor_retenido >= cp.valor_total THEN 'pagado' ELSE 'parcial' END
+                 WHERE cp.id = ?`, [idCxp]);
+            const [after] = await conn.execute<RowDataPacket[]>(`SELECT estado, saldo FROM Cuentas_Por_Pagar WHERE id = ?`, [idCxp]);
+            await conn.commit();
+            return { id_abono: r.insertId, estado: after[0].estado, saldo: Number(after[0].saldo) };
+        } catch (e) {
+            await conn.rollback();
+            throw e;
+        } finally {
+            conn.release();
+        }
     }
 
     async getById(id: number): Promise<CuentaPorPagarSQL | null> {
@@ -96,7 +145,7 @@ export class CategoriaCxPRepository implements ICategoriaCxPRepository {
         const placeholders = fields.map(() => '?').join(', ');
         
         const [result] = await this.db.query<ResultSetHeader>(
-            `INSERT INTO Categorias_CxP (${fields.join(', ')}) VALUES (${placeholders})`,
+            `INSERT INTO Categorias_CxP (${fields.map(ident).join(', ')}) VALUES (${placeholders})`,
             values
         );
         return result.insertId;
@@ -113,7 +162,7 @@ export class CategoriaCxPRepository implements ICategoriaCxPRepository {
         const values: any[] = [];
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }

@@ -1,0 +1,8 @@
+node_modules
+build
+dist
+.env
+*.sql
+docs
+graphify-out
+.scannerwork

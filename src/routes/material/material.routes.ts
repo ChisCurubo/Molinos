@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { MaterialEntradaController, PrecioMaterialController } from '../../controllers/material/material.controller';
 import { factory } from '../../config/factory';
 
+import { upAcpm } from '../../helpers/upload.middleware';
 const router = Router();
 const materialController = factory.material.getMaterialEntradaController();
 const precioController = factory.material.getPrecioMaterialController();
@@ -166,7 +167,7 @@ router.get('/entradas/:id',                     materialController.getById);
  *       200:
  *         description: Entrada actualizada
  */
-router.put('/entradas/:id',                     materialController.actualizar);
+router.put('/entradas/:id',                     upAcpm, materialController.actualizar);
 
 /**
  * @swagger
@@ -410,7 +411,7 @@ router.patch('/entradas/:id/cancelar',          materialController.cancelar);
  *       201:
  *         description: Entrada registrada exitosamente
  */
-router.post('/entrada', materialController.registrarLlegada);
+router.post('/entrada', upAcpm, materialController.registrarLlegada);
 
 /**
  * @swagger

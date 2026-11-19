@@ -1,14 +1,18 @@
 import { Pool, PoolConnection } from 'mysql2/promise';
 import { IPagoAlquilerRepository } from '../../ports/pagos/repository_port/pago_alquiler.repository.interface';
 import { IPagoAlquilerService } from '../../ports/pagos/service_port/pago_alquiler.service.interface';
+import { calcularRetencionFuente, calcularReteIva, registrarRetencionAplicada, aplicarOverrideManual } from '../../repositories/pagos/retencion.repository';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
  * Pago de un ALQUILER a su proveedor. 1 Cuenta_Por_Pagar por alquiler (categoría 'Alquiler'),
  * creada perezosamente en el primer abono. Sin cascada entre alquileres ni saldo a favor:
- * el abono no puede exceder el saldo pendiente de ese alquiler.
+ * el abono no puede exceder el saldo pendiente de ese alquiler. valor_total queda en BRUTO;
+ * la retención en la fuente de 'Arrendamiento muebles' se calcula al crear la cuenta y cuenta
+ * como ya pagada desde el inicio (no aplica si el proveedor tiene exento_retencion=true).
  */
 export class PagoAlquilerService implements IPagoAlquilerService {
     constructor(
@@ -26,14 +30,44 @@ export class PagoAlquilerService implements IPagoAlquilerService {
         if (alquiler.deleted_at) throw err('El alquiler está anulado', 409);
         if (!alquiler.id_proveedor) throw err('El alquiler no tiene proveedor asignado; no se puede pagar', 409);
 
+        const valorTotal = Number(alquiler.valor);
+        const valorIva = Number(alquiler.valor_iva || 0); // Fase 2 (reteIVA), entrada manual
+        const fechaCreacion = new Date(alquiler.fecha_inicio).toISOString().slice(0, 10);
+        const idCategoria = await this.repo.resolverCategoriaAlquiler(conn);
+
+        // Override manual al crear — ver retencion.repository.ts#aplicarOverrideManual.
+        // undefined=automático (catálogo), 0=fuerza "no aplica", >0=fuerza ese valor exacto.
+        const retencionFuenteManual = alquiler.retencion_fuente_manual !== null && alquiler.retencion_fuente_manual !== undefined
+            ? Number(alquiler.retencion_fuente_manual) : undefined;
+        const reteivaManual = alquiler.reteiva_manual !== null && alquiler.reteiva_manual !== undefined
+            ? Number(alquiler.reteiva_manual) : undefined;
+
+        const calcFuenteAuto = await calcularRetencionFuente(conn, { id_categoria: idCategoria, id_proveedor: Number(alquiler.id_proveedor), valor_base: valorTotal });
+        const calcIvaAuto = await calcularReteIva(conn, { id_categoria: idCategoria, id_proveedor: Number(alquiler.id_proveedor), valor_iva: valorIva });
+        const calcFuente = aplicarOverrideManual(calcFuenteAuto, retencionFuenteManual);
+        const calcIva = aplicarOverrideManual(calcIvaAuto, reteivaManual);
+        const valorRetenido = r2(calcFuente.valor_retenido + calcIva.valor_retenido);
+
         idCxp = await this.repo.crearCuentaAlquiler({
             id_alquiler: idAlquiler,
             id_proveedor: alquiler.id_proveedor,
             concepto: alquiler.concepto,
-            valor_total: Number(alquiler.valor),
-            fecha_creacion: new Date(alquiler.fecha_inicio).toISOString().slice(0, 10)
+            valor_total: valorTotal,
+            valor_iva: valorIva,
+            valor_retenido: valorRetenido,
+            fecha_creacion: fechaCreacion
         }, conn);
-        await this.repo.crearRelacionAlquiler(idCxp, idAlquiler, Number(alquiler.valor), alquiler.concepto, conn);
+        await registrarRetencionAplicada(conn, {
+            id_concepto_retencion: calcFuente.id_concepto_retencion, id_cuenta_pagar: idCxp,
+            valor_base: valorTotal, tarifa_aplicada: calcFuente.tarifa_aplicada, valor_retenido: calcFuente.valor_retenido, fecha: fechaCreacion, tipo: 'fuente',
+            ajustado_manualmente: calcFuente.ajustado_manualmente, valor_calculado_original: calcFuente.valor_calculado_original
+        });
+        await registrarRetencionAplicada(conn, {
+            id_concepto_retencion: calcIva.id_concepto_retencion, id_cuenta_pagar: idCxp,
+            valor_base: valorIva, tarifa_aplicada: calcIva.tarifa_aplicada, valor_retenido: calcIva.valor_retenido, fecha: fechaCreacion, tipo: 'iva',
+            ajustado_manualmente: calcIva.ajustado_manualmente, valor_calculado_original: calcIva.valor_calculado_original
+        });
+        await this.repo.crearRelacionAlquiler(idCxp, idAlquiler, valorTotal, alquiler.concepto, conn);
         return idCxp;
     }
 
@@ -46,6 +80,7 @@ export class PagoAlquilerService implements IPagoAlquilerService {
             return {
                 id_alquiler: idAlquiler, id_cuenta: idCxp,
                 valor_total: cuenta.valor_total, valor_pagado: cuenta.valor_pagado,
+                valor_retenido: cuenta.valor_retenido, valor_iva: cuenta.valor_iva,
                 saldo: cuenta.saldo, estado: cuenta.estado, abonos
             };
         });
@@ -70,7 +105,8 @@ export class PagoAlquilerService implements IPagoAlquilerService {
             const idAbono = await this.repo.insertarAbono({
                 id_cuenta_pagar: idCxp, fecha_abono: fecha, valor,
                 metodo_pago: data.metodo_pago || 'transferencia',
-                comprobante_url: comprobante, observaciones: data.observaciones
+                comprobante_url: comprobante, observaciones: data.observaciones,
+                id_cuenta_bancaria: data.id_cuenta_bancaria
             }, conn);
             await this.repo.recalcularCuenta(idCxp, conn);
             const cuentaActualizada = await this.repo.obtenerCuenta(idCxp, conn);
@@ -103,8 +139,11 @@ export class PagoAlquilerService implements IPagoAlquilerService {
                 const nuevo = r2(Number(data.valor));
                 if (!(nuevo > 0)) throw err('El valor del abono debe ser mayor a 0');
                 const otros = await this.repo.sumaOtrosAbonos(idCxp, idAbono, conn);
-                if (nuevo + otros > Number(cuenta.valor_total) + 1e-6) {
-                    throw err(`El abono deja el total pagado (${r2(nuevo + otros)}) por encima del valor del alquiler (${cuenta.valor_total})`, 409);
+                // El máximo que pueden sumar los ABONOS REALES es valor_total - valor_retenido
+                // (la retención ya está contada como pagada, no es un abono).
+                const maxAbonable = Number(cuenta.valor_total) - Number(cuenta.valor_retenido);
+                if (nuevo + otros > maxAbonable + 1e-6) {
+                    throw err(`El abono deja el total pagado (${r2(nuevo + otros)}) por encima del saldo abonable del alquiler (${r2(maxAbonable)})`, 409);
                 }
                 campos.valor = nuevo;
             }

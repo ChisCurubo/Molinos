@@ -1,7 +1,8 @@
 import { RowDataPacket, ResultSetHeader, Pool } from 'mysql2/promise';
 import { PlantaSQL } from '../../models/nomina/sql/planta.sql';
 import { IPlantaRepository } from '../../ports/nomina/repository_port/planta.repository.interface';
-
+
+import { ident } from '../../helpers/sql.helper';
 // --- Original: planta ---
 export class PlantaRepository implements IPlantaRepository {
     constructor(private db: Pool) {}
@@ -12,7 +13,7 @@ export class PlantaRepository implements IPlantaRepository {
         const placeholders = fields.map(() => '?').join(', ');
         
         const [result] = await this.db.query<ResultSetHeader>(
-            `INSERT INTO Planta (${fields.join(', ')}) VALUES (${placeholders})`,
+            `INSERT INTO Planta (${fields.map(ident).join(', ')}) VALUES (${placeholders})`,
             values
         );
         return result.insertId;
@@ -30,7 +31,7 @@ export class PlantaRepository implements IPlantaRepository {
         
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }

@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
-import { IVistaMaterialService } from '../../ports/material/service_port/vistas.material.service.interface';
+import { IVistaMaterialService } from '../../ports/material/service_port/vistas.material.service.interface';
+import { fail } from '../../errors/responder';
 
 const ok = (res: Response, data: any) => res.status(200).json({ success: true, data });
-const err = (res: Response, e: any) => res.status(500).json({ success: false, error: e.message || String(e) });
+const err = (res: Response, e: any) => fail(res, e);
 
 export class VistaMaterialController {
     constructor(private service: IVistaMaterialService) {}

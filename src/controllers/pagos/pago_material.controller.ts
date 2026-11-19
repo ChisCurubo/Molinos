@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
-import { IPagoMaterialService } from '../../ports/pagos/service_port/pago_material.service.interface';
+import { IPagoMaterialService } from '../../ports/pagos/service_port/pago_material.service.interface';
+import { fail } from '../../errors/responder';
 
 export class PagoMaterialController {
     constructor(private service: IPagoMaterialService) {}
 
     private fail(res: Response, error: any) {
-        res.status(error?.status || 400).json({ success: false, message: error.message });
+        fail(res, error, 400);
     }
 
     // POST /pagos/material  → crear cuenta de grupo

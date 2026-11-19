@@ -2,8 +2,9 @@ import { ICategoriaProveedorService, IProveedorService } from '../../ports/pagos
 import { ICategoriaProveedorRepository, IProveedorRepository } from '../../ports/pagos/repository_port/proveedor.repository.interface';
 import { CategoriaProveedorRepository } from '../../repositories/pagos/proveedor.repository';
 import { CategoriaProveedorSQL } from '../../models/pagos/sql/categoria_proveedor.sql';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 
 const TIPOS_PROVEEDOR = ['general', 'combustible', 'transportadora', 'laboratorio'];
 
@@ -51,7 +52,7 @@ export class ProveedorService implements IProveedorService {
             tipo: data.tipo,
             contacto: data.contacto, telefono: data.telefono, ciudad: data.ciudad,
             alias: data.alias, nequi: data.nequi, compra_realizada: data.compra_realizada,
-            estado: data.estado
+            estado: data.estado, declarante_renta: data.declarante_renta, exento_retencion: data.exento_retencion
         });
         return this.repository.getById(id);
     }

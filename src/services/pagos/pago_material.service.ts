@@ -1,8 +1,9 @@
 import { Pool } from 'mysql2/promise';
 import { IPagoMaterialRepository } from '../../ports/pagos/repository_port/pago_material.repository.interface';
 import { IPagoMaterialService } from '../../ports/pagos/service_port/pago_material.service.interface';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
@@ -200,13 +201,17 @@ export class PagoMaterialService implements IPagoMaterialService {
             const aplicado = r2(Math.min(valor, saldo));      // lo que cubre esta cuenta
             const excedente = r2(valor - aplicado);           // lo que sobra → saldo a favor
 
+            // El 4x1000 se cobra sobre lo que realmente salió del banco (valor), no solo sobre
+            // la porción aplicada a esta CxP — el excedente no deja de ser una salida real.
             const idAbono = await this.repo.insertarAbono({
                 id_cuenta_pagar: idCxp,
                 fecha_abono: data.fecha_abono || new Date().toISOString().slice(0, 10),
                 valor: aplicado,
                 metodo_pago: data.metodo_pago || 'transferencia',
                 comprobante_url: comprobante,
-                observaciones: data.observaciones
+                observaciones: data.observaciones,
+                id_cuenta_bancaria: data.id_cuenta_bancaria,
+                valor_impuesto_base: valor
             }, conn);
 
             let idSaldoFavor: number | null = null;

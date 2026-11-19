@@ -12,6 +12,8 @@ export interface ProveedorSQL {
     nequi: boolean;
     compra_realizada: string;
     estado: string;
+    declarante_renta: boolean;
+    exento_retencion: boolean;
     created_at: Date;
     updated_at: Date;
 }

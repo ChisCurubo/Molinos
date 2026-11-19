@@ -4,7 +4,8 @@ import { EmpleadoSQL } from '../../models/nomina/sql/empleado.sql';
 import { IEmpleadoRepository } from '../../ports/nomina/repository_port/empleado.repository.interface';
 import { PrestamoEmpleadoRepositoryInterface } from '../../ports/nomina/repository_port/empleado.repository.interface';
 import { PrestamoEmpleadoSQL } from '../../models/nomina/sql/prestamo_empleado.sql';
-
+
+import { ident } from '../../helpers/sql.helper';
 // --- Original: empleado ---
 export class EmpleadoRepository implements IEmpleadoRepository {
     constructor(private db: Pool) {}
@@ -15,7 +16,7 @@ export class EmpleadoRepository implements IEmpleadoRepository {
         const placeholders = fields.map(() => '?').join(', ');
         
         const [result] = await this.db.query<ResultSetHeader>(
-            `INSERT INTO Empleados (${fields.join(', ')}) VALUES (${placeholders})`,
+            `INSERT INTO Empleados (${fields.map(ident).join(', ')}) VALUES (${placeholders})`,
             values
         );
         return result.insertId;
@@ -33,7 +34,7 @@ export class EmpleadoRepository implements IEmpleadoRepository {
         
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }
@@ -100,7 +101,7 @@ export class PrestamoEmpleadoRepository implements PrestamoEmpleadoRepositoryInt
 
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }

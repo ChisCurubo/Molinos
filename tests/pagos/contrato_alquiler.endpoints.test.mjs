@@ -135,7 +135,9 @@ try {
     // ---------- Integración con el motor de pago ya existente ----------
     log('\n===== PAGAR UNO DE LOS MESES GENERADOS =====');
     const idMesNoviembre = mesesCreados[0].id;
-    r = await req('POST', `/pagos/alquileres/${idMesNoviembre}/abonos`, { valor: 1000000, comprobante_url: 'https://x/contrato-nov.png' });
+    // 960000 = 1000000 - retención 4% de arrendamiento muebles (40000), ya contada como pagada
+    // al crear la CxP — ver migracion_retenciones_2026-10-31.sql.
+    r = await req('POST', `/pagos/alquileres/${idMesNoviembre}/abonos`, { valor: 960000, comprobante_url: 'https://x/contrato-nov.png' });
     check('se puede pagar un mes generado por el contrato con el endpoint normal', r.status === 201 && r.j?.data?.cuenta?.estado === 'pagado', `estado=${r.j?.data?.cuenta?.estado}`);
 
     // ---------- Editar metadata del contrato (NO debe tocar los meses) ----------

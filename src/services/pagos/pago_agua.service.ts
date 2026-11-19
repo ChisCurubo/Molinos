@@ -1,8 +1,10 @@
 import { Pool, PoolConnection } from 'mysql2/promise';
 import { IPagoAguaRepository } from '../../ports/pagos/repository_port/pago_agua.repository.interface';
 import { IPagoAguaService } from '../../ports/pagos/service_port/pago_agua.service.interface';
+import { aplicarImpuesto4x1000 } from '../../repositories/pagos/impuesto.repository';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 function anioMes(fecha: any): { anio: number; mes: number } {
@@ -202,6 +204,12 @@ export class PagoAguaService implements IPagoAguaService {
                 }, conn);
                 saldoAFavor = restante;
             }
+
+            // El 4x1000 se cobra una sola vez sobre el total transferido (valor), no por cada
+            // cuenta de la cascada — el banco solo ve un movimiento de salida.
+            await aplicarImpuesto4x1000(conn, {
+                id_abono_cxp: ultimoAbono!, id_cuenta_bancaria: data.id_cuenta_bancaria, valor_base: valor, fecha
+            });
 
             return { aplicado_a: aplicado, total_aplicado: r2(valor - saldoAFavor), saldo_a_favor_generado: saldoAFavor };
         });

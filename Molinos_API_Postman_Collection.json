@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "df99c4ff-2e4c-4cff-8f42-f6820f6f1b6b",
+    "_postman_id": "cb949f17-a5e5-4e8f-926c-ad60f7bcc9d6",
     "name": "Molinos ERP v4 API (unificada) v1.0.0",
     "description": "API del sistema ERP para empresa minera Molinos de Colombia\n\nGENERADA automaticamente desde /info (API_MAP) por scripts/build-postman.js.\nNo editar a mano: al cambiar endpoints en info.controller.ts, re-ejecuta el script.\nConfigura la variable base_url (por defecto http://localhost:3005/api/v1). El login auto-guarda {{token}}; el resto hereda Bearer {{token}} a nivel de coleccion.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -3168,7 +3168,7 @@
                     "prestamos-financieros"
                   ]
                 },
-                "description": "Crear préstamo financiero"
+                "description": "Crear préstamo financiero — también abre su CxP persistente (categoría \"Préstamo financiero\", pendiente por monto_principal) y su Ingreso_Tesoreria espejo. La CxP SÍ aparece en /pagos/cxp/mensual como deuda real mientras no se termine de pagar (2026-10-23)"
               },
               "response": []
             },
@@ -3317,7 +3317,7 @@
                     "abonos"
                   ]
                 },
-                "description": "Registrar un abono real (reduce saldo_pendiente, CxP pagada de inmediato)",
+                "description": "Registrar un abono real (reduce saldo_pendiente, abona la CxP persistente del préstamo — 2026-10-23: ya no abre una CxP nueva por cada abono)",
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"valor\": 500000,\n  \"fecha_abono\": \"2026-10-01\",\n  \"metodo_pago\": \"transferencia\",\n  \"comprobante_url\": \"https://ejemplo.com/comprobante.png\"\n}",
@@ -3924,6 +3924,333 @@
                   ]
                 },
                 "description": "Anula una cuenta por cobrar (borrado lógico, 404 si no existe o ya está anulada). Los cobros ya registrados se conservan para auditoría"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Cuentas Bancarias",
+          "item": [
+            {
+              "name": "POST /cuentas",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cuentas",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cuentas"
+                  ]
+                },
+                "description": "Crear cuenta bancaria",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"Bancolombia Ahorros 123\",\n  \"banco\": \"Bancolombia\",\n  \"numero_cuenta\": \"123456789\",\n  \"tipo_cuenta\": \"ahorros\",\n  \"propietario\": \"Camilo Curubo\",\n  \"id_empleado\": null,\n  \"exento_4x1000\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /cuentas",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cuentas",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cuentas"
+                  ]
+                },
+                "description": "Listar cuentas bancarias"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /cuentas/saldos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cuentas/saldos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cuentas",
+                    "saldos"
+                  ]
+                },
+                "description": "Saldo (ingresos - egresos - impuestos) de todas las cuentas"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /cuentas/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cuentas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cuentas",
+                    ":id"
+                  ]
+                },
+                "description": "Detalle de una cuenta bancaria"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /cuentas/:id/saldo",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cuentas/:id/saldo",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cuentas",
+                    ":id",
+                    "saldo"
+                  ]
+                },
+                "description": "Saldo de una cuenta específica"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /cuentas/:id",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cuentas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cuentas",
+                    ":id"
+                  ]
+                },
+                "description": "Editar cuenta bancaria",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"exento_4x1000\": true,\n  \"activa\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /cuentas/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/cuentas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "cuentas",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar cuenta bancaria"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Impuestos",
+          "item": [
+            {
+              "name": "GET /impuestos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/impuestos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "impuestos"
+                  ]
+                },
+                "description": "Catálogo de impuestos (hoy solo 4x1000)"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /impuestos/aplicados",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/impuestos/aplicados?id_cuenta_bancaria=&desde=&hasta=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "impuestos",
+                    "aplicados"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_cuenta_bancaria",
+                      "value": ""
+                    },
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Listado de impuestos realmente cobrados"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Retenciones",
+          "item": [
+            {
+              "name": "GET /retenciones",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/retenciones",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "retenciones"
+                  ]
+                },
+                "description": "Catálogo: retefuente activa en Mulas (Transporte de carga, 1%) y Alquiler (Arrendamiento muebles, 4%); reteIVA (15%, \"ReteIVA general\") ACTIVA SOLO en Alquiler desde 2026-10-31 — pendiente confirmar con contador si corresponde"
+              },
+              "response": []
+            },
+            {
+              "name": "GET /retenciones/aplicadas",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/pagos/retenciones/aplicadas?id_cuenta_pagar=&tipo=fuente&desde=&hasta=",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "retenciones",
+                    "aplicadas"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_cuenta_pagar",
+                      "value": ""
+                    },
+                    {
+                      "key": "tipo",
+                      "value": "fuente"
+                    },
+                    {
+                      "key": "desde",
+                      "value": ""
+                    },
+                    {
+                      "key": "hasta",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "Listado de retenciones realmente aplicadas (tipo=fuente y tipo=iva, ambas activas)"
+              },
+              "response": []
+            },
+            {
+              "name": "PATCH /retenciones/aplicadas/:id",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/pagos/retenciones/aplicadas/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "pagos",
+                    "retenciones",
+                    "aplicadas",
+                    ":id"
+                  ]
+                },
+                "description": "Ajustar a mano el valor_retenido de una retención ya aplicada (guarda el valor_calculado_original la primera vez)",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"valor_retenido\": 15000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
               },
               "response": []
             }
@@ -5131,10 +5458,10 @@
                     "alquileres"
                   ]
                 },
-                "description": "Crear alquiler",
+                "description": "Crear alquiler. valor_iva opcional (base de reteIVA, activa). retencion_fuente_manual/reteiva_manual opcionales: omitir=automático (catálogo), 0=fuerza que no aplique, >0=fuerza ese valor exacto",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"id_tipo\": 1,\n  \"id_proveedor\": 3,\n  \"fecha_inicio\": \"2026-10-01\",\n  \"concepto\": \"ALQUILER CAMIONETA OCTUBRE FAC 500\",\n  \"valor\": 1500000\n}",
+                  "raw": "{\n  \"id_tipo\": 1,\n  \"id_proveedor\": 3,\n  \"fecha_inicio\": \"2026-10-01\",\n  \"concepto\": \"ALQUILER CAMIONETA OCTUBRE FAC 500\",\n  \"valor\": 1500000,\n  \"valor_iva\": 0,\n  \"retencion_fuente_manual\": null,\n  \"reteiva_manual\": null\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -5672,7 +5999,7 @@
                 "description": "Crear proveedor",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"nombre\": \"Transportes El Faro\",\n  \"id_categoria\": 1,\n  \"nit\": \"900123456-7\",\n  \"telefono\": \"3001234567\"\n}",
+                  "raw": "{\n  \"nombre\": \"Transportes El Faro\",\n  \"id_categoria\": 1,\n  \"nit\": \"900123456-7\",\n  \"telefono\": \"3001234567\",\n  \"declarante_renta\": false,\n  \"exento_retencion\": false\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -5706,7 +6033,12 @@
               "name": "PUT /proveedores/:id",
               "request": {
                 "method": "PUT",
-                "header": [],
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
                 "url": {
                   "raw": "{{base_url}}/pagos/proveedores/:id",
                   "host": [
@@ -5718,7 +6050,16 @@
                     ":id"
                   ]
                 },
-                "description": "Actualizar proveedor"
+                "description": "Actualizar proveedor — declarante_renta/exento_retencion aplican a retefuente Y reteIVA (Mulas/Alquiler); exento_retencion=true bloquea ambas",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"declarante_renta\": true,\n  \"exento_retencion\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
               },
               "response": []
             },
@@ -5767,10 +6108,10 @@
                     "mulas"
                   ]
                 },
-                "description": "Registrar un despacho de mula",
+                "description": "Registrar un despacho de mula. Solo lleva retefuente (transporte de carga, 1%) — NO lleva reteIVA, esa solo aplica a Alquiler. retencion_fuente_manual opcional: omitir=automático, 0=fuerza que no aplique, >0=fuerza ese valor",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"id_proveedor\": 1,\n  \"valor\": 3500000,\n  \"fecha\": \"2026-09-13\",\n  \"id_viaje\": null\n}",
+                  "raw": "{\n  \"id_proveedor\": 1,\n  \"valor\": 3500000,\n  \"fecha\": \"2026-09-13\",\n  \"id_viaje\": null,\n  \"retencion_fuente_manual\": null\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -7596,6 +7937,302 @@
                   ]
                 },
                 "description": "Catálogos en memoria (minas, mineros, zonas, dueños de volqueta)"
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "inventario_productos  (/api/v1/inventario-productos)",
+      "description": "Requiere token (Bearer heredado).",
+      "item": [
+        {
+          "name": "Productos",
+          "item": [
+            {
+              "name": "GET /productos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/productos?categoria=bola_molino&q=&bajo_minimo=true&limit=50&offset=0",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "productos"
+                  ],
+                  "query": [
+                    {
+                      "key": "categoria",
+                      "value": "bola_molino"
+                    },
+                    {
+                      "key": "q",
+                      "value": ""
+                    },
+                    {
+                      "key": "bajo_minimo",
+                      "value": "true"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0"
+                    }
+                  ]
+                },
+                "description": "Listar productos con stock/costo promedio/valor ya resueltos (promedio ponderado)"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /productos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/productos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "productos"
+                  ]
+                },
+                "description": "Crear producto",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nombre\": \"Bola de molino 3\\\"\",\n  \"categoria\": \"bola_molino\",\n  \"unidad\": \"kg\",\n  \"stock_minimo\": 500\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "GET /productos/:id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/productos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "productos",
+                    ":id"
+                  ]
+                },
+                "description": "Ver un producto"
+              },
+              "response": []
+            },
+            {
+              "name": "PUT /productos/:id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/productos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "productos",
+                    ":id"
+                  ]
+                },
+                "description": "Editar producto",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"stock_minimo\": 600\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /productos/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/productos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "productos",
+                    ":id"
+                  ]
+                },
+                "description": "Eliminar producto (cascada: borra también su cardex de movimientos)"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Movimientos",
+          "item": [
+            {
+              "name": "GET /movimientos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/movimientos?id_producto=1&tipo=salida&desde=2026-01-01&hasta=2026-12-31&limit=50&offset=0",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "movimientos"
+                  ],
+                  "query": [
+                    {
+                      "key": "id_producto",
+                      "value": "1"
+                    },
+                    {
+                      "key": "tipo",
+                      "value": "salida"
+                    },
+                    {
+                      "key": "desde",
+                      "value": "2026-01-01"
+                    },
+                    {
+                      "key": "hasta",
+                      "value": "2026-12-31"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "50"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0"
+                    }
+                  ]
+                },
+                "description": "Listar cardex (filtra por producto para el kardex de uno solo)"
+              },
+              "response": []
+            },
+            {
+              "name": "POST /movimientos",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/movimientos",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "movimientos"
+                  ]
+                },
+                "description": "Registrar entrada (compra) o salida (consumo). costo_unitario obligatorio en entrada; en salida lo calcula el backend por promedio ponderado. 400 STOCK_INSUFICIENTE si la salida supera el stock",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"id_producto\": 1,\n  \"fecha\": \"2026-11-02\",\n  \"tipo\": \"entrada\",\n  \"cantidad\": 300,\n  \"costo_unitario\": 12000,\n  \"nota\": \"Compra proveedor X\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "DELETE /movimientos/:id",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/movimientos/:id",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "movimientos",
+                    ":id"
+                  ]
+                },
+                "description": "Borrar movimiento (recalcula los saldos de los movimientos posteriores de ese producto)"
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Resumen",
+          "item": [
+            {
+              "name": "GET /resumen",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/inventario-productos/resumen?desde=2026-01-01&hasta=2026-12-31",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "inventario-productos",
+                    "resumen"
+                  ],
+                  "query": [
+                    {
+                      "key": "desde",
+                      "value": "2026-01-01"
+                    },
+                    {
+                      "key": "hasta",
+                      "value": "2026-12-31"
+                    }
+                  ]
+                },
+                "description": "KPIs: total_productos, valor_total_inventario, productos_bajo_minimo, gastado_en_compras"
               },
               "response": []
             }

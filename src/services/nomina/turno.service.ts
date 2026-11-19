@@ -6,8 +6,9 @@ import { ITipoTurnoService } from '../../ports/nomina/service_port/turno.service
 import { ITipoTurnoRepository } from '../../ports/nomina/repository_port/turno.repository.interface';
 import { TipoTurnoRepository } from '../../repositories/nomina/turno.repository';
 import { TipoTurnoSQL } from '../../models/nomina/sql/tipo_turno.sql';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 const HORA_RE = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
 
 // El front edita Tipos_Turno directamente (nombre/horario/recargo) — validar aquí lo que antes

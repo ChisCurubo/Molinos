@@ -24,6 +24,12 @@ const PASS = process.env.LOGIN_PASS || 'molinos2026';
 
 const money = n => (n === null || n === undefined) ? n : Number(n);
 const near = (a, b, eps = 1) => Math.abs(Number(a) - Number(b)) <= eps;
+const r2 = n => Math.round(n * 100) / 100;
+// Retención en la fuente "Arrendamiento muebles" (4%, flat, el proveedor de prueba no es
+// declarante ni está exento) — ver migracion_retenciones_2026-10-31.sql.
+const ARR_PCT = 4.00;
+const retencionDe = v => r2(v * ARR_PCT / 100);
+const netoDe = v => r2(v - retencionDe(v));
 const results = [];
 const log = (...a) => console.log(...a);
 function check(name, cond, detail = '') {
@@ -126,7 +132,9 @@ try {
     // ---------- Pago: estado inicial (crea la CxP perezosamente) ----------
     log('\n===== ESTADO DE PAGO INICIAL =====');
     r = await req('GET', `/pagos/alquileres/${idAlquiler1}/estado-pago`);
-    check('estado-pago inicial: pendiente, saldo=valor_total, sin abonos', r.status === 200 && r.j?.data?.estado === 'pendiente' && near(r.j?.data?.saldo, 1000000) && (r.j?.data?.abonos || []).length === 0, `data=${JSON.stringify(r.j?.data)}`);
+    check('estado-pago inicial: pendiente, retención ya aplicada (40000), saldo=neto, sin abonos',
+        r.status === 200 && r.j?.data?.estado === 'pendiente' && near(money(r.j?.data?.valor_retenido), retencionDe(1000000))
+        && near(r.j?.data?.saldo, netoDe(1000000)) && (r.j?.data?.abonos || []).length === 0, `data=${JSON.stringify(r.j?.data)}`);
 
     // Guard: alquiler sin proveedor no se puede pagar
     r = await req('POST', `/pagos/alquileres/${idAlquilerSinProveedor}/abonos`, { valor: 100000, comprobante_url: 'https://x/0.png' });
@@ -147,16 +155,18 @@ try {
     log('\n===== ABONO PARCIAL =====');
     r = await req('POST', `/pagos/alquileres/${idAlquiler1}/abonos`, { valor: 400000, fecha_abono: '2026-10-05', metodo_pago: 'transferencia', comprobante_url: 'https://x/c.png' });
     const idAbono1 = r.j?.data?.id_abono;
-    check('abono parcial de 400000 → 201, cuenta queda parcial', r.status === 201 && !!idAbono1 && r.j?.data?.cuenta?.estado === 'parcial' && near(r.j?.data?.cuenta?.saldo, 600000), `data=${JSON.stringify(r.j?.data)}`);
+    const saldoTrasAbono1 = r2(netoDe(1000000) - 400000); // 560000: neto(960000) menos el abono
+    check('abono parcial de 400000 → 201, cuenta queda parcial', r.status === 201 && !!idAbono1 && r.j?.data?.cuenta?.estado === 'parcial' && near(r.j?.data?.cuenta?.saldo, saldoTrasAbono1), `data=${JSON.stringify(r.j?.data)}`);
 
     r = await req('GET', `/pagos/alquileres/${idAlquiler1}/estado-pago`);
-    check('estado-pago refleja el abono parcial (1 abono, saldo=600000)', r.status === 200 && r.j?.data?.estado === 'parcial' && near(r.j?.data?.saldo, 600000) && (r.j?.data?.abonos || []).length === 1, `data=${JSON.stringify(r.j?.data)}`);
+    check(`estado-pago refleja el abono parcial (1 abono, saldo=${saldoTrasAbono1})`, r.status === 200 && r.j?.data?.estado === 'parcial' && near(r.j?.data?.saldo, saldoTrasAbono1) && (r.j?.data?.abonos || []).length === 1, `data=${JSON.stringify(r.j?.data)}`);
 
     // ---------- Abono que completa el pago ----------
     log('\n===== ABONO QUE COMPLETA EL PAGO =====');
-    r = await req('POST', `/pagos/alquileres/${idAlquiler1}/abonos`, { valor: 600000, fecha_abono: '2026-10-10', metodo_pago: 'efectivo', comprobante_url: 'https://x/d.png' });
+    const abonoFinal = saldoTrasAbono1; // 560000: cierra exactamente el saldo neto restante
+    r = await req('POST', `/pagos/alquileres/${idAlquiler1}/abonos`, { valor: abonoFinal, fecha_abono: '2026-10-10', metodo_pago: 'efectivo', comprobante_url: 'https://x/d.png' });
     const idAbono2 = r.j?.data?.id_abono;
-    check('abono final de 600000 → 201, cuenta queda pagada', r.status === 201 && !!idAbono2 && r.j?.data?.cuenta?.estado === 'pagado' && near(r.j?.data?.cuenta?.saldo, 0), `data=${JSON.stringify(r.j?.data)}`);
+    check(`abono final de ${abonoFinal} → 201, cuenta queda pagada`, r.status === 201 && !!idAbono2 && r.j?.data?.cuenta?.estado === 'pagado' && near(r.j?.data?.cuenta?.saldo, 0), `data=${JSON.stringify(r.j?.data)}`);
 
     r = await req('POST', `/pagos/alquileres/${idAlquiler1}/abonos`, { valor: 1, comprobante_url: 'https://x/e.png' });
     check('abonar a alquiler ya pagado → 409', r.status === 409, `status=${r.status} msg=${r.j?.message}`);
@@ -181,7 +191,7 @@ try {
     // ---------- Eliminar abono ----------
     log('\n===== ELIMINAR ABONO =====');
     r = await req('DELETE', `/pagos/alquileres/abonos/${idAbono2}`);
-    check('DELETE abono final → 200, cuenta vuelve a parcial', r.status === 200 && r.j?.data?.estado === 'parcial' && near(r.j?.data?.saldo, 600000), `data=${JSON.stringify(r.j?.data)}`);
+    check(`DELETE abono final → 200, cuenta vuelve a parcial (saldo=${saldoTrasAbono1})`, r.status === 200 && r.j?.data?.estado === 'parcial' && near(r.j?.data?.saldo, saldoTrasAbono1), `data=${JSON.stringify(r.j?.data)}`);
 
     r = await req('DELETE', `/pagos/alquileres/abonos/999999999`);
     check('DELETE abono inexistente → 404', r.status === 404, `status=${r.status}`);

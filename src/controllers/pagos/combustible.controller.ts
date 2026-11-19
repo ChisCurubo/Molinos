@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
-import { ICombustibleService } from '../../ports/pagos/service_port/combustible.service.interface';
+import { ICombustibleService } from '../../ports/pagos/service_port/combustible.service.interface';
+import { fail } from '../../errors/responder';
+import { AppError } from '../../errors/app-error';
 
 const TIPOS_CONSUMO = ['vehiculo', 'planta', 'maquinaria', 'otro'];
 const FORMAS_PAGO = ['efectivo', 'credito'];
@@ -14,23 +16,23 @@ export class CombustibleController {
             const tipo = tipo_consumo || 'vehiculo';
             const forma = forma_pago || 'credito';
             if (!TIPOS_CONSUMO.includes(tipo)) {
-                res.status(400).json({ success: false, message: `tipo_consumo inválido. Use uno de: ${TIPOS_CONSUMO.join(', ')}` });
+                fail(res, AppError.http(400, `tipo_consumo inválido. Use uno de: ${TIPOS_CONSUMO.join(', ')}`));
                 return;
             }
             if (!FORMAS_PAGO.includes(forma)) {
-                res.status(400).json({ success: false, message: `forma_pago inválida. Use uno de: ${FORMAS_PAGO.join(', ')}` });
+                fail(res, AppError.http(400, `forma_pago inválida. Use uno de: ${FORMAS_PAGO.join(', ')}`));
                 return;
             }
             if (tipo === 'vehiculo' && !id_vehiculo && !id_dueno_volqueta) {
-                res.status(400).json({ success: false, message: 'Para tipo_consumo=vehiculo se requiere id_vehiculo o id_dueno_volqueta' });
+                fail(res, AppError.http(400, 'Para tipo_consumo=vehiculo se requiere id_vehiculo o id_dueno_volqueta'));
                 return;
             }
             if (forma === 'credito' && !id_gasolinera) {
-                res.status(400).json({ success: false, message: 'Para forma_pago=credito se requiere id_gasolinera (es a quien se le arma la cuenta por pagar)' });
+                fail(res, AppError.http(400, 'Para forma_pago=credito se requiere id_gasolinera (es a quien se le arma la cuenta por pagar)'));
                 return;
             }
             if (!fecha || !valor) {
-                res.status(400).json({ success: false, message: 'fecha y valor son obligatorios' });
+                fail(res, AppError.http(400, 'fecha y valor son obligatorios'));
                 return;
             }
             const data = await this.service.registrar({
@@ -47,7 +49,7 @@ export class CombustibleController {
             });
             res.status(201).json({ success: true, data });
         } catch (error: any) {
-            res.status(400).json({ success: false, message: error.message });
+            fail(res, error, 400);
         }
     };
 
@@ -56,21 +58,21 @@ export class CombustibleController {
         try {
             const id = Number(req.params.id);
             if (!id) {
-                res.status(400).json({ success: false, message: 'ID inválido' });
+                fail(res, AppError.http(400, 'ID inválido'));
                 return;
             }
             if (req.body.tipo_consumo && !TIPOS_CONSUMO.includes(req.body.tipo_consumo)) {
-                res.status(400).json({ success: false, message: `tipo_consumo inválido. Use uno de: ${TIPOS_CONSUMO.join(', ')}` });
+                fail(res, AppError.http(400, `tipo_consumo inválido. Use uno de: ${TIPOS_CONSUMO.join(', ')}`));
                 return;
             }
             if (req.body.forma_pago && !FORMAS_PAGO.includes(req.body.forma_pago)) {
-                res.status(400).json({ success: false, message: `forma_pago inválida. Use uno de: ${FORMAS_PAGO.join(', ')}` });
+                fail(res, AppError.http(400, `forma_pago inválida. Use uno de: ${FORMAS_PAGO.join(', ')}`));
                 return;
             }
             const data = await this.service.actualizar(id, req.body);
             res.status(200).json({ success: true, data });
         } catch (error: any) {
-            res.status(error?.status || 400).json({ success: false, message: error.message });
+            fail(res, error, 400);
         }
     };
 
@@ -79,13 +81,13 @@ export class CombustibleController {
         try {
             const id = Number(req.params.id);
             if (!id) {
-                res.status(400).json({ success: false, message: 'ID inválido' });
+                fail(res, AppError.http(400, 'ID inválido'));
                 return;
             }
             await this.service.eliminar(id);
             res.status(200).json({ success: true, message: 'Registro de combustible eliminado' });
         } catch (error: any) {
-            res.status(error?.status || 400).json({ success: false, message: error.message });
+            fail(res, error, 400);
         }
     };
 
@@ -104,7 +106,7 @@ export class CombustibleController {
             });
             res.status(200).json({ success: true, data });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+            fail(res, error);
         }
     };
 
@@ -120,7 +122,7 @@ export class CombustibleController {
             });
             res.status(200).json({ success: true, data });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+            fail(res, error);
         }
     };
 
@@ -130,7 +132,7 @@ export class CombustibleController {
             const data = await this.service.kpis();
             res.status(200).json({ success: true, data });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+            fail(res, error);
         }
     };
 
@@ -139,13 +141,13 @@ export class CombustibleController {
         try {
             const idDueno = Number(req.params.id);
             if (!idDueno) {
-                res.status(400).json({ success: false, message: 'ID de dueño inválido' });
+                fail(res, AppError.http(400, 'ID de dueño inválido'));
                 return;
             }
             const data = await this.service.calcularNetoFletePorDueno(idDueno);
             res.status(200).json({ success: true, data });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+            fail(res, error);
         }
     };
 
@@ -154,17 +156,17 @@ export class CombustibleController {
         try {
             const id = Number(req.params.id);
             if (!id) {
-                res.status(400).json({ success: false, message: 'ID inválido' });
+                fail(res, AppError.http(400, 'ID inválido'));
                 return;
             }
             const data = await this.service.obtenerPorId(id);
             if (!data) {
-                res.status(404).json({ success: false, message: 'Registro de combustible no encontrado' });
+                fail(res, AppError.http(404, 'Registro de combustible no encontrado'));
                 return;
             }
             res.status(200).json({ success: true, data });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+            fail(res, error);
         }
     };
 }

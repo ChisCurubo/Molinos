@@ -126,12 +126,16 @@ export class FlujoCajaRepository implements IFlujoCajaRepository {
 
     // Beneficiario: el único de los 4 posibles (proveedor/empleado/minero/dueño de volqueta)
     // que no sea NULL en la Cuenta_Por_Pagar — mismo check CHECK que ya tiene esa tabla.
-    async libroGastos(mes: number, anio: number): Promise<TransaccionLibro[]> {
+    async libroGastos(mes: number, anio: number, id_cuenta_bancaria?: number): Promise<TransaccionLibro[]> {
         const placeholders = METODOS_CXP_CAJA.map(() => '?').join(',');
+        const params: any[] = [mes, anio, ...METODOS_CXP_CAJA];
+        let filtroCuenta = '';
+        if (id_cuenta_bancaria) { filtroCuenta = 'AND a.id_cuenta_bancaria = ?'; params.push(id_cuenta_bancaria); }
         const [rows] = await this.db.execute<RowDataPacket[]>(
             `SELECT a.id, a.fecha_abono AS fecha, cat.nombre AS categoria, cat.color, cp.concepto,
                     COALESCE(prov.nombre, emp.nombre, min.nombre, duv.nombre) AS beneficiario,
-                    a.valor AS monto, a.metodo_pago, a.comprobante_url, a.observaciones
+                    a.valor AS monto, a.metodo_pago, a.comprobante_url, a.observaciones,
+                    a.id_cuenta_bancaria, cb.nombre AS cuenta_bancaria
              FROM Abonos_CxP a
              JOIN Cuentas_Por_Pagar cp ON cp.id = a.id_cuenta_pagar
              JOIN Categorias_CxP cat  ON cat.id = cp.id_categoria
@@ -139,9 +143,10 @@ export class FlujoCajaRepository implements IFlujoCajaRepository {
              LEFT JOIN Empleados emp        ON emp.id  = cp.id_empleado
              LEFT JOIN Minero min            ON min.id  = cp.id_minero
              LEFT JOIN Dueno_Volqueta duv    ON duv.id  = cp.id_dueno_volqueta
-             WHERE MONTH(a.fecha_abono) = ? AND YEAR(a.fecha_abono) = ? AND a.metodo_pago IN (${placeholders})
+             LEFT JOIN Cuentas_Bancarias cb  ON cb.id  = a.id_cuenta_bancaria
+             WHERE MONTH(a.fecha_abono) = ? AND YEAR(a.fecha_abono) = ? AND a.metodo_pago IN (${placeholders}) ${filtroCuenta}
              ORDER BY a.fecha_abono DESC, a.id DESC`,
-            [mes, anio, ...METODOS_CXP_CAJA]
+            params
         );
         return rows as unknown as TransaccionLibro[];
     }

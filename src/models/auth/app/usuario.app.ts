@@ -6,7 +6,8 @@ import { EmpleadoApp } from '../../nomina/app/empleado.app';
 export interface UsuarioApp {
     id: number;
     username: string;
-    password_hash: string;
+    password_hash?: string;
+    debe_cambiar_password?: boolean;
     rol?: RolApp;
     empleado?: EmpleadoApp;
     activo: boolean;

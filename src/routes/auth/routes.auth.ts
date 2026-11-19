@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { factory } from '../../config/factory';
-import { authMiddleware } from '../../helpers/auth.middleware';
+import { authMiddleware, requireRole } from '../../helpers/auth.middleware';
+
+import { loginLimiter, forgotLimiter, resetLimiter } from '../../helpers/rate_limit';
 
 const router = Router();
 const authController = factory.auth.getAuthController();
@@ -44,7 +46,7 @@ const usuarioController = factory.auth.getUsuarioController();
  *       400:
  *         description: Username y password son requeridos.
  */
-router.post('/login', authController.login);
+router.post('/login', loginLimiter, authController.login);
 /**
  * @swagger
  * /auth/forgot-password:
@@ -64,7 +66,7 @@ router.post('/login', authController.login);
  *       200:
  *         description: Se envió la contraseña temporal
  */
-router.post('/forgot-password', authController.forgotPassword);
+router.post('/forgot-password', forgotLimiter, authController.forgotPassword);
 
 /**
  * @swagger
@@ -83,7 +85,7 @@ router.get('/verify', authMiddleware, authController.verify);
  * @swagger
  * /auth/reset-password:
  *   post:
- *     summary: Cambiar contraseña con token temporal
+ *     summary: Cambiar contraseña con el token recibido por correo
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -92,9 +94,7 @@ router.get('/verify', authMiddleware, authController.verify);
  *           schema:
  *             type: object
  *             properties:
- *               username:
- *                 type: string
- *               tempPassword:
+ *               token:
  *                 type: string
  *               nuevaPassword:
  *                 type: string
@@ -102,7 +102,9 @@ router.get('/verify', authMiddleware, authController.verify);
  *       200:
  *         description: Contraseña actualizada
  */
-router.post('/reset-password', authController.resetPassword);
+router.post('/reset-password', resetLimiter, authController.resetPassword);
+router.post('/logout', authController.logout);
+router.post('/change-password', authMiddleware, authController.changePassword);
 
 /**
  * @swagger
@@ -138,6 +140,8 @@ router.post('/reset-password', authController.resetPassword);
  *       200:
  *         description: Lista de usuarios
  */
+// Gestión de usuarios: solo David_admin (id_rol 1)
+router.use('/usuarios', authMiddleware, requireRole([1]));
 router.get('/usuarios', usuarioController.list);
 
 /**

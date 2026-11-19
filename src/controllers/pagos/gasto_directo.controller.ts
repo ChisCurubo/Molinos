@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
 import { IGastoDirectoService } from '../../ports/pagos/service_port/gasto_directo.service.interface';
+import { fail } from '../../errors/responder';
 
 export class GastoDirectoController {
     constructor(private service: IGastoDirectoService) {}
 
     private fail(res: Response, error: any) {
-        res.status(error?.status || 400).json({ success: false, message: error.message });
+        fail(res, error, 400);
     }
 
     registrar = async (req: Request, res: Response): Promise<void> => {

@@ -2,7 +2,8 @@ import { RowDataPacket, ResultSetHeader, Pool } from 'mysql2/promise';
 import { DuenoVolquetaSQL } from '../../models/material/sql/dueno_volqueta.sql';
 import { IDuenoVolquetaRepository } from '../../ports/material/repository_port/volqueta.repository.interface';
 import { CacheService } from '../../services/cache/cache.service';
-
+
+import { ident } from '../../helpers/sql.helper';
 // --- Original: dueno_volqueta ---
 export class DuenoVolquetaRepository implements IDuenoVolquetaRepository {
     constructor(private db: Pool) {}
@@ -13,7 +14,7 @@ export class DuenoVolquetaRepository implements IDuenoVolquetaRepository {
         const placeholders = fields.map(() => '?').join(', ');
         
         const [result] = await this.db.query<ResultSetHeader>(
-            `INSERT INTO Dueno_Volqueta (${fields.join(', ')}) VALUES (${placeholders})`,
+            `INSERT INTO Dueno_Volqueta (${fields.map(ident).join(', ')}) VALUES (${placeholders})`,
             values
         );
         
@@ -34,7 +35,7 @@ export class DuenoVolquetaRepository implements IDuenoVolquetaRepository {
         
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }

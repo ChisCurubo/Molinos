@@ -2,16 +2,17 @@ import { PoolConnection } from 'mysql2/promise';
 
 /**
  * SQL del pago de MULAS (despachos de concentrado a Barranquilla). 1 Mula = 1 Cuenta_Por_Pagar
- * (categoría 'Mula', beneficiario = proveedor transportador) por el NETO de retención (`v_mulas`).
+ * (categoría 'Mula', beneficiario = proveedor transportador) por el BRUTO del despacho, menos
+ * la retención en la fuente de 'Transporte de carga' (ver retencion.repository.ts) ya contada
+ * como pagada en valor_pagado desde la creación — ver v_mulas para el desglose.
  * Los abonos se registran por PROVEEDOR y se aplican en cascada (fecha más vieja primero) sobre
  * todas sus cuentas de mula abiertas — igual patrón que pago_flete/pago_agua.
  */
 export interface IPagoMulaRepository {
     resolverCategoriaMula(conn?: PoolConnection): Promise<number>;
-    pctRetencionMula(conn?: PoolConnection): Promise<number>;
 
     // Mula (el despacho)
-    crearMula(data: { id_proveedor: number; id_viaje?: number; fecha: string; concepto?: string; factura_num?: string; foto_factura_url?: string; valor: number }, conn: PoolConnection): Promise<number>;
+    crearMula(data: { id_proveedor: number; id_viaje?: number; fecha: string; concepto?: string; factura_num?: string; foto_factura_url?: string; valor: number; retencion_fuente_manual?: number | null }, conn: PoolConnection): Promise<number>;
     obtenerMula(id: number, conn?: PoolConnection): Promise<any>;
     listarMulas(filtros: { id_proveedor?: number; id_viaje?: number; estado?: string }): Promise<any[]>;
     actualizarMula(id: number, campos: any, conn: PoolConnection): Promise<void>;
@@ -19,9 +20,9 @@ export interface IPagoMulaRepository {
     resumenMulas(filtros: { desde?: string; hasta?: string; id_proveedor?: number }): Promise<any>;
 
     // Cuenta (CxP)
-    crearCuentaMula(data: { id_proveedor: number; concepto: string; valor_total: number; fecha_creacion: string }, conn: PoolConnection): Promise<number>;
+    crearCuentaMula(data: { id_proveedor: number; concepto: string; valor_total: number; valor_retenido: number; fecha_creacion: string }, conn: PoolConnection): Promise<number>;
     obtenerCuenta(idCxp: number, conn?: PoolConnection): Promise<any>;
-    ajustarValorTotalCuenta(idCxp: number, nuevoValorTotal: number, conn: PoolConnection): Promise<void>;
+    ajustarValorTotalCuenta(idCxp: number, nuevoValorTotal: number, nuevoValorRetenido: number, conn: PoolConnection): Promise<void>;
     anularCuenta(idCxp: number, conn: PoolConnection): Promise<void>;
     recalcularCuenta(idCxp: number, conn: PoolConnection): Promise<void>;
     cuentasAbiertasDelProveedor(idProveedor: number, conn?: PoolConnection): Promise<any[]>;

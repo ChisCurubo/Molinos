@@ -25,6 +25,7 @@ import { IProveedorRepository } from '../../ports/material/repository_port/mater
 import { ProveedorRepository } from '../../repositories/material/material.repository';
 import { ProveedorSQL } from '../../models/pagos/sql/proveedor.sql';
 import { CombustibleService } from '../../services/pagos/combustible.service';
+import { AppError } from '../../errors/app-error';
 
 // --- Original: material_planta_entrada ---
 export class MaterialPlantaEntradaService implements IMaterialEntradaService {
@@ -416,7 +417,7 @@ export class MaterialPlantaEntradaService implements IMaterialEntradaService {
     }
 
     async vincularAnalisis(analisisData: any): Promise<void> {
-        throw new Error("vincularAnalisis was moved to AnalisisService.vincularAnalisisAEntrada");
+        throw AppError.http(500, "vincularAnalisis was moved to AnalisisService.vincularAnalisisAEntrada");
     }
 
     async listarPorMinero(idMinero: number): Promise<any[]> {
@@ -516,13 +517,13 @@ export class PrecioMaterialService implements IPrecioMaterialService {
     }
 
     async buscarTarifaZona(idZona: number | null, conn?: any): Promise<number> {
-        throw new Error("buscarTarifaZona is handled by TarifaCalculoService");
+        throw AppError.http(500, "buscarTarifaZona is handled by TarifaCalculoService");
     }
 
     async insertarLote(data: any): Promise<void> {
         const { id_minero, id_zona, metodo, fecha_inicio, fecha_fin, intervalos } = data;
         if (!intervalos || !Array.isArray(intervalos) || intervalos.length === 0) {
-            throw new Error("El arreglo de intervalos es inválido o está vacío");
+            throw AppError.validacion("El arreglo de intervalos es inválido o está vacío");
         }
 
         const metodoFinal = metodo || 'por_gramo';

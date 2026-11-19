@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { factory } from '../../config/factory';
 import pagoCombustibleRoutes from './pago_combustible.routes';
 
+import { upComprobante } from '../../helpers/upload.middleware';
 const router = Router();
 const c = factory.pagos.getCombustibleController();
 
@@ -15,9 +16,9 @@ router.get('/resumen-mensual', c.resumenMensual);
 router.get('/kpis', c.kpis);
 
 router.get('/', c.listar);
-router.post('/', c.registrar);
+router.post('/', upComprobante, c.registrar);
 router.get('/:id', c.obtener);
-router.put('/:id', c.editar);
+router.put('/:id', upComprobante, c.editar);
 router.delete('/:id', c.eliminar);
 
 export default router;

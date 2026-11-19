@@ -3,8 +3,9 @@ import { ICategoriaCxCService, ICuentasPorCobrarService } from '../../ports/pago
 import { ICategoriaCxCRepository, ICuentasPorCobrarRepository } from '../../ports/pagos/repository_port/cxc.repository.interface';
 import { CategoriaCxCRepository } from '../../repositories/pagos/cxc.repository';
 import { CategoriaCxcSQL } from '../../models/pagos/sql/categoria_cxc.sql';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const hoy = () => new Date().toISOString().slice(0, 10);
 const CAMPOS_DEUDOR = ['id_empleado', 'id_minero', 'id_dueno_volqueta', 'id_proveedor'];

@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { factory } from '../../config/factory';
 
+import { upComprobante } from '../../helpers/upload.middleware';
+import { validarDinero } from '../../helpers/validar.middleware';
 const router = Router();
 const c = factory.pagos.getPagoMaterialController();
 
 // Abonos (rutas específicas primero, antes de /:id)
 router.get('/abonos', c.listarAbonos);
-router.patch('/abonos/:idAbono', c.actualizarAbono);
+router.patch('/abonos/:idAbono', upComprobante, validarDinero, c.actualizarAbono);
 router.delete('/abonos/:idAbono', c.eliminarAbono);
 
 // Cuentas de grupo (material)
@@ -15,6 +17,6 @@ router.get('/', c.listar);
 router.get('/:id', c.detalle);
 router.patch('/:id', c.actualizarCuenta);
 router.delete('/:id', c.anularCuenta);
-router.post('/:id/abonos', c.registrarAbono);
+router.post('/:id/abonos', upComprobante, validarDinero, c.registrarAbono);
 
 export default router;

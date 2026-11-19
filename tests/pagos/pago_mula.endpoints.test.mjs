@@ -115,12 +115,14 @@ try {
     if (C?.id) mulaIds.push(C.id);
     check('crea mula C (201)', r.status === 201 && !!C?.id, `id=${C?.id}`);
 
-    // ---------- Detalle: CxP neta de retención, sin abonos ----------
-    log('\n===== GET /pagos/mulas/:id (detalle + CxP neta) =====');
+    // ---------- Detalle: CxP en bruto + retención en la fuente ya aplicada ----------
+    log('\n===== GET /pagos/mulas/:id (detalle + retención ya aplicada) =====');
     r = await req('GET', `/pagos/mulas/${A.id}`);
     const detA = r.j?.data;
     check('detalle trae cuenta y abonos vacíos', r.status === 200 && !!detA?.cuenta && detA.abonos.length === 0, `abonos=${detA?.abonos?.length}`);
-    check('CxP.valor_total = neto (valor - retención 1%)', near(money(detA.cuenta.valor_total), netoDe(1000000)), `total=${detA.cuenta.valor_total}`);
+    check('CxP.valor_total = BRUTO (sin descontar retención)', near(money(detA.cuenta.valor_total), 1000000), `total=${detA.cuenta.valor_total}`);
+    check('CxP.valor_retenido = retención 1% de transporte de carga', near(money(detA.cuenta.valor_retenido), 10000), `retenido=${detA.cuenta.valor_retenido}`);
+    check('CxP.saldo = NETO de retención (lo que falta transferir)', near(money(detA.cuenta.saldo), netoDe(1000000)), `saldo=${detA.cuenta.saldo}`);
 
     // ---------- Listado + KPI ----------
     log('\n===== GET /pagos/mulas y /pagos/mulas/resumen =====');
@@ -138,7 +140,8 @@ try {
     r = await req('PATCH', `/pagos/mulas/${A.id}`, { valor: 1200000 });
     check('PATCH cambia valor (200)', r.status === 200 && near(money(r.j?.data?.valor), 1200000), `valor=${r.j?.data?.valor}`);
     r = await req('GET', `/pagos/mulas/${A.id}`);
-    check('CxP.valor_total recalculado al nuevo neto', near(money(r.j?.data?.cuenta?.valor_total), netoDe(1200000)), `total=${r.j?.data?.cuenta?.valor_total}`);
+    check('CxP.valor_total recalculado al nuevo bruto', near(money(r.j?.data?.cuenta?.valor_total), 1200000), `total=${r.j?.data?.cuenta?.valor_total}`);
+    check('CxP.saldo recalculado al nuevo neto', near(money(r.j?.data?.cuenta?.saldo), netoDe(1200000)), `saldo=${r.j?.data?.cuenta?.saldo}`);
     // Volvemos A a 1,000,000 para simplificar la cascada.
     await req('PATCH', `/pagos/mulas/${A.id}`, { valor: 1000000 });
 

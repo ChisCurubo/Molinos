@@ -10,6 +10,8 @@ export interface CuentaPorPagarSQL {
     id_dueno_volqueta?: number;
     valor_total: number;
     valor_pagado: number;
+    valor_retenido: number;
+    valor_iva: number;
     saldo: number;
     estado: string;
     fecha_creacion: Date;

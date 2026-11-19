@@ -1,8 +1,9 @@
 import { IIngresoTesoreriaRepository, FiltrosIngresoTesoreria } from '../../ports/pagos/repository_port/ingreso_tesoreria.repository.interface';
 import { IIngresoTesoreriaService } from '../../ports/pagos/service_port/ingreso_tesoreria.service.interface';
 import { CategoriaIngresoSQL, IngresoTesoreriaSQL } from '../../models/pagos/sql/ingreso_tesoreria.sql';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 
 /**
  * Ingresos de tesorería: todo el dinero que entra realmente a la empresa (distinto de

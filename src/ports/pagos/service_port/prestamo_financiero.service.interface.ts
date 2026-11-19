@@ -21,6 +21,6 @@ export interface IPrestamoFinancieroService {
     /** Cuánto interés se acumularía hoy (o a `fecha`) sin persistir nada. */
     proyectarInteres(id: number, fecha?: string): Promise<ProyeccionInteres>;
     /** Registra un abono real: CxP+Abono_CxP (categoría 'Préstamo financiero') + reduce saldo_pendiente. */
-    abonar(id: number, data: { valor: number; fecha_abono?: string; metodo_pago?: string; comprobante_url?: string; observaciones?: string }): Promise<MovimientoPrestamoFinancieroSQL>;
+    abonar(id: number, data: { valor: number; fecha_abono?: string; metodo_pago?: string; comprobante_url?: string; observaciones?: string; id_cuenta_bancaria?: number }): Promise<MovimientoPrestamoFinancieroSQL>;
     listarMovimientos(id: number): Promise<MovimientoPrestamoFinancieroSQL[]>;
 }

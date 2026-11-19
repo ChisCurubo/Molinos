@@ -18,6 +18,9 @@ import gastoDirectoRoutes from './gasto_directo.routes';
 import vistasRoutes from './vistas.pagos.routes';
 import ingresoTesoreriaRoutes from './ingreso_tesoreria.routes';
 import flujoCajaRoutes from './flujo_caja.routes';
+import cuentaBancariaRoutes from './cuenta_bancaria.routes';
+import impuestoRoutes from './impuesto.routes';
+import retencionRoutes from './retencion.routes';
 
 const router = Router();
 
@@ -35,6 +38,9 @@ router.use('/anticipos', anticipoRoutes);
 router.use('/mulas', pagoMulaRoutes);
 router.use('/gastos-directos', gastoDirectoRoutes);
 router.use('/ingresos', ingresoTesoreriaRoutes);
+router.use('/cuentas', cuentaBancariaRoutes);
+router.use('/impuestos', impuestoRoutes);
+router.use('/retenciones', retencionRoutes);
 
 /**
  * @swagger

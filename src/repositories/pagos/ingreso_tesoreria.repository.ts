@@ -2,6 +2,8 @@ import { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql2/pro
 import { FiltrosIngresoTesoreria, IIngresoTesoreriaRepository } from '../../ports/pagos/repository_port/ingreso_tesoreria.repository.interface';
 import { CategoriaIngresoSQL, IngresoTesoreriaSQL } from '../../models/pagos/sql/ingreso_tesoreria.sql';
 
+import { ident } from '../../helpers/sql.helper';
+import { AppError } from '../../errors/app-error';
 export class IngresoTesoreriaRepository implements IIngresoTesoreriaRepository {
     constructor(private db: Pool) {}
 
@@ -11,7 +13,7 @@ export class IngresoTesoreriaRepository implements IIngresoTesoreriaRepository {
         const [rows] = await this.conn(conn).execute<RowDataPacket[]>(
             `SELECT id FROM Categorias_Ingreso WHERE nombre = ? LIMIT 1`, [nombre]
         );
-        if (!rows.length) throw new Error(`No existe la categoría '${nombre}' en Categorias_Ingreso`);
+        if (!rows.length) throw AppError.http(500, `No existe la categoría '${nombre}' en Categorias_Ingreso`);
         return Number(rows[0].id);
     }
 
@@ -38,13 +40,15 @@ export class IngresoTesoreriaRepository implements IIngresoTesoreriaRepository {
         const where: string[] = [];
         const params: any[] = [];
         if (filtros.id_categoria) { where.push('it.id_categoria = ?'); params.push(filtros.id_categoria); }
+        if (filtros.id_cuenta_bancaria) { where.push('it.id_cuenta_bancaria = ?'); params.push(filtros.id_cuenta_bancaria); }
         if (filtros.desde) { where.push('it.fecha >= ?'); params.push(filtros.desde); }
         if (filtros.hasta) { where.push('it.fecha <= ?'); params.push(filtros.hasta); }
         const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
         const [rows] = await this.db.execute<RowDataPacket[]>(
-            `SELECT it.*, cat.nombre AS categoria
+            `SELECT it.*, cat.nombre AS categoria, cb.nombre AS cuenta_bancaria
              FROM Ingresos_Tesoreria it
              JOIN Categorias_Ingreso cat ON cat.id = it.id_categoria
+             LEFT JOIN Cuentas_Bancarias cb ON cb.id = it.id_cuenta_bancaria
              ${whereSql}
              ORDER BY it.fecha DESC, it.id DESC`,
             params
@@ -56,7 +60,7 @@ export class IngresoTesoreriaRepository implements IIngresoTesoreriaRepository {
         const fields: string[] = [];
         const values: any[] = [];
         for (const [key, value] of Object.entries(data)) {
-            if (value !== undefined && key !== 'id') { fields.push(`${key} = ?`); values.push(value); }
+            if (value !== undefined && key !== 'id') { fields.push(`${ident(key)} = ?`); values.push(value); }
         }
         if (fields.length === 0) return false;
         values.push(id);

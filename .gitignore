@@ -5,3 +5,23 @@ dist/
 
 /graphify-out/
 /docs/
+# Export con datos reales de produccion: NO subir (repo publico)
+MolinosExport.sql
+
+uploads/
+
+logs/
+
+# --- Despliegue: nada de secretos, migraciones locales ni archivos subidos ---
+migracion_*.sql
+deploy/back/db/*.sql
+almacenamiento-local/
+cookies.txt
+*.pem
+*_ed25519*
+credenciales*.txt
+usuarios_piloto*.txt
+.env.*
+!.env.example
+*.stackdump
+Claude outputs/

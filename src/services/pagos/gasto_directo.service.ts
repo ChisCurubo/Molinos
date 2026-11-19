@@ -1,7 +1,8 @@
 import { IGastoDirectoRepository } from '../../ports/pagos/repository_port/gasto_directo.repository.interface';
 import { IGastoDirectoService } from '../../ports/pagos/service_port/gasto_directo.service.interface';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 export class GastoDirectoService implements IGastoDirectoService {
@@ -19,7 +20,8 @@ export class GastoDirectoService implements IGastoDirectoService {
             fecha: data.fecha || new Date().toISOString().slice(0, 10),
             metodo_pago: data.metodo_pago,
             comprobante_url: data.comprobante_url,
-            observaciones: data.observaciones
+            observaciones: data.observaciones,
+            id_cuenta_bancaria: data.id_cuenta_bancaria
         });
         return this.repo.obtenerPorId(id_cuenta_pagar);
     }

@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import { IContratoAlquilerService } from '../../ports/pagos/service_port/contrato_alquiler.service.interface';
+import { fail } from '../../errors/responder';
+import { AppError } from '../../errors/app-error';
 
 export class ContratoAlquilerController {
     constructor(private service: IContratoAlquilerService) {}
 
     private fail(res: Response, error: any) {
-        res.status(error?.status || 400).json({ success: false, message: error.message });
+        fail(res, error, 400);
     }
 
     create = async (req: Request, res: Response): Promise<void> => {
@@ -18,7 +20,7 @@ export class ContratoAlquilerController {
     getById = async (req: Request, res: Response): Promise<void> => {
         try {
             const data = await this.service.getById(Number(req.params.id));
-            if (!data) { res.status(404).json({ success: false, error: 'Contrato no encontrado' }); return; }
+            if (!data) { fail(res, AppError.http(404, 'Contrato no encontrado')); return; }
             res.status(200).json({ success: true, data });
         } catch (e) { this.fail(res, e); }
     };
@@ -26,7 +28,7 @@ export class ContratoAlquilerController {
     update = async (req: Request, res: Response): Promise<void> => {
         try {
             const data = await this.service.update(Number(req.params.id), req.body);
-            if (!data) { res.status(404).json({ success: false, error: 'Contrato no encontrado o sin cambios' }); return; }
+            if (!data) { fail(res, AppError.http(404, 'Contrato no encontrado o sin cambios')); return; }
             res.status(200).json({ success: true, data });
         } catch (e) { this.fail(res, e); }
     };
@@ -34,7 +36,7 @@ export class ContratoAlquilerController {
     delete = async (req: Request, res: Response): Promise<void> => {
         try {
             const deleted = await this.service.delete(Number(req.params.id));
-            if (!deleted) { res.status(404).json({ success: false, error: 'Contrato no encontrado' }); return; }
+            if (!deleted) { fail(res, AppError.http(404, 'Contrato no encontrado')); return; }
             res.status(200).json({ success: true, message: 'Contrato anulado (los meses ya generados no se tocan)' });
         } catch (e) { this.fail(res, e); }
     };

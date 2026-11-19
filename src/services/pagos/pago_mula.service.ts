@@ -1,13 +1,21 @@
 import { Pool, PoolConnection } from 'mysql2/promise';
 import { IPagoMulaRepository } from '../../ports/pagos/repository_port/pago_mula.repository.interface';
 import { IPagoMulaService } from '../../ports/pagos/service_port/pago_mula.service.interface';
+import { aplicarImpuesto4x1000 } from '../../repositories/pagos/impuesto.repository';
+import { calcularRetencionFuente, registrarRetencionAplicada, reemplazarRetencionDeCuenta, aplicarOverrideManual } from '../../repositories/pagos/retencion.repository';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
  * Pago de MULAS (despachos de concentrado a Barranquilla). 1 Mula = 1 CxP categoría 'Mula'
- * (beneficiario = proveedor transportador) por el NETO de retención (`retencion_mula_pct`).
+ * (beneficiario = proveedor transportador) por el valor BRUTO; la retención en la fuente de
+ * 'Transporte de carga' (ver retencion.repository.ts) se calcula al crear la cuenta y queda
+ * contada como ya pagada en valor_pagado desde el inicio — el saldo pendiente de abonar ya
+ * sale neto de retención. No aplica si el proveedor tiene exento_retencion=true.
+ * Transporte NO lleva reteIVA (decisión del usuario, 2026-10-31) — a diferencia de Alquiler,
+ * Categorias_CxP('Mula').id_concepto_reteiva queda sin mapear a propósito.
  *
  * Al registrar una Mula solo se captura la DEUDA (`valor` = lo que se debe pagar); no se pide
  * comprobante ni un "valor pagado" ahí — eso vive en los abonos. Los abonos se registran por
@@ -26,6 +34,13 @@ export class PagoMulaService implements IPagoMulaService {
         if (!idProveedor) throw err('id_proveedor es requerido');
         const valor = r2(Number(data.valor));
         if (!(valor > 0)) throw err('El valor de la mula (lo que se debe pagar) debe ser mayor a 0');
+        // Override manual de la retefuente al crear — ver retencion.repository.ts#aplicarOverrideManual.
+        // undefined=automático (catálogo), 0=fuerza "no aplica", >0=fuerza ese valor exacto.
+        let retencionManual: number | undefined;
+        if (data.retencion_fuente_manual !== undefined && data.retencion_fuente_manual !== null) {
+            retencionManual = r2(Number(data.retencion_fuente_manual));
+            if (!(retencionManual >= 0)) throw err('retencion_fuente_manual no puede ser negativo');
+        }
         const fecha = data.fecha || new Date().toISOString().slice(0, 10);
         const concepto = (data.concepto && String(data.concepto).trim())
             || `Mula${data.factura_num ? ' factura ' + data.factura_num : ''} — despacho ${fecha}`;
@@ -41,18 +56,24 @@ export class PagoMulaService implements IPagoMulaService {
             const idMula = await this.repo.crearMula({
                 id_proveedor: idProveedor, id_viaje: idViaje, fecha,
                 concepto: data.concepto, factura_num: data.factura_num,
-                foto_factura_url: data.foto_factura_url, valor
+                foto_factura_url: data.foto_factura_url, valor, retencion_fuente_manual: retencionManual ?? null
             }, conn);
 
             // El material sale físicamente al registrar el despacho, sin importar si ya se pagó.
             if (idViaje) await this.repo.marcarEstadoViaje(idViaje, 'despachado', conn);
 
-            const pct = await this.repo.pctRetencionMula(conn);
-            const neto = r2(valor - valor * pct / 100);
+            const idCategoria = await this.repo.resolverCategoriaMula(conn);
+            const calcAuto = await calcularRetencionFuente(conn, { id_categoria: idCategoria, id_proveedor: idProveedor, valor_base: valor });
+            const calc = aplicarOverrideManual(calcAuto, retencionManual);
             const idCxp = await this.repo.crearCuentaMula({
-                id_proveedor: idProveedor, concepto, valor_total: neto, fecha_creacion: fecha
+                id_proveedor: idProveedor, concepto, valor_total: valor, valor_retenido: calc.valor_retenido, fecha_creacion: fecha
             }, conn);
-            await this.repo.crearRelacionMula(idCxp, idMula, neto, concepto, conn);
+            await registrarRetencionAplicada(conn, {
+                id_concepto_retencion: calc.id_concepto_retencion, id_cuenta_pagar: idCxp,
+                valor_base: valor, tarifa_aplicada: calc.tarifa_aplicada, valor_retenido: calc.valor_retenido, fecha, tipo: 'fuente',
+                ajustado_manualmente: calc.ajustado_manualmente, valor_calculado_original: calc.valor_calculado_original
+            });
+            await this.repo.crearRelacionMula(idCxp, idMula, valor, concepto, conn);
 
             return await this.repo.obtenerMula(idMula, conn);
         });
@@ -91,7 +112,7 @@ export class PagoMulaService implements IPagoMulaService {
             if (!mula) throw err('Mula no encontrada', 404);
 
             const camposMula: any = {};
-            for (const k of ['id_viaje', 'fecha', 'concepto', 'factura_num', 'foto_factura_url']) {
+            for (const k of ['id_viaje', 'fecha', 'concepto', 'factura_num', 'foto_factura_url', 'retencion_fuente_manual']) {
                 if (data[k] !== undefined) camposMula[k] = data[k];
             }
 
@@ -117,16 +138,32 @@ export class PagoMulaService implements IPagoMulaService {
                 camposMula.valor = nuevoValor;
             }
 
+            // Override manual: data.retencion_fuente_manual=null limpia el override (vuelve a
+            // automático); un número (incluido 0) lo fija; si no viene, se respeta el que ya
+            // tenía la mula guardado.
+            let retencionManual: number | undefined;
+            if (data.retencion_fuente_manual !== undefined) {
+                if (data.retencion_fuente_manual !== null) {
+                    retencionManual = r2(Number(data.retencion_fuente_manual));
+                    if (!(retencionManual >= 0)) throw err('retencion_fuente_manual no puede ser negativo');
+                }
+            } else if (mula.retencion_fuente_manual !== null && mula.retencion_fuente_manual !== undefined) {
+                retencionManual = Number(mula.retencion_fuente_manual);
+            }
+
             if (Object.keys(camposMula).length > 0) {
                 await this.repo.actualizarMula(id, camposMula, conn);
             }
 
-            if (nuevoValor !== undefined) {
+            if (nuevoValor !== undefined || data.retencion_fuente_manual !== undefined) {
                 const idCxp = await this.repo.cuentaDeMula(id, conn);
                 if (idCxp) {
-                    const pct = await this.repo.pctRetencionMula(conn);
-                    const neto = r2(nuevoValor - nuevoValor * pct / 100);
-                    await this.repo.ajustarValorTotalCuenta(idCxp, neto, conn);
+                    const valorBase = nuevoValor ?? Number(mula.valor);
+                    const idCategoria = await this.repo.resolverCategoriaMula(conn);
+                    const calcAuto = await calcularRetencionFuente(conn, { id_categoria: idCategoria, id_proveedor: Number(mula.id_proveedor), valor_base: valorBase });
+                    const calc = aplicarOverrideManual(calcAuto, retencionManual);
+                    await this.repo.ajustarValorTotalCuenta(idCxp, valorBase, calc.valor_retenido, conn);
+                    await reemplazarRetencionDeCuenta(conn, idCxp, calc, valorBase, camposMula.fecha ?? mula.fecha, 'fuente');
                     await this.repo.recalcularCuenta(idCxp, conn);
                 }
             }
@@ -143,7 +180,9 @@ export class PagoMulaService implements IPagoMulaService {
             const idCxp = await this.repo.cuentaDeMula(id, conn);
             if (idCxp) {
                 const cuenta = await this.repo.obtenerCuenta(idCxp, conn);
-                if (cuenta && Number(cuenta.valor_pagado) > 0) {
+                // valor_pagado incluye la retención ya contada como pagada desde la creación
+                // (ver crearCuentaMula); el guard solo debe bloquear si hay ABONOS reales.
+                if (cuenta && Number(cuenta.valor_pagado) - Number(cuenta.valor_retenido) > 0) {
                     throw err('Esta mula ya tiene abonos registrados; elimínelos antes de eliminarla', 409);
                 }
                 await this.repo.eliminarRelacionMula(id, conn);
@@ -203,6 +242,12 @@ export class PagoMulaService implements IPagoMulaService {
                 saldoAFavor = restante;
             }
 
+            // El 4x1000 se cobra una sola vez sobre el total transferido (valor), no por cada
+            // cuenta de la cascada — el banco solo ve un movimiento de salida.
+            await aplicarImpuesto4x1000(conn, {
+                id_abono_cxp: ultimoAbono!, id_cuenta_bancaria: data.id_cuenta_bancaria, valor_base: valor, fecha
+            });
+
             return { aplicado_a: aplicado, total_aplicado: r2(valor - saldoAFavor), saldo_a_favor_generado: saldoAFavor };
         });
     }
@@ -240,8 +285,11 @@ export class PagoMulaService implements IPagoMulaService {
                 const nuevo = r2(Number(data.valor));
                 if (!(nuevo > 0)) throw err('El valor del abono debe ser mayor a 0');
                 const otros = await this.repo.sumaOtrosAbonos(idCxp, idAbono, conn);
-                if (nuevo + otros > Number(cuenta.valor_total) + 1e-6) {
-                    throw err(`El abono deja el total pagado (${r2(nuevo + otros)}) por encima del valor de la cuenta (${cuenta.valor_total})`, 409);
+                // El máximo que pueden sumar los ABONOS REALES es valor_total - valor_retenido
+                // (la retención ya está contada como pagada, no es un abono).
+                const maxAbonable = Number(cuenta.valor_total) - Number(cuenta.valor_retenido);
+                if (nuevo + otros > maxAbonable + 1e-6) {
+                    throw err(`El abono deja el total pagado (${r2(nuevo + otros)}) por encima del saldo abonable de la cuenta (${r2(maxAbonable)})`, 409);
                 }
                 campos.valor = nuevo;
             }

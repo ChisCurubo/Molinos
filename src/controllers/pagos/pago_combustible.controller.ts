@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
 import { IPagoCombustibleService } from '../../ports/pagos/service_port/pago_combustible.service.interface';
+import { fail } from '../../errors/responder';
 
 export class PagoCombustibleController {
     constructor(private service: IPagoCombustibleService) {}
 
     private fail(res: Response, error: any) {
-        res.status(error?.status || 400).json({ success: false, message: error.message });
+        fail(res, error, 400);
     }
 
     // GET /pagos/combustible/pagos/deuda  → dashboard: deuda por gasolinera

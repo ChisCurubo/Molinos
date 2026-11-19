@@ -1,5 +1,7 @@
 import { Pool, PoolConnection, ResultSetHeader } from 'mysql2/promise';
 import { IPagoAlquilerRepository } from '../../ports/pagos/repository_port/pago_alquiler.repository.interface';
+import { aplicarImpuesto4x1000 } from './impuesto.repository';
+import { AppError } from '../../errors/app-error';
 
 /**
  * Repositorio del pago de un ALQUILER a su proveedor. Modelo: 1 Cuenta_Por_Pagar por
@@ -35,12 +37,22 @@ export class PagoAlquilerRepository implements IPagoAlquilerRepository {
         return rows.length ? Number(rows[0].id) : null;
     }
 
-    async crearCuentaAlquiler(data: { id_alquiler: number; id_proveedor: number; concepto: string; valor_total: number; fecha_creacion: string }, conn: PoolConnection): Promise<number> {
+    async resolverCategoriaAlquiler(conn?: PoolConnection): Promise<number> {
+        const [rows] = await this.conn(conn).execute<any[]>(
+            `SELECT id FROM Categorias_CxP WHERE nombre = 'Alquiler' LIMIT 1`
+        );
+        if (!rows.length) throw AppError.http(500, "No existe la categoría 'Alquiler' en Categorias_CxP");
+        return Number(rows[0].id);
+    }
+
+    // valor_total queda en BRUTO; valor_pagado arranca en valor_retenido (fuente + iva, ya
+    // cuenta como "pagada" fiscalmente al Estado desde la creación) — ver retencion.repository.ts.
+    async crearCuentaAlquiler(data: { id_alquiler: number; id_proveedor: number; concepto: string; valor_total: number; valor_iva: number; valor_retenido: number; fecha_creacion: string }, conn: PoolConnection): Promise<number> {
         const [result] = await conn.execute<ResultSetHeader>(
             `INSERT INTO Cuentas_Por_Pagar
-                (id_categoria, concepto, id_proveedor, valor_total, valor_pagado, estado, fecha_creacion)
-             VALUES ((SELECT id FROM Categorias_CxP WHERE nombre='Alquiler' LIMIT 1), ?, ?, ?, 0, 'pendiente', ?)`,
-            [data.concepto, data.id_proveedor, data.valor_total, data.fecha_creacion]
+                (id_categoria, concepto, id_proveedor, valor_total, valor_iva, valor_pagado, valor_retenido, estado, fecha_creacion)
+             VALUES ((SELECT id FROM Categorias_CxP WHERE nombre='Alquiler' LIMIT 1), ?, ?, ?, ?, ?, ?, 'pendiente', ?)`,
+            [data.concepto, data.id_proveedor, data.valor_total, data.valor_iva, data.valor_retenido, data.valor_retenido, data.fecha_creacion]
         );
         return result.insertId;
     }
@@ -65,13 +77,14 @@ export class PagoAlquilerRepository implements IPagoAlquilerRepository {
         return rows.length ? rows[0] : null;
     }
 
+    // valor_pagado = abonos reales + valor_retenido (la retención siempre cuenta como pagada).
     async recalcularCuenta(idCxp: number, conn: PoolConnection): Promise<void> {
         await conn.execute(
             `UPDATE Cuentas_Por_Pagar cp
-             SET valor_pagado = (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id),
+             SET valor_pagado = (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id) + cp.valor_retenido,
                  estado = CASE
-                    WHEN (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id) <= 0 THEN 'pendiente'
-                    WHEN (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id) >= cp.valor_total THEN 'pagado'
+                    WHEN (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id) + cp.valor_retenido <= 0 THEN 'pendiente'
+                    WHEN (SELECT COALESCE(SUM(valor),0) FROM Abonos_CxP WHERE id_cuenta_pagar = cp.id) + cp.valor_retenido >= cp.valor_total THEN 'pagado'
                     ELSE 'parcial' END
              WHERE cp.id = ? AND cp.estado != 'anulado'`,
             [idCxp]
@@ -81,11 +94,14 @@ export class PagoAlquilerRepository implements IPagoAlquilerRepository {
     async insertarAbono(abono: any, conn: PoolConnection): Promise<number> {
         const [result] = await conn.execute<ResultSetHeader>(
             `INSERT INTO Abonos_CxP
-                (id_cuenta_pagar, fecha_abono, valor, metodo_pago, comprobante_url, observaciones)
-             VALUES (?, ?, ?, ?, ?, ?)`,
+                (id_cuenta_pagar, fecha_abono, valor, metodo_pago, comprobante_url, observaciones, id_cuenta_bancaria)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [abono.id_cuenta_pagar, abono.fecha_abono, abono.valor,
-             abono.metodo_pago || 'transferencia', abono.comprobante_url ?? null, abono.observaciones ?? null]
+             abono.metodo_pago || 'transferencia', abono.comprobante_url ?? null, abono.observaciones ?? null, abono.id_cuenta_bancaria ?? null]
         );
+        await aplicarImpuesto4x1000(conn, {
+            id_abono_cxp: result.insertId, id_cuenta_bancaria: abono.id_cuenta_bancaria, valor_base: abono.valor, fecha: abono.fecha_abono
+        });
         return result.insertId;
     }
 

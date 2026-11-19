@@ -3,8 +3,9 @@ import { PrestamoFinancieroSQL } from '../../models/pagos/sql/prestamo_financier
 import { MovimientoPrestamoFinancieroSQL } from '../../models/pagos/sql/movimiento_prestamo_financiero.sql';
 import { IPrestamoFinancieroRepository } from '../../ports/pagos/repository_port/prestamo_financiero.repository.interface';
 import { IPrestamoFinancieroService, ProyeccionInteres } from '../../ports/pagos/service_port/prestamo_financiero.service.interface';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const hoy = () => new Date().toISOString().slice(0, 10);
 
@@ -59,7 +60,7 @@ export class PrestamoFinancieroService implements IPrestamoFinancieroService {
                 { id_prestamo_fin: id, concepto: `Préstamo ${nombre}`.trim(), valor_total: Number(data.monto_principal), fecha: fechaSql }, conn
             );
             const entity = await this.repository.getById(id, conn);
-            if (!entity) throw new Error("Error registrando el préstamo financiero");
+            if (!entity) throw AppError.http(500, "Error registrando el préstamo financiero");
             return entity;
         });
     }
@@ -143,7 +144,7 @@ export class PrestamoFinancieroService implements IPrestamoFinancieroService {
 
         return this.tx(async conn => {
             const cxp = await this.repository.obtenerCxP(id, conn);
-            if (!cxp) throw new Error('No se encontró la CxP persistente de este préstamo (dato inconsistente)');
+            if (!cxp) throw AppError.http(500, 'No se encontró la CxP persistente de este préstamo (dato inconsistente)');
             await this.repository.actualizarSaldo(id, nuevoSaldo, true, conn);
             await this.repository.aumentarValorTotalCxP(cxp.id, interes, conn);
             const idMov = await this.repository.insertarMovimiento({
@@ -160,7 +161,7 @@ export class PrestamoFinancieroService implements IPrestamoFinancieroService {
      * (categoría 'Préstamo financiero', la misma desde que se creó — 2026-10-23, antes abría
      * una CxP nueva ya pagada cada vez), reduce saldo_pendiente y deja el movimiento en el historial.
      */
-    async abonar(id: number, data: { valor: number; fecha_abono?: string; metodo_pago?: string; comprobante_url?: string; observaciones?: string }): Promise<MovimientoPrestamoFinancieroSQL> {
+    async abonar(id: number, data: { valor: number; fecha_abono?: string; metodo_pago?: string; comprobante_url?: string; observaciones?: string; id_cuenta_bancaria?: number }): Promise<MovimientoPrestamoFinancieroSQL> {
         const valor = Number(data.valor);
         if (!valor || valor <= 0) throw err('valor debe ser mayor a 0');
 
@@ -176,10 +177,11 @@ export class PrestamoFinancieroService implements IPrestamoFinancieroService {
 
         return this.tx(async conn => {
             const cxp = await this.repository.obtenerCxP(id, conn);
-            if (!cxp) throw new Error('No se encontró la CxP persistente de este préstamo (dato inconsistente)');
+            if (!cxp) throw AppError.http(500, 'No se encontró la CxP persistente de este préstamo (dato inconsistente)');
             const id_abono = await this.repository.registrarAbono(cxp.id, {
                 fecha_abono: fecha, valor, metodo_pago: data.metodo_pago,
-                comprobante_url: data.comprobante_url, observaciones: data.observaciones
+                comprobante_url: data.comprobante_url, observaciones: data.observaciones,
+                id_cuenta_bancaria: data.id_cuenta_bancaria
             }, conn);
             await this.repository.actualizarSaldo(id, nuevoSaldo, nuevoSaldo > 0, conn);
             const idMov = await this.repository.insertarMovimiento({

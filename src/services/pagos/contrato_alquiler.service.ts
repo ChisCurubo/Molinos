@@ -2,8 +2,9 @@ import { Pool, PoolConnection } from 'mysql2/promise';
 import { IContratoAlquilerRepository } from '../../ports/pagos/repository_port/contrato_alquiler.repository.interface';
 import { IContratoAlquilerService } from '../../ports/pagos/service_port/contrato_alquiler.service.interface';
 import { ContratoAlquilerSQL } from '../../models/pagos/sql/contrato_alquiler.sql';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
 function toYMD(d: Date): string { return d.toISOString().slice(0, 10); }

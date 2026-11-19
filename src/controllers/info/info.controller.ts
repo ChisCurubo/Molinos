@@ -2,9 +2,10 @@ import { Request, Response } from 'express';
 import { CacheService } from '../../services/cache/cache.service';
 import { IInfoService } from '../../ports/info/service_port/info.service.interface';
 const ok = (res: Response, data: any) => res.status(200).json({ success: true, data });
-const err = (res: Response, e: any, status = 500) => res.status(status).json({ success: false, error: e.message || String(e) });
+const err = (res: Response, e: any, status = 500) => fail(res, e, status);
 
-import { CONFIG } from '../../config/config';
+import { CONFIG } from '../../config/config';
+import { fail } from '../../errors/responder';
 
 // Mapa estático de la API
 export const API_MAP = {
@@ -18,8 +19,8 @@ export const API_MAP = {
             endpoints: [
                 { grupo: 'Sesión',      metodo: 'POST', ruta: '/login',           descripcion: 'Autenticar usuario', body: { username: 'david', password: '123' }, response: { token: '<jwt>', usuario: {} } },
                 { grupo: 'Sesión',      metodo: 'GET',  ruta: '/verify',          descripcion: 'Verificar token JWT activo', headers: { Authorization: 'Bearer <token>' } },
-                { grupo: 'Contraseña',  metodo: 'POST', ruta: '/forgot-password', descripcion: 'Generar contraseña temporal (DEV: retorna en body)', body: { username: 'david' } },
-                { grupo: 'Contraseña',  metodo: 'POST', ruta: '/reset-password',  descripcion: 'Cambiar contraseña usando la temporal', body: { username: 'david', tempPassword: '<temp>', nuevaPassword: 'nueva123' } },
+                { grupo: 'Contraseña',  metodo: 'POST', ruta: '/forgot-password', descripcion: 'Envía enlace de reset al correo (username debe ser email)', body: { username: 'david@molinosdecolombia.com' } },
+                { grupo: 'Contraseña',  metodo: 'POST', ruta: '/reset-password',  descripcion: 'Cambiar contraseña con el token del correo', body: { token: '<token>', nuevaPassword: 'nueva12345' } },
                 { grupo: 'Usuarios',    metodo: 'GET',  ruta: '/usuarios',        descripcion: 'Listar todos los usuarios', requiere_token: true },
                 { grupo: 'Usuarios',    metodo: 'POST', ruta: '/usuarios',        descripcion: 'Crear usuario', requiere_token: true, body: { username: 'nuevo_usuario', password: 'pass', id_rol: 1 } },
                 { grupo: 'Usuarios',    metodo: 'GET',  ruta: '/usuarios/:id',    descripcion: 'Detalle de un usuario', requiere_token: true },
@@ -191,6 +192,47 @@ export const API_MAP = {
                 { grupo: 'CxC', metodo: 'PATCH',  ruta: '/cxc/:id', descripcion: 'Corrige concepto/id_categoria/valor_total/fecha_creacion/fecha_limite/deudor (todos opcionales) — 409 si está anulada o si el nuevo valor_total queda por debajo de lo ya cobrado', body: { valor_total: 350000, concepto: 'Préstamo moto Mauricio (corregido)' } },
                 { grupo: 'CxC', metodo: 'DELETE', ruta: '/cxc/:id', descripcion: 'Anula una cuenta por cobrar (borrado lógico, 404 si no existe o ya está anulada). Los cobros ya registrados se conservan para auditoría' },
                 { grupo: 'Tesorería', metodo: 'GET', ruta: '/categorias-ingreso', descripcion: 'Catálogo de categorías de Ingresos_Tesoreria (selector para el front)' },
+                // Cuentas Bancarias + Impuestos (4x1000) — 2026-10-30: id_cuenta_bancaria opcional en
+                // Abonos_CxP/Ingresos_Tesoreria; el 4x1000 se calcula solo si la cuenta no está exenta.
+                { grupo: 'Cuentas Bancarias', metodo: 'POST',   ruta: '/cuentas',           descripcion: 'Crear cuenta bancaria', body: { nombre: 'Bancolombia Ahorros 123', banco: 'Bancolombia', numero_cuenta: '123456789', tipo_cuenta: 'ahorros', propietario: 'Camilo Curubo', id_empleado: null, exento_4x1000: false } },
+                { grupo: 'Cuentas Bancarias', metodo: 'GET',    ruta: '/cuentas',           descripcion: 'Listar cuentas bancarias' },
+                { grupo: 'Cuentas Bancarias', metodo: 'GET',    ruta: '/cuentas/saldos',    descripcion: 'Saldo (ingresos - egresos - impuestos) de todas las cuentas' },
+                { grupo: 'Cuentas Bancarias', metodo: 'GET',    ruta: '/cuentas/:id',       descripcion: 'Detalle de una cuenta bancaria' },
+                { grupo: 'Cuentas Bancarias', metodo: 'GET',    ruta: '/cuentas/:id/saldo', descripcion: 'Saldo de una cuenta específica' },
+                { grupo: 'Cuentas Bancarias', metodo: 'PATCH',  ruta: '/cuentas/:id',       descripcion: 'Editar cuenta bancaria', body: { exento_4x1000: true, activa: true } },
+                { grupo: 'Cuentas Bancarias', metodo: 'DELETE', ruta: '/cuentas/:id',       descripcion: 'Eliminar cuenta bancaria' },
+                { grupo: 'Impuestos', metodo: 'GET', ruta: '/impuestos',           descripcion: 'Catálogo de impuestos (hoy solo 4x1000)' },
+                { grupo: 'Impuestos', metodo: 'GET', ruta: '/impuestos/aplicados', descripcion: 'Listado de impuestos realmente cobrados', params: { id_cuenta_bancaria: '', desde: '', hasta: '' } },
+                // Retención en la fuente — 2026-10-31. Fase 1 (retefuente): SOLO Mulas (Transporte
+                // de carga) y Alquiler (Arrendamiento muebles). Material/Flete/Agua quedan fuera a
+                // propósito. Se calcula al crear la CxP (causación), respeta exento_retencion.
+                //
+                // Fase 2 (reteIVA) — "control básico", ACTIVADA 2026-10-31 por decisión explícita
+                // del usuario (Conceptos_Retencion.'ReteIVA general'.activo = TRUE), y SOLO para
+                // Alquiler (arrendamiento de muebles sí suele llevar IVA) — Mulas/transporte NO
+                // lleva reteIVA, ahí solo aplica retefuente ("al transporte... ahí solo va reten
+                // fuente"). Cualquier Alquiler con valor_iva > 0 y proveedor no exento genera YA
+                // un descuento real del 15%, sumado a la retefuente de Fase 1.
+                // Combustible/gasolina NO se incluyó aunque se consideró: en Colombia están
+                // EXCLUIDOS de IVA (art. 475 E.T., tienen su propio impuesto a los combustibles).
+                // ⚠️ PENDIENTE DE CONFIRMAR CON CONTADOR (se activó sin esto): (1) si Molinos
+                // califica como agente de reteIVA (art. 437-2 E.T.), (2) si la tarifa general de
+                // 15% aplica tal cual a Arrendamiento muebles o hay régimen especial, (3) si
+                // valor_iva debe entrar a mano (como hoy) o calcularse solo. Ver
+                // PLAN_RETENCIONES_FUENTE_IVA_2026-10-30.md. Para desactivar si el contador dice
+                // que no corresponde: Conceptos_Retencion.activo = FALSE en esa fila, sin tocar código.
+                { grupo: 'Retenciones', metodo: 'GET', ruta: '/retenciones',           descripcion: 'Catálogo: retefuente activa en Mulas (Transporte de carga, 1%) y Alquiler (Arrendamiento muebles, 4%); reteIVA (15%, "ReteIVA general") ACTIVA SOLO en Alquiler desde 2026-10-31 — pendiente confirmar con contador si corresponde' },
+                { grupo: 'Retenciones', metodo: 'GET', ruta: '/retenciones/aplicadas', descripcion: 'Listado de retenciones realmente aplicadas (tipo=fuente y tipo=iva, ambas activas)', params: { id_cuenta_pagar: '', tipo: 'fuente', desde: '', hasta: '' } },
+                // Diseño "híbrido" (2026-10-31): el catálogo calcula solo, pero se puede corregir
+                // a mano en dos momentos — (a) AL CREAR el pago, con retencion_fuente_manual /
+                // reteiva_manual en el body de POST /mulas y POST /alquileres (NULL=automático,
+                // 0=fuerza que no aplique, >0=fuerza ese valor exacto), o (b) DESPUÉS, con este
+                // PATCH — ver migracion_retenciones_2026-10-31.sql. Ambos caminos
+                // recalculan Cuentas_Por_Pagar.valor_retenido/valor_pagado/estado y guardan
+                // ajustado_manualmente + valor_calculado_original (lo que el catálogo hubiera
+                // calculado) en Retenciones_Aplicadas, para no perder el rastro. 409 si el ajuste
+                // deja el total pagado por encima del valor_total de la cuenta.
+                { grupo: 'Retenciones', metodo: 'PATCH', ruta: '/retenciones/aplicadas/:id', descripcion: 'Ajustar a mano el valor_retenido de una retención ya aplicada (guarda el valor_calculado_original la primera vez)', body: { valor_retenido: 15000 } },
                 // Pago de MATERIAL — CxP agrupada por minero + abonos con prorrateo (2026-08-31)
                 { grupo: 'Pago Material', metodo: 'POST',   ruta: '/material',                descripcion: 'Agrupar volquetas de un minero en una cuenta por pagar', body: { entradas: [1, 2], concepto: 'Material Julio', fecha_limite: '2026-08-31' } },
                 { grupo: 'Pago Material', metodo: 'GET',    ruta: '/material',                descripcion: 'Tablero de cuentas de material', params: { id_minero: '', estado: '' } },
@@ -238,7 +280,7 @@ export const API_MAP = {
                 { grupo: 'Alquiler', metodo: 'PUT',    ruta: '/alquileres/tipos/:id', descripcion: 'Editar tipo de alquiler' },
                 { grupo: 'Alquiler', metodo: 'DELETE', ruta: '/alquileres/tipos/:id', descripcion: 'Eliminar tipo de alquiler' },
                 { grupo: 'Alquiler', metodo: 'GET',    ruta: '/alquileres',     descripcion: 'Listar alquileres (contratos vigentes)' },
-                { grupo: 'Alquiler', metodo: 'POST',   ruta: '/alquileres',     descripcion: 'Crear alquiler', body: { id_tipo: 1, id_proveedor: 3, fecha_inicio: '2026-10-01', concepto: 'ALQUILER CAMIONETA OCTUBRE FAC 500', valor: 1500000 } },
+                { grupo: 'Alquiler', metodo: 'POST',   ruta: '/alquileres',     descripcion: 'Crear alquiler. valor_iva opcional (base de reteIVA, activa). retencion_fuente_manual/reteiva_manual opcionales: omitir=automático (catálogo), 0=fuerza que no aplique, >0=fuerza ese valor exacto', body: { id_tipo: 1, id_proveedor: 3, fecha_inicio: '2026-10-01', concepto: 'ALQUILER CAMIONETA OCTUBRE FAC 500', valor: 1500000, valor_iva: 0, retencion_fuente_manual: null, reteiva_manual: null } },
                 { grupo: 'Alquiler', metodo: 'GET',    ruta: '/alquileres/:id', descripcion: 'Ver un alquiler' },
                 { grupo: 'Alquiler', metodo: 'PUT',    ruta: '/alquileres/:id', descripcion: 'Editar un alquiler' },
                 { grupo: 'Alquiler', metodo: 'DELETE', ruta: '/alquileres/:id', descripcion: 'Anular un alquiler (borrado lógico, deleted_at)' },
@@ -263,12 +305,12 @@ export const API_MAP = {
                 { grupo: 'Proveedores', metodo: 'PUT',    ruta: '/proveedores/categorias/:id', descripcion: 'Editar categoría de proveedor' },
                 { grupo: 'Proveedores', metodo: 'DELETE', ruta: '/proveedores/categorias/:id', descripcion: 'Eliminar categoría de proveedor' },
                 { grupo: 'Proveedores', metodo: 'GET',    ruta: '/proveedores',     descripcion: 'Listar proveedores' },
-                { grupo: 'Proveedores', metodo: 'POST',   ruta: '/proveedores',     descripcion: 'Crear proveedor', body: { nombre: 'Transportes El Faro', id_categoria: 1, nit: '900123456-7', telefono: '3001234567' } },
+                { grupo: 'Proveedores', metodo: 'POST',   ruta: '/proveedores',     descripcion: 'Crear proveedor', body: { nombre: 'Transportes El Faro', id_categoria: 1, nit: '900123456-7', telefono: '3001234567', declarante_renta: false, exento_retencion: false } },
                 { grupo: 'Proveedores', metodo: 'GET',    ruta: '/proveedores/:id', descripcion: 'Ver un proveedor' },
-                { grupo: 'Proveedores', metodo: 'PUT',    ruta: '/proveedores/:id', descripcion: 'Actualizar proveedor' },
+                { grupo: 'Proveedores', metodo: 'PUT',    ruta: '/proveedores/:id', descripcion: 'Actualizar proveedor — declarante_renta/exento_retencion aplican a retefuente Y reteIVA (Mulas/Alquiler); exento_retencion=true bloquea ambas', body: { declarante_renta: true, exento_retencion: false } },
                 { grupo: 'Proveedores', metodo: 'DELETE', ruta: '/proveedores/:id', descripcion: 'Eliminar proveedor (409 si está en uso por una FK, ej. despachos de mula)' },
                 // Pago de MULAS — despacho a proveedor (transportadora Barranquilla) + cascada de abonos (2026-09-13)
-                { grupo: 'Pago Mula', metodo: 'POST',   ruta: '/mulas',                                descripcion: 'Registrar un despacho de mula', body: { id_proveedor: 1, valor: 3500000, fecha: '2026-09-13', id_viaje: null } },
+                { grupo: 'Pago Mula', metodo: 'POST',   ruta: '/mulas',                                descripcion: 'Registrar un despacho de mula. Solo lleva retefuente (transporte de carga, 1%) — NO lleva reteIVA, esa solo aplica a Alquiler. retencion_fuente_manual opcional: omitir=automático, 0=fuerza que no aplique, >0=fuerza ese valor', body: { id_proveedor: 1, valor: 3500000, fecha: '2026-09-13', id_viaje: null, retencion_fuente_manual: null } },
                 { grupo: 'Pago Mula', metodo: 'GET',    ruta: '/mulas',                                descripcion: 'Listar despachos', params: { id_proveedor: '', id_viaje: '', estado: '' } },
                 { grupo: 'Pago Mula', metodo: 'GET',    ruta: '/mulas/:id',                            descripcion: 'Detalle de un despacho' },
                 { grupo: 'Pago Mula', metodo: 'PATCH',  ruta: '/mulas/:id',                            descripcion: 'Editar un despacho (incluye vincular/desvincular id_viaje)' },
@@ -351,6 +393,20 @@ export const API_MAP = {
                 { grupo: 'General', metodo: 'GET', ruta: '/estadisticas', descripcion: 'Conteo de registros de las tablas principales' },
                 { grupo: 'General', metodo: 'GET', ruta: '/health',       descripcion: 'Estado del servidor y conexión a BD' },
                 { grupo: 'General', metodo: 'GET', ruta: '/catalogos',    descripcion: 'Catálogos en memoria (minas, mineros, zonas, dueños de volqueta)' },
+            ]
+        },
+        {
+            nombre: 'inventario_productos', prefijo: '/api/v1/inventario-productos', requiere_token: true,
+            endpoints: [
+                { grupo: 'Productos',    metodo: 'GET',    ruta: '/productos',       descripcion: 'Listar productos con stock/costo promedio/valor ya resueltos (promedio ponderado)', params: { categoria: 'bola_molino', q: '', bajo_minimo: 'true', limit: 50, offset: 0 } },
+                { grupo: 'Productos',    metodo: 'POST',   ruta: '/productos',       descripcion: 'Crear producto', body: { nombre: 'Bola de molino 3"', categoria: 'bola_molino', unidad: 'kg', stock_minimo: 500 } },
+                { grupo: 'Productos',    metodo: 'GET',    ruta: '/productos/:id',   descripcion: 'Ver un producto' },
+                { grupo: 'Productos',    metodo: 'PUT',    ruta: '/productos/:id',   descripcion: 'Editar producto', body: { stock_minimo: 600 } },
+                { grupo: 'Productos',    metodo: 'DELETE', ruta: '/productos/:id',   descripcion: 'Eliminar producto (cascada: borra también su cardex de movimientos)' },
+                { grupo: 'Movimientos',  metodo: 'GET',    ruta: '/movimientos',     descripcion: 'Listar cardex (filtra por producto para el kardex de uno solo)', params: { id_producto: 1, tipo: 'salida', desde: '2026-01-01', hasta: '2026-12-31', limit: 50, offset: 0 } },
+                { grupo: 'Movimientos',  metodo: 'POST',   ruta: '/movimientos',     descripcion: 'Registrar entrada (compra) o salida (consumo). costo_unitario obligatorio en entrada; en salida lo calcula el backend por promedio ponderado. 400 STOCK_INSUFICIENTE si la salida supera el stock', body: { id_producto: 1, fecha: '2026-11-02', tipo: 'entrada', cantidad: 300, costo_unitario: 12000, nota: 'Compra proveedor X' } },
+                { grupo: 'Movimientos',  metodo: 'DELETE', ruta: '/movimientos/:id', descripcion: 'Borrar movimiento (recalcula los saldos de los movimientos posteriores de ese producto)' },
+                { grupo: 'Resumen',      metodo: 'GET',    ruta: '/resumen',         descripcion: 'KPIs: total_productos, valor_total_inventario, productos_bajo_minimo, gastado_en_compras', params: { desde: '2026-01-01', hasta: '2026-12-31' } },
             ]
         },
         {

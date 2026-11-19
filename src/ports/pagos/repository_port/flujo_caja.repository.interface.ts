@@ -22,6 +22,8 @@ export interface TransaccionLibro {
     metodo_pago: string;
     comprobante_url: string | null;
     observaciones: string | null;
+    id_cuenta_bancaria: number | null;
+    cuenta_bancaria: string | null;
 }
 
 export interface IFlujoCajaRepository {
@@ -35,6 +37,6 @@ export interface IFlujoCajaRepository {
     totalesPorMesDelAnio(anio: number): Promise<Map<number, TotalesPorMes>>;
 
     // Libro de transacciones: cada abono/cobro real del período, uno por fila (no agregado).
-    libroGastos(mes: number, anio: number): Promise<TransaccionLibro[]>;
+    libroGastos(mes: number, anio: number, id_cuenta_bancaria?: number): Promise<TransaccionLibro[]>;
     libroCobros(mes: number, anio: number): Promise<TransaccionLibro[]>;
 }

@@ -57,6 +57,15 @@ import { AnticipoController } from '../../controllers/pagos/anticipo.controller'
 import { PagoMulaRepository } from '../../repositories/pagos/pago_mula.repository';
 import { PagoMulaService } from '../../services/pagos/pago_mula.service';
 import { PagoMulaController } from '../../controllers/pagos/pago_mula.controller';
+import { CuentaBancariaRepository } from '../../repositories/pagos/cuenta_bancaria.repository';
+import { CuentaBancariaService } from '../../services/pagos/cuenta_bancaria.service';
+import { CuentaBancariaController } from '../../controllers/pagos/cuenta_bancaria.controller';
+import { ImpuestoRepository } from '../../repositories/pagos/impuesto.repository';
+import { ImpuestoService } from '../../services/pagos/impuesto.service';
+import { ImpuestoController } from '../../controllers/pagos/impuesto.controller';
+import { RetencionRepository } from '../../repositories/pagos/retencion.repository';
+import { RetencionService } from '../../services/pagos/retencion.service';
+import { RetencionController } from '../../controllers/pagos/retencion.controller';
 
 export class PagosFactory {
     constructor(private db: Pool) {}
@@ -137,6 +146,15 @@ export class PagosFactory {
     private pagoMulaRepository?: PagoMulaRepository;
     private pagoMulaService?: PagoMulaService;
     private pagoMulaController?: PagoMulaController;
+    private cuentaBancariaRepository?: CuentaBancariaRepository;
+    private cuentaBancariaService?: CuentaBancariaService;
+    private cuentaBancariaController?: CuentaBancariaController;
+    private impuestoRepository?: ImpuestoRepository;
+    private impuestoService?: ImpuestoService;
+    private impuestoController?: ImpuestoController;
+    private retencionRepository?: RetencionRepository;
+    private retencionService?: RetencionService;
+    private retencionController?: RetencionController;
 
     public getTipoAlquilerRepository(): TipoAlquilerRepository {
         if (!this.tipoAlquilerRepository) this.tipoAlquilerRepository = new TipoAlquilerRepository(this.db);
@@ -520,5 +538,52 @@ export class PagosFactory {
     public getPagoMulaController(): PagoMulaController {
         if (!this.pagoMulaController) this.pagoMulaController = new PagoMulaController(this.getPagoMulaService());
         return this.pagoMulaController;
+    }
+
+    // ===== Cuentas Bancarias + Impuestos (4x1000) =====
+    public getCuentaBancariaRepository(): CuentaBancariaRepository {
+        if (!this.cuentaBancariaRepository) this.cuentaBancariaRepository = new CuentaBancariaRepository(this.db);
+        return this.cuentaBancariaRepository;
+    }
+
+    public getCuentaBancariaService(): CuentaBancariaService {
+        if (!this.cuentaBancariaService) this.cuentaBancariaService = new CuentaBancariaService(this.getCuentaBancariaRepository());
+        return this.cuentaBancariaService;
+    }
+
+    public getCuentaBancariaController(): CuentaBancariaController {
+        if (!this.cuentaBancariaController) this.cuentaBancariaController = new CuentaBancariaController(this.getCuentaBancariaService());
+        return this.cuentaBancariaController;
+    }
+
+    public getImpuestoRepository(): ImpuestoRepository {
+        if (!this.impuestoRepository) this.impuestoRepository = new ImpuestoRepository(this.db);
+        return this.impuestoRepository;
+    }
+
+    public getImpuestoService(): ImpuestoService {
+        if (!this.impuestoService) this.impuestoService = new ImpuestoService(this.getImpuestoRepository());
+        return this.impuestoService;
+    }
+
+    public getImpuestoController(): ImpuestoController {
+        if (!this.impuestoController) this.impuestoController = new ImpuestoController(this.getImpuestoService());
+        return this.impuestoController;
+    }
+
+    // ===== Retención en la fuente (Fase 1: Mulas y Alquiler) =====
+    public getRetencionRepository(): RetencionRepository {
+        if (!this.retencionRepository) this.retencionRepository = new RetencionRepository(this.db);
+        return this.retencionRepository;
+    }
+
+    public getRetencionService(): RetencionService {
+        if (!this.retencionService) this.retencionService = new RetencionService(this.getRetencionRepository(), this.db);
+        return this.retencionService;
+    }
+
+    public getRetencionController(): RetencionController {
+        if (!this.retencionController) this.retencionController = new RetencionController(this.getRetencionService());
+        return this.retencionController;
     }
 }

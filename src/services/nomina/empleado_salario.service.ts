@@ -2,8 +2,9 @@ import { Pool } from 'mysql2/promise';
 import { EmpleadoSalarioSQL } from '../../models/nomina/sql/empleado_salario.sql';
 import { IEmpleadoSalarioRepository } from '../../ports/nomina/repository_port/empleado_salario.repository.interface';
 import { IEmpleadoSalarioService } from '../../ports/nomina/service_port/empleado_salario.service.interface';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 const TIPOS_PAGO = ['FIJO_MENSUAL', 'POR_DIAS', 'POR_HORAS'];
 
 export class EmpleadoSalarioService implements IEmpleadoSalarioService {

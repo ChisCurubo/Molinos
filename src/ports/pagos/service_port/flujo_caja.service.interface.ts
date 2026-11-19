@@ -45,12 +45,14 @@ export interface TransaccionLibroDTO {
     metodo_pago: string;
     comprobante_url: string | null;
     observaciones: string | null;
+    id_cuenta_bancaria: number | null;
+    cuenta_bancaria: string | null;
 }
 
 export interface IFlujoCajaService {
     resumenMensual(mes: number, anio: number): Promise<ResumenFlujoCaja>;
     historico(): Promise<HistoricoFlujoCaja>;
     anual(anio: number): Promise<FlujoCajaAnual>;
-    libroGastos(mes: number, anio: number): Promise<TransaccionLibroDTO[]>;
+    libroGastos(mes: number, anio: number, id_cuenta_bancaria?: number): Promise<TransaccionLibroDTO[]>;
     libroCobros(mes: number, anio: number): Promise<TransaccionLibroDTO[]>;
 }

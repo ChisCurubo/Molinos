@@ -2,7 +2,9 @@ import { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql2/pro
 import { PrestamoFinancieroSQL } from '../../models/pagos/sql/prestamo_financiero.sql';
 import { MovimientoPrestamoFinancieroSQL } from '../../models/pagos/sql/movimiento_prestamo_financiero.sql';
 import { IPrestamoFinancieroRepository } from '../../ports/pagos/repository_port/prestamo_financiero.repository.interface';
-
+import { aplicarImpuesto4x1000 } from './impuesto.repository';
+
+import { ident } from '../../helpers/sql.helper';
 export class PrestamoFinancieroRepository implements IPrestamoFinancieroRepository {
     constructor(private db: Pool) {}
 
@@ -40,7 +42,7 @@ export class PrestamoFinancieroRepository implements IPrestamoFinancieroReposito
         
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }
@@ -107,12 +109,15 @@ export class PrestamoFinancieroRepository implements IPrestamoFinancieroReposito
         await this.recalcularEstadoCxP(idCxp, conn);
     }
 
-    async registrarAbono(idCxp: number, data: { fecha_abono: string; valor: number; metodo_pago?: string; comprobante_url?: string; observaciones?: string }, conn: PoolConnection): Promise<number> {
+    async registrarAbono(idCxp: number, data: { fecha_abono: string; valor: number; metodo_pago?: string; comprobante_url?: string; observaciones?: string; id_cuenta_bancaria?: number }, conn: PoolConnection): Promise<number> {
         const [abonoResult] = await conn.execute<ResultSetHeader>(
-            `INSERT INTO Abonos_CxP (id_cuenta_pagar, fecha_abono, valor, metodo_pago, comprobante_url, observaciones)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [idCxp, data.fecha_abono, data.valor, data.metodo_pago || 'transferencia', data.comprobante_url ?? null, data.observaciones ?? null]
+            `INSERT INTO Abonos_CxP (id_cuenta_pagar, fecha_abono, valor, metodo_pago, comprobante_url, observaciones, id_cuenta_bancaria)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [idCxp, data.fecha_abono, data.valor, data.metodo_pago || 'transferencia', data.comprobante_url ?? null, data.observaciones ?? null, data.id_cuenta_bancaria ?? null]
         );
+        await aplicarImpuesto4x1000(conn, {
+            id_abono_cxp: abonoResult.insertId, id_cuenta_bancaria: data.id_cuenta_bancaria, valor_base: data.valor, fecha: data.fecha_abono
+        });
         await this.recalcularEstadoCxP(idCxp, conn);
         return abonoResult.insertId;
     }

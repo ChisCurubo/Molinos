@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { factory } from '../../config/factory';
 
+import { upComprobante } from '../../helpers/upload.middleware';
+import { validarDinero } from '../../helpers/validar.middleware';
 const router = Router();
 const controller = factory.pagos.getPrestamoFinancieroController();
 
@@ -225,7 +227,7 @@ router.post('/:id/interes', controller.acumularInteres);
  *       409:
  *         description: El abono supera el saldo pendiente
  */
-router.post('/:id/abonos', controller.abonar);
+router.post('/:id/abonos', upComprobante, validarDinero, controller.abonar);
 
 /**
  * @swagger

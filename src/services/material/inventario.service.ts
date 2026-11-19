@@ -1,5 +1,6 @@
 import { PoolConnection } from 'mysql2/promise';
 import { IInventarioRepository, IInventarioService } from '../../ports/material/inventario.interface';
+import { AppError } from '../../errors/app-error';
 
 export class InventarioService implements IInventarioService {
     constructor(private repo: IInventarioRepository) {}
@@ -14,7 +15,7 @@ export class InventarioService implements IInventarioService {
 
     async obtenerResumenLote(idLote: number): Promise<any> {
         const resumen = await this.repo.obtenerResumenLote(idLote);
-        if (!resumen) throw new Error('Resumen de lote no encontrado');
+        if (!resumen) throw AppError.noEncontrado('Resumen de lote no encontrado');
         return resumen;
     }
 

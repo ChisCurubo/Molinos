@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { INominaLiquidacionService } from '../../ports/nomina/service_port/nomina_liquidacion.service.interface';
+import { fail } from '../../errors/responder';
+import { AppError } from '../../errors/app-error';
 
 export class NominaLiquidacionController {
     constructor(private service: INominaLiquidacionService) {}
@@ -8,13 +10,13 @@ export class NominaLiquidacionController {
         try {
             const { id_empleado, anio, mes, quincena } = req.query as any;
             if (!id_empleado || !anio || !mes || !quincena) {
-                res.status(400).json({ success: false, message: 'id_empleado, anio, mes y quincena son requeridos' });
+                fail(res, AppError.http(400, 'id_empleado, anio, mes y quincena son requeridos'));
                 return;
             }
             const preview = await this.service.previsualizar(Number(id_empleado), Number(anio), Number(mes), Number(quincena));
             res.status(200).json({ success: true, data: preview });
         } catch (error: any) {
-            res.status(error?.status || 500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 
@@ -22,13 +24,13 @@ export class NominaLiquidacionController {
         try {
             const { anio, mes, quincena } = req.query as any;
             if (!anio || !mes || !quincena) {
-                res.status(400).json({ success: false, message: 'anio, mes y quincena son requeridos' });
+                fail(res, AppError.http(400, 'anio, mes y quincena son requeridos'));
                 return;
             }
             const resultado = await this.service.previsualizarGrupal(Number(anio), Number(mes), Number(quincena));
             res.status(200).json({ success: true, data: resultado });
         } catch (error: any) {
-            res.status(error?.status || 500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 
@@ -37,7 +39,7 @@ export class NominaLiquidacionController {
             const liquidacion = await this.service.confirmar(req.body);
             res.status(201).json({ success: true, data: liquidacion });
         } catch (error: any) {
-            res.status(error?.status || 400).json({ success: false, message: error.message });
+            fail(res, error, 400);
         }
     };
 
@@ -46,7 +48,7 @@ export class NominaLiquidacionController {
             const liquidacion = await this.service.crearBorrador(req.body);
             res.status(201).json({ success: true, data: liquidacion });
         } catch (error: any) {
-            res.status(error?.status || 400).json({ success: false, message: error.message });
+            fail(res, error, 400);
         }
     };
 
@@ -55,7 +57,7 @@ export class NominaLiquidacionController {
             const liquidacion = await this.service.actualizarBorrador(Number(req.params.id), req.body);
             res.status(200).json({ success: true, data: liquidacion });
         } catch (error: any) {
-            res.status(error?.status || 400).json({ success: false, message: error.message });
+            fail(res, error, 400);
         }
     };
 
@@ -64,7 +66,7 @@ export class NominaLiquidacionController {
             const liquidacion = await this.service.confirmarBorrador(Number(req.params.id));
             res.status(200).json({ success: true, data: liquidacion });
         } catch (error: any) {
-            res.status(error?.status || 400).json({ success: false, message: error.message });
+            fail(res, error, 400);
         }
     };
 
@@ -78,17 +80,17 @@ export class NominaLiquidacionController {
             });
             res.status(200).json({ success: true, data: liquidaciones });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 
     obtenerPorId = async (req: Request, res: Response): Promise<void> => {
         try {
             const liquidacion = await this.service.obtenerPorId(Number(req.params.id));
-            if (!liquidacion) { res.status(404).json({ success: false, message: 'Liquidación no encontrada' }); return; }
+            if (!liquidacion) { fail(res, AppError.http(404, 'Liquidación no encontrada')); return; }
             res.status(200).json({ success: true, data: liquidacion });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 
@@ -98,7 +100,7 @@ export class NominaLiquidacionController {
             const resultado = await this.service.calcularPrestaciones(Number(req.params.id), anio);
             res.status(200).json({ success: true, data: resultado });
         } catch (error: any) {
-            res.status(error?.status || 500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 }

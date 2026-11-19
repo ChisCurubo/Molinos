@@ -3,7 +3,8 @@ import { TurnoSQL } from '../../models/nomina/sql/turno.sql';
 import { ITurnoRepository } from '../../ports/nomina/repository_port/turno.repository.interface';
 import { TipoTurnoSQL } from '../../models/nomina/sql/tipo_turno.sql';
 import { ITipoTurnoRepository } from '../../ports/nomina/repository_port/turno.repository.interface';
-
+
+import { ident } from '../../helpers/sql.helper';
 // --- Original: turno ---
 export class TurnoRepository implements ITurnoRepository {
     constructor(private db: Pool) {}
@@ -14,7 +15,7 @@ export class TurnoRepository implements ITurnoRepository {
         const placeholders = fields.map(() => '?').join(', ');
         
         const [result] = await this.db.query<ResultSetHeader>(
-            `INSERT INTO Turnos (${fields.join(', ')}) VALUES (${placeholders})`,
+            `INSERT INTO Turnos (${fields.map(ident).join(', ')}) VALUES (${placeholders})`,
             values
         );
         return result.insertId;
@@ -58,7 +59,7 @@ export class TurnoRepository implements ITurnoRepository {
         
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }
@@ -132,7 +133,7 @@ export class TipoTurnoRepository implements ITipoTurnoRepository {
         const placeholders = fields.map(() => '?').join(', ');
         
         const [result] = await this.db.query<ResultSetHeader>(
-            `INSERT INTO Tipos_Turno (${fields.join(', ')}) VALUES (${placeholders})`,
+            `INSERT INTO Tipos_Turno (${fields.map(ident).join(', ')}) VALUES (${placeholders})`,
             values
         );
         return result.insertId;
@@ -150,7 +151,7 @@ export class TipoTurnoRepository implements ITipoTurnoRepository {
         
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }

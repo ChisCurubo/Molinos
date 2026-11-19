@@ -3,6 +3,7 @@ import { IContratoAlquilerRepository } from '../../ports/pagos/repository_port/c
 import { ContratoAlquilerSQL } from '../../models/pagos/sql/contrato_alquiler.sql';
 import { AlquilerSQL } from '../../models/pagos/sql/alquiler.sql';
 
+import { ident } from '../../helpers/sql.helper';
 export class ContratoAlquilerRepository implements IContratoAlquilerRepository {
     constructor(private db: Pool) {}
 
@@ -14,7 +15,7 @@ export class ContratoAlquilerRepository implements IContratoAlquilerRepository {
         const placeholders = fields.map(() => '?').join(', ');
 
         const [result] = await conn.execute<ResultSetHeader>(
-            `INSERT INTO Contratos_Alquiler (${fields.join(', ')}) VALUES (${placeholders})`,
+            `INSERT INTO Contratos_Alquiler (${fields.map(ident).join(', ')}) VALUES (${placeholders})`,
             values
         );
         return result.insertId;
@@ -30,7 +31,7 @@ export class ContratoAlquilerRepository implements IContratoAlquilerRepository {
         const fields: string[] = [];
         const values: any[] = [];
         for (const [key, value] of Object.entries(data)) {
-            if (value !== undefined) { fields.push(`${key} = ?`); values.push(value); }
+            if (value !== undefined) { fields.push(`${ident(key)} = ?`); values.push(value); }
         }
         if (fields.length === 0) return false;
         values.push(id);
@@ -58,7 +59,7 @@ export class ContratoAlquilerRepository implements IContratoAlquilerRepository {
         const placeholders = fields.map(() => '?').join(', ');
 
         const [result] = await conn.execute<ResultSetHeader>(
-            `INSERT INTO Alquileres (${fields.join(', ')}) VALUES (${placeholders})`,
+            `INSERT INTO Alquileres (${fields.map(ident).join(', ')}) VALUES (${placeholders})`,
             values
         );
         return result.insertId;

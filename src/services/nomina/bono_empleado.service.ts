@@ -3,8 +3,9 @@ import { IBonoEmpleadoRepository } from '../../ports/nomina/repository_port/bono
 import { IEmpleadoRepository } from '../../ports/nomina/repository_port/empleado.repository.interface';
 import { IBonoEmpleadoService } from '../../ports/nomina/service_port/bono_empleado.service.interface';
 import { BonoEmpleadoSQL } from '../../models/nomina/sql/bono_empleado.sql';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 
 /**
  * Bonos a empleados: ocasionales, sin periodicidad — un mes puede no tener ninguno y

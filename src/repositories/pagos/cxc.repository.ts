@@ -1,7 +1,8 @@
 import { RowDataPacket, ResultSetHeader, Pool, PoolConnection } from 'mysql2/promise';
 import { CategoriaCxcSQL } from '../../models/pagos/sql/categoria_cxc.sql';
 import { ICategoriaCxCRepository, ICuentasPorCobrarRepository, CrearCxCData, AbonoCxCData, EditarCxCData } from '../../ports/pagos/repository_port/cxc.repository.interface';
-
+
+import { ident } from '../../helpers/sql.helper';
 // --- Original: categoria_cxc ---
 export class CategoriaCxCRepository implements ICategoriaCxCRepository {
     constructor(private db: Pool) {}
@@ -12,7 +13,7 @@ export class CategoriaCxCRepository implements ICategoriaCxCRepository {
         const placeholders = fields.map(() => '?').join(', ');
         
         const [result] = await this.db.query<ResultSetHeader>(
-            `INSERT INTO Categorias_CxC (${fields.join(', ')}) VALUES (${placeholders})`,
+            `INSERT INTO Categorias_CxC (${fields.map(ident).join(', ')}) VALUES (${placeholders})`,
             values
         );
         return result.insertId;
@@ -30,7 +31,7 @@ export class CategoriaCxCRepository implements ICategoriaCxCRepository {
         
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }

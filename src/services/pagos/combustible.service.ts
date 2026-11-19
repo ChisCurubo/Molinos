@@ -1,10 +1,11 @@
 import { PoolConnection } from 'mysql2/promise';
 import { ICombustibleRepository, CombustibleRow, CrearCombustibleDTO, ResumenMensualCombustibleRow } from '../../ports/pagos/repository_port/combustible.repository.interface';
 import { ICombustibleService, SyncAcpmParams } from '../../ports/pagos/service_port/combustible.service.interface';
+import { AppError } from '../../errors/app-error';
 
 export { SyncAcpmParams };
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 function periodoVacio(periodo: string): ResumenMensualCombustibleRow {

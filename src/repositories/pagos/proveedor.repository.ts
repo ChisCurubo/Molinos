@@ -2,7 +2,8 @@ import { RowDataPacket, ResultSetHeader, Pool } from 'mysql2/promise';
 import { CategoriaProveedorSQL } from '../../models/pagos/sql/categoria_proveedor.sql';
 import { ProveedorSQL } from '../../models/pagos/sql/proveedor.sql';
 import { ICategoriaProveedorRepository, IProveedorRepository } from '../../ports/pagos/repository_port/proveedor.repository.interface';
-
+
+import { ident } from '../../helpers/sql.helper';
 // --- Original: categoria_proveedor ---
 export class CategoriaProveedorRepository implements ICategoriaProveedorRepository {
     constructor(private db: Pool) {}
@@ -13,7 +14,7 @@ export class CategoriaProveedorRepository implements ICategoriaProveedorReposito
         const placeholders = fields.map(() => '?').join(', ');
         
         const [result] = await this.db.query<ResultSetHeader>(
-            `INSERT INTO Categorias_Proveedor (${fields.join(', ')}) VALUES (${placeholders})`,
+            `INSERT INTO Categorias_Proveedor (${fields.map(ident).join(', ')}) VALUES (${placeholders})`,
             values
         );
         return result.insertId;
@@ -31,7 +32,7 @@ export class CategoriaProveedorRepository implements ICategoriaProveedorReposito
         
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }
@@ -58,13 +59,13 @@ export class CategoriaProveedorRepository implements ICategoriaProveedorReposito
 export class ProveedorRepository implements IProveedorRepository {
     constructor(private db: Pool) {}
 
-    async create(data: { nombre: string; id_categoria?: number; tipo?: string; contacto?: string; telefono?: string; ciudad?: string; alias?: string; nequi?: boolean; compra_realizada?: string; estado?: string }): Promise<number> {
+    async create(data: { nombre: string; id_categoria?: number; tipo?: string; contacto?: string; telefono?: string; ciudad?: string; alias?: string; nequi?: boolean; compra_realizada?: string; estado?: string; declarante_renta?: boolean; exento_retencion?: boolean }): Promise<number> {
         const [result] = await this.db.query<ResultSetHeader>(
-            `INSERT INTO Proveedores (nombre, id_categoria, tipo, contacto, telefono, ciudad, alias, nequi, compra_realizada, estado)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO Proveedores (nombre, id_categoria, tipo, contacto, telefono, ciudad, alias, nequi, compra_realizada, estado, declarante_renta, exento_retencion)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [data.nombre, data.id_categoria ?? null, data.tipo || 'general', data.contacto ?? null, data.telefono ?? null,
              data.ciudad ?? null, data.alias ?? null, data.nequi ?? false, data.compra_realizada ?? null,
-             data.estado || 'activo']
+             data.estado || 'activo', data.declarante_renta ?? false, data.exento_retencion ?? false]
         );
         return result.insertId;
     }
@@ -81,7 +82,7 @@ export class ProveedorRepository implements IProveedorRepository {
     }
 
     async update(id: number, data: Partial<ProveedorSQL>): Promise<boolean> {
-        const permitidos = ['nombre', 'id_categoria', 'tipo', 'contacto', 'telefono', 'ciudad', 'alias', 'nequi', 'compra_realizada', 'estado'];
+        const permitidos = ['nombre', 'id_categoria', 'tipo', 'contacto', 'telefono', 'ciudad', 'alias', 'nequi', 'compra_realizada', 'estado', 'declarante_renta', 'exento_retencion'];
         const fields: string[] = []; const values: any[] = [];
         for (const k of permitidos) if ((data as any)[k] !== undefined) { fields.push(`${k} = ?`); values.push((data as any)[k]); }
         if (fields.length === 0) return false;

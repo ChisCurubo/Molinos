@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { factory } from '../../config/factory';
 
+import { upComprobante, upContrato } from '../../helpers/upload.middleware';
+import { validarDinero } from '../../helpers/validar.middleware';
 const router = Router();
 const tipoAlquilerController = factory.pagos.getTipoAlquilerController();
 const alquilerController = factory.pagos.getAlquilerController();
@@ -16,15 +18,15 @@ router.delete('/tipos/:id', tipoAlquilerController.delete);
 
 // Abonos de alquiler (rutas específicas antes de /:id)
 router.get('/abonos', pagoAlquilerController.listarAbonos);
-router.patch('/abonos/:idAbono', pagoAlquilerController.actualizarAbono);
+router.patch('/abonos/:idAbono', upComprobante, validarDinero, pagoAlquilerController.actualizarAbono);
 router.delete('/abonos/:idAbono', pagoAlquilerController.eliminarAbono);
 
 // Contratos de arriendo de larga duración (ej. 1 año) — al crearse generan automáticamente
 // un Alquileres (cobro mensual) por cada mes del período (rutas antes de /:id)
 router.get('/contratos', contratoAlquilerController.list);
-router.post('/contratos', contratoAlquilerController.create);
+router.post('/contratos', upContrato, contratoAlquilerController.create);
 router.get('/contratos/:id', contratoAlquilerController.getById);
-router.put('/contratos/:id', contratoAlquilerController.update);
+router.put('/contratos/:id', upContrato, contratoAlquilerController.update);
 router.delete('/contratos/:id', contratoAlquilerController.delete);
 
 // CRUD del alquiler (cobro mensual puntual — generado por un contrato o creado suelto)
@@ -36,6 +38,6 @@ router.delete('/:id', alquilerController.delete);
 
 // Pago de un alquiler puntual
 router.get('/:id/estado-pago', pagoAlquilerController.estado);
-router.post('/:id/abonos', pagoAlquilerController.registrarAbono);
+router.post('/:id/abonos', upComprobante, validarDinero, pagoAlquilerController.registrarAbono);
 
 export default router;

@@ -1,6 +1,7 @@
 import { Pool, PoolConnection } from 'mysql2/promise';
 import { IVehiculoRepository } from '../../ports/material/repository_port/volqueta.repository.interface';
-
+
+import { ident } from '../../helpers/sql.helper';
 export class VehiculoRepository implements IVehiculoRepository {
   constructor(private db: Pool) {}
   
@@ -41,7 +42,7 @@ export class VehiculoRepository implements IVehiculoRepository {
     const values: any[] = [];
     Object.entries(data).forEach(([k, v]) => {
       if (v !== undefined) {
-        fields.push(`${k} = ?`);
+        fields.push(`${ident(k)} = ?`);
         values.push(v);
       }
     });

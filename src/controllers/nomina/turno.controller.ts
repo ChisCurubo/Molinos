@@ -2,7 +2,9 @@ import { Request, Response } from 'express';
 import { ITurnoService } from '../../ports/nomina/service_port/turno.service.interface';
 import { TurnoService } from '../../services/nomina/turno.service';
 import { ITipoTurnoService } from '../../ports/nomina/service_port/turno.service.interface';
-import { TipoTurnoService } from '../../services/nomina/turno.service';
+import { TipoTurnoService } from '../../services/nomina/turno.service';
+import { fail } from '../../errors/responder';
+import { AppError } from '../../errors/app-error';
 
 // --- Original: turno ---
 export class TurnoController {
@@ -13,7 +15,7 @@ export class TurnoController {
             const result = await this.service.create(req.body);
             res.status(201).json({ success: true, data: result });
         } catch (error: any) {
-            res.status(error?.status || 500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -24,7 +26,7 @@ export class TurnoController {
             const result = await this.service.upsert(req.body);
             res.status(200).json({ success: true, data: result });
         } catch (error: any) {
-            res.status(error?.status || 400).json({ success: false, error: error.message });
+            fail(res, error, 400);
         }
     };
 
@@ -36,7 +38,7 @@ export class TurnoController {
             const eliminado = await this.service.eliminarPorEmpleadoYFecha(id_empleado, fecha);
             res.status(200).json({ success: true, eliminado });
         } catch (error: any) {
-            res.status(error?.status || 500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -45,12 +47,12 @@ export class TurnoController {
             const id = parseInt(req.params.id as string, 10);
             const result = await this.service.getById(id);
             if (!result) {
-                res.status(404).json({ success: false, error: 'Registro no encontrado' });
+                fail(res, AppError.http(404, 'Registro no encontrado'));
                 return;
             }
             res.status(200).json({ success: true, data: result });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -59,12 +61,12 @@ export class TurnoController {
             const id = parseInt(req.params.id as string, 10);
             const result = await this.service.update(id, req.body);
             if (!result) {
-                res.status(404).json({ success: false, error: 'Registro no encontrado o sin cambios' });
+                fail(res, AppError.http(404, 'Registro no encontrado o sin cambios'));
                 return;
             }
             res.status(200).json({ success: true, data: result });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -73,12 +75,12 @@ export class TurnoController {
             const id = parseInt(req.params.id as string, 10);
             const deleted = await this.service.delete(id);
             if (!deleted) {
-                res.status(404).json({ success: false, error: 'Registro no encontrado' });
+                fail(res, AppError.http(404, 'Registro no encontrado'));
                 return;
             }
             res.status(200).json({ success: true, message: 'Registro eliminado' });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -99,7 +101,7 @@ export class TurnoController {
             }
             res.status(200).json({ success: true, data: results });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 }
@@ -113,7 +115,7 @@ export class TipoTurnoController {
             const result = await this.service.create(req.body);
             res.status(201).json({ success: true, data: result });
         } catch (error: any) {
-            res.status(error?.status || 500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -122,12 +124,12 @@ export class TipoTurnoController {
             const id = parseInt(req.params.id as string, 10);
             const result = await this.service.getById(id);
             if (!result) {
-                res.status(404).json({ success: false, error: 'Registro no encontrado' });
+                fail(res, AppError.http(404, 'Registro no encontrado'));
                 return;
             }
             res.status(200).json({ success: true, data: result });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -136,12 +138,12 @@ export class TipoTurnoController {
             const id = parseInt(req.params.id as string, 10);
             const result = await this.service.update(id, req.body);
             if (!result) {
-                res.status(404).json({ success: false, error: 'Registro no encontrado o sin cambios' });
+                fail(res, AppError.http(404, 'Registro no encontrado o sin cambios'));
                 return;
             }
             res.status(200).json({ success: true, data: result });
         } catch (error: any) {
-            res.status(error?.status || 500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -150,12 +152,12 @@ export class TipoTurnoController {
             const id = parseInt(req.params.id as string, 10);
             const deleted = await this.service.delete(id);
             if (!deleted) {
-                res.status(404).json({ success: false, error: 'Registro no encontrado' });
+                fail(res, AppError.http(404, 'Registro no encontrado'));
                 return;
             }
             res.status(200).json({ success: true, message: 'Registro eliminado' });
         } catch (error: any) {
-            res.status(error?.status || 500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -164,7 +166,7 @@ export class TipoTurnoController {
             const results = await this.service.list();
             res.status(200).json({ success: true, data: results });
         } catch (error: any) {
-            res.status(500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 }

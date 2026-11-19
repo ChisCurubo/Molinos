@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { factory } from '../../config/factory';
 
+import { upCxc, upComprobante } from '../../helpers/upload.middleware';
+import { validarDinero } from '../../helpers/validar.middleware';
 const router = Router();
 const categoriaCxcController = factory.pagos.getCategoriaCxCController();
 const cuentasPorCobrarController = factory.pagos.getCuentasPorCobrarController();
@@ -16,9 +18,9 @@ router.put('/categorias/:id', categoriaCxcController.update);
 router.delete('/categorias/:id', categoriaCxcController.delete);
 
 // Cuentas por cobrar: crear (sin abono, o con abono inicial incluido) + cobrar después
-router.post('/', cuentasPorCobrarController.crear);
+router.post('/', upCxc, validarDinero, cuentasPorCobrarController.crear);
 router.get('/:id', cuentasPorCobrarController.obtenerPorId);
-router.post('/:id/abonos', cuentasPorCobrarController.abonar);
+router.post('/:id/abonos', upComprobante, validarDinero, cuentasPorCobrarController.abonar);
 router.patch('/:id', cuentasPorCobrarController.editar);
 router.delete('/:id', cuentasPorCobrarController.anular);
 

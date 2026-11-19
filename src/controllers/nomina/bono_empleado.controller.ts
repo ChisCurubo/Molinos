@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { IBonoEmpleadoService } from '../../ports/nomina/service_port/bono_empleado.service.interface';
+import { fail } from '../../errors/responder';
+import { AppError } from '../../errors/app-error';
 
 export class BonoEmpleadoController {
     constructor(private service: IBonoEmpleadoService) {}
@@ -9,7 +11,7 @@ export class BonoEmpleadoController {
             const bono = await this.service.registrarBono(req.body);
             res.status(201).json({ success: true, data: bono });
         } catch (error: any) {
-            res.status(error?.status || 400).json({ success: false, message: error.message });
+            fail(res, error, 400);
         }
     };
 
@@ -22,17 +24,17 @@ export class BonoEmpleadoController {
             });
             res.status(200).json({ success: true, data: bonos });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 
     obtenerPorId = async (req: Request, res: Response): Promise<void> => {
         try {
             const bono = await this.service.obtenerPorId(Number(req.params.id));
-            if (!bono) { res.status(404).json({ success: false, message: 'Bono no encontrado' }); return; }
+            if (!bono) { fail(res, AppError.http(404, 'Bono no encontrado')); return; }
             res.status(200).json({ success: true, data: bono });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 
@@ -41,7 +43,7 @@ export class BonoEmpleadoController {
             await this.service.eliminar(Number(req.params.id));
             res.status(200).json({ success: true, message: 'Bono eliminado' });
         } catch (error: any) {
-            res.status(error?.status || 500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 }

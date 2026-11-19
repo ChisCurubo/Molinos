@@ -23,7 +23,7 @@ export interface IPrestamoFinancieroRepository {
     crearCxPInicial(data: { id_prestamo_fin: number; concepto: string; valor_total: number; fecha: string }, conn: PoolConnection): Promise<number>;
     obtenerCxP(id_prestamo_fin: number, conn?: PoolConnection): Promise<{ id: number; valor_total: number; valor_pagado: number } | null>;
     aumentarValorTotalCxP(idCxp: number, incremento: number, conn: PoolConnection): Promise<void>;
-    registrarAbono(idCxp: number, data: { fecha_abono: string; valor: number; metodo_pago?: string; comprobante_url?: string; observaciones?: string }, conn: PoolConnection): Promise<number>;
+    registrarAbono(idCxp: number, data: { fecha_abono: string; valor: number; metodo_pago?: string; comprobante_url?: string; observaciones?: string; id_cuenta_bancaria?: number }, conn: PoolConnection): Promise<number>;
     recalcularEstadoCxP(idCxp: number, conn: PoolConnection): Promise<void>;
     eliminarCxP(id_prestamo_fin: number, conn: PoolConnection): Promise<void>;
     insertarMovimiento(data: {

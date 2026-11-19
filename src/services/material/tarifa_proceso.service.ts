@@ -1,5 +1,6 @@
 import { Pool } from 'mysql2/promise';
 import { ITarifaProcesoRepository, ITarifaProcesoService } from '../../ports/material/tarifa_proceso.interface';
+import { AppError } from '../../errors/app-error';
 
 export class TarifaProcesoService implements ITarifaProcesoService {
     constructor(private repo: ITarifaProcesoRepository, private db: Pool) {}
@@ -25,9 +26,9 @@ export class TarifaProcesoService implements ITarifaProcesoService {
      */
     async crearNuevaVigencia(data: any): Promise<any> {
         const codigo = (data.codigo || '').trim();
-        if (!codigo) throw new Error('El código de la tarifa es obligatorio');
+        if (!codigo) throw AppError.validacion('El código de la tarifa es obligatorio');
         const valor = Number(data.valor);
-        if (!Number.isFinite(valor) || valor < 0) throw new Error('El valor de la tarifa debe ser un número >= 0');
+        if (!Number.isFinite(valor) || valor < 0) throw AppError.validacion('El valor de la tarifa debe ser un número >= 0');
         const fecha_desde = data.fecha_desde || this.hoy();
 
         const conn = await this.db.getConnection();
@@ -56,10 +57,10 @@ export class TarifaProcesoService implements ITarifaProcesoService {
 
     async actualizar(id: number, data: any): Promise<any> {
         const existe = await this.repo.obtenerPorId(id);
-        if (!existe) { const e: any = new Error('Tarifa no encontrada'); e.status = 404; throw e; }
+        if (!existe) { throw AppError.noEncontrado('Tarifa no encontrada'); }
         if (data.valor !== undefined) {
             const v = Number(data.valor);
-            if (!Number.isFinite(v) || v < 0) throw new Error('El valor de la tarifa debe ser un número >= 0');
+            if (!Number.isFinite(v) || v < 0) throw AppError.validacion('El valor de la tarifa debe ser un número >= 0');
         }
         await this.repo.actualizar(id, data);
         return await this.repo.obtenerPorId(id);

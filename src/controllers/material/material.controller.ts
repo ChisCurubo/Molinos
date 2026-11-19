@@ -3,11 +3,13 @@ import { IMaterialEntradaService, ITipoMaterialService, IPrecioMaterialService, 
 import { MaterialPlantaEntradaService as MaterialEntradaService, TipoMaterialService, PrecioMaterialService, TarifaCalculoService, ProveedorService } from '../../services/material/material.service';
 import { MinaService } from '../../services/material/mina.service';
 import { CreateMaterialEntradaDTO } from '../../models/material/sql/material_planta_entrada.sql';
-import { CreateAnalisisDTO } from '../../models/material/sql/analisis.sql';
+import { CreateAnalisisDTO } from '../../models/material/sql/analisis.sql';
+import { fail } from '../../errors/responder';
+import { AppError } from '../../errors/app-error';
 
 // Global repository removed to use DI
 const ok = (res: Response, data: any, meta?: any) => res.status(200).json({ success: true, data, ...(meta && { meta }) });
-const err = (res: Response, e: any) => res.status(e?.status || 500).json({ success: false, error: e.message || String(e), ...(e?.code && { code: e.code }) });
+const err = (res: Response, e: any) => fail(res, e);
 
 export class MaterialEntradaController {
     private service: IMaterialEntradaService;
@@ -20,13 +22,13 @@ export class MaterialEntradaController {
         try {
             const data: CreateMaterialEntradaDTO = req.body;
             if (!data.numero_volqueta || !data.id_mina || !data.id_tipo_material || !data.peso_llegada_planta) {
-                res.status(400).json({ success: false, message: 'Faltan campos obligatorios' });
+                fail(res, AppError.http(400, 'Faltan campos obligatorios'));
                 return;
             }
             const id = await this.service.registrarLlegada(data);
             res.status(201).json({ success: true, message: 'Entrada registrada', id });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+            fail(res, error);
         }
     };
 
@@ -43,7 +45,7 @@ export class MaterialEntradaController {
             );
             res.status(200).json({ success: true, data: entradas });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error al listar', error: error.message });
+            fail(res, error);
         }
     };
 
@@ -52,14 +54,14 @@ export class MaterialEntradaController {
             const entradas = await this.service.listarPendientesLaboratorio();
             res.status(200).json({ success: true, data: entradas });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error al listar pendientes', error: error.message });
+            fail(res, error);
         }
     };
 
     public getById = async (req: Request, res: Response): Promise<void> => {
         try {
             const data = await this.service.obtenerEntrada(Number(req.params.id));
-            if (!data) { res.status(404).json({ success: false, error: 'Entrada no encontrada' }); return; }
+            if (!data) { fail(res, AppError.http(404, 'Entrada no encontrada')); return; }
             ok(res, data);
         } catch (e) { err(res, e); }
     };
@@ -120,7 +122,7 @@ export class MaterialEntradaController {
 
     public cancelar = async (req: Request, res: Response): Promise<void> => {
         try {
-            if (!req.body.motivo) { res.status(400).json({ success: false, error: 'motivo es requerido' }); return; }
+            if (!req.body.motivo) { fail(res, AppError.http(400, 'motivo es requerido')); return; }
             await this.service.cancelar(Number(req.params.id), req.body.motivo);
             ok(res, { cancelled: true });
         } catch (e) { err(res, e); }
@@ -163,7 +165,7 @@ export class PrecioMaterialController {
         try {
             const { idMinero, idZona, metodo, tenorFalso, fechaEntrada } = req.query;
             if (!metodo || !tenorFalso || !fechaEntrada) {
-                res.status(400).json({ success: false, message: 'Faltan parámetros: metodo, tenorFalso, fechaEntrada' });
+                fail(res, AppError.http(400, 'Faltan parámetros: metodo, tenorFalso, fechaEntrada'));
                 return;
             }
             const precio = await this.service.buscarPrecio(
@@ -175,7 +177,7 @@ export class PrecioMaterialController {
             );
             res.status(200).json({ success: true, data: precio });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: 'Error interno', error: error.message });
+            fail(res, error);
         }
     };
 
@@ -184,7 +186,7 @@ export class PrecioMaterialController {
             await this.service.insertarLote(req.body);
             res.status(201).json({ success: true, message: 'Tarifas registradas correctamente' });
         } catch (error: any) {
-            res.status(error?.status || 500).json({ success: false, message: 'Error interno', error: error.message, ...(error?.code && { code: error.code }) });
+            fail(res, error);
         }
     };
 
@@ -200,7 +202,7 @@ export class PrecioMaterialController {
             });
             res.status(200).json({ success: true, data });
         } catch (error: any) {
-            res.status(error?.status || 500).json({ success: false, message: 'Error interno', error: error.message });
+            fail(res, error);
         }
     };
 
@@ -210,7 +212,7 @@ export class PrecioMaterialController {
             const nuevoId = await this.service.reemplazarIntervalo(Number(req.params.id), req.body);
             res.status(200).json({ success: true, message: 'Intervalo reemplazado', id: nuevoId });
         } catch (error: any) {
-            res.status(error?.status || 500).json({ success: false, message: 'Error interno', error: error.message, ...(error?.code && { code: error.code }) });
+            fail(res, error);
         }
     };
 }

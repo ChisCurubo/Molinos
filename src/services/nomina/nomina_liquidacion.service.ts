@@ -8,8 +8,9 @@ import { IBonoEmpleadoRepository } from '../../ports/nomina/repository_port/bono
 import { IJornadaNocturnaLegalRepository } from '../../ports/nomina/repository_port/jornada_nocturna_legal.repository.interface';
 import { NominaLiquidacionSQL } from '../../models/nomina/sql/nomina_liquidacion.sql';
 import { JornadaNocturnaLegalSQL } from '../../models/nomina/sql/jornada_nocturna_legal.sql';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 function rangoQuincena(anio: number, mes: number, quincena: 1 | 2): { desde: string; hasta: string } {

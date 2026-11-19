@@ -6,6 +6,7 @@ import { EmpleadoSQL } from '../../models/nomina/sql/empleado.sql';
 import { PrestamoEmpleadoSQL } from '../../models/nomina/sql/prestamo_empleado.sql';
 import { PrestamoEmpleadoRepositoryInterface } from '../../ports/nomina/repository_port/empleado.repository.interface';
 import { PrestamoEmpleadoServiceInterface } from '../../ports/nomina/service_port/empleado.service.interface';
+import { AppError } from '../../errors/app-error';
 
 // --- Original: empleado ---
 export class EmpleadoService implements IEmpleadoService {
@@ -31,9 +32,7 @@ export class EmpleadoService implements IEmpleadoService {
             return await this.repository.delete(id);
         } catch (e: any) {
             if (e?.errno === 1451) {
-                const err: any = new Error('Este empleado tiene registros asociados (turnos, salario, préstamos, liquidaciones, etc.) y no se puede eliminar');
-                err.status = 409;
-                throw err;
+                throw AppError.enUso('Este empleado tiene registros asociados (turnos, salario, préstamos, liquidaciones, etc.) y no se puede eliminar');
             }
             throw e;
         }
@@ -78,14 +77,14 @@ export class PrestamoEmpleadoService implements PrestamoEmpleadoServiceInterface
      */
     async registrarPrestamo(req: Partial<PrestamoEmpleadoSQL>): Promise<any> {
         if (!req.id_empleado || !req.valor || req.valor <= 0) {
-            throw new Error("El ID de empleado y un valor válido son requeridos");
+            throw AppError.validacion("El ID de empleado y un valor válido son requeridos");
         }
         const cuotas = Number(req.cuotas) || 1;
-        if (cuotas < 1) throw new Error("El número de cuotas debe ser al menos 1");
+        if (cuotas < 1) throw AppError.validacion("El número de cuotas debe ser al menos 1");
 
         const empleado = await this.empleadoRepo.getById(req.id_empleado);
         if (!empleado) {
-            throw new Error("El empleado no existe");
+            throw AppError.noEncontrado("El empleado no existe");
         }
 
         const fecha = req.fecha ? new Date(req.fecha) : new Date();
@@ -107,7 +106,7 @@ export class PrestamoEmpleadoService implements PrestamoEmpleadoServiceInterface
             await this.repo.crearRelacionCobrar(idCxc, id, req.valor!, concepto, conn);
 
             const nuevoPrestamo = await this.repo.getById(id, conn);
-            if (!nuevoPrestamo) throw new Error("Error registrando el préstamo");
+            if (!nuevoPrestamo) throw AppError.http(500, "Error registrando el préstamo");
 
             return { ...nuevoPrestamo, id_cuenta_pagar: idCxp, id_cuenta_cobrar: idCxc };
         });
@@ -129,14 +128,12 @@ export class PrestamoEmpleadoService implements PrestamoEmpleadoServiceInterface
 
     async delete(id: number): Promise<boolean> {
         const existe = await this.repo.getById(id);
-        if (!existe) { const e: any = new Error('Préstamo de empleado no encontrado'); e.status = 404; throw e; }
+        if (!existe) { throw AppError.noEncontrado('Préstamo de empleado no encontrado'); }
         try {
             return await this.repo.delete(id);
         } catch (e: any) {
             if (e?.errno === 1451) {
-                const err: any = new Error('Este préstamo tiene registros asociados (cuentas por pagar/cobrar) y no se puede eliminar');
-                err.status = 409;
-                throw err;
+                throw AppError.enUso('Este préstamo tiene registros asociados (cuentas por pagar/cobrar) y no se puede eliminar');
             }
             throw e;
         }

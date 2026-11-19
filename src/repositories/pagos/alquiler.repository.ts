@@ -2,7 +2,8 @@ import { RowDataPacket, ResultSetHeader, Pool } from 'mysql2/promise';
 import { TipoAlquilerSQL } from '../../models/pagos/sql/tipo_alquiler.sql';
 import { AlquilerSQL } from '../../models/pagos/sql/alquiler.sql';
 import { ITipoAlquilerRepository, IAlquilerRepository } from '../../ports/pagos/repository_port/alquiler.repository.interface';
-
+
+import { ident } from '../../helpers/sql.helper';
 // --- Original: tipo_alquiler ---
 export class TipoAlquilerRepository implements ITipoAlquilerRepository {
     constructor(private db: Pool) {}
@@ -13,7 +14,7 @@ export class TipoAlquilerRepository implements ITipoAlquilerRepository {
         const placeholders = fields.map(() => '?').join(', ');
         
         const [result] = await this.db.query<ResultSetHeader>(
-            `INSERT INTO Tipos_Alquiler (${fields.join(', ')}) VALUES (${placeholders})`,
+            `INSERT INTO Tipos_Alquiler (${fields.map(ident).join(', ')}) VALUES (${placeholders})`,
             values
         );
         return result.insertId;
@@ -31,7 +32,7 @@ export class TipoAlquilerRepository implements ITipoAlquilerRepository {
         
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }
@@ -64,7 +65,7 @@ export class AlquilerRepository implements IAlquilerRepository {
         const placeholders = fields.map(() => '?').join(', ');
 
         const [result] = await this.db.query<ResultSetHeader>(
-            `INSERT INTO Alquileres (${fields.join(', ')}) VALUES (${placeholders})`,
+            `INSERT INTO Alquileres (${fields.map(ident).join(', ')}) VALUES (${placeholders})`,
             values
         );
         return result.insertId;
@@ -82,7 +83,7 @@ export class AlquilerRepository implements IAlquilerRepository {
 
         for (const [key, value] of Object.entries(data)) {
             if (value !== undefined) {
-                fields.push(`${key} = ?`);
+                fields.push(`${ident(key)} = ?`);
                 values.push(value);
             }
         }

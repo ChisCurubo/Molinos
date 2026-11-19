@@ -2,7 +2,8 @@ import { Pool, PoolConnection, ResultSetHeader } from 'mysql2/promise';
 import { CacheService } from '../../services/cache/cache.service';
 import { IMinaRepository, IMinaPrecioMaterialRepository } from '../../ports/material/repository_port/mina.repository.interface';
 import { HttpError } from '../../helpers/http_error';
-
+
+import { ident } from '../../helpers/sql.helper';
 export class MinaRepository implements IMinaRepository {
   constructor(private db: Pool) {}
   
@@ -120,7 +121,7 @@ export class MinaRepository implements IMinaRepository {
     const values: any[] = [];
     for (const key of COLUMNAS_PERMITIDAS) {
       if (data[key] !== undefined) {
-        fields.push(`${key} = ?`);
+        fields.push(`${ident(key)} = ?`);
         values.push(data[key]);
       }
     }
@@ -176,7 +177,7 @@ export class MineroRepository {
     const values: any[] = [];
     for (const [key, value] of Object.entries(data)) {
       if (value !== undefined) {
-        fields.push(`${key} = ?`);
+        fields.push(`${ident(key)} = ?`);
         values.push(value);
       }
     }
@@ -291,7 +292,7 @@ export class ZonaRepository {
     const values: any[] = [];
     for (const key of COLUMNAS_PERMITIDAS) {
       if (data[key] !== undefined) {
-        fields.push(`${key} = ?`);
+        fields.push(`${ident(key)} = ?`);
         values.push(data[key]);
       }
     }
@@ -418,7 +419,7 @@ export class TarifaZonaRepository {
       // `tarifa` es alias de `valor_tonelada`.
       const val = key === 'valor_tonelada' && data[key] === undefined ? data.tarifa : data[key];
       if (val !== undefined) {
-        fields.push(`${key} = ?`);
+        fields.push(`${ident(key)} = ?`);
         values.push(key === 'activo' ? (val ? 1 : 0) : val);
       }
     }
@@ -497,7 +498,7 @@ export class MinaPrecioMaterialRepository implements IMinaPrecioMaterialReposito
     const values: any[] = [];
     for (const key of COLUMNAS_PERMITIDAS) {
       if (data[key] !== undefined) {
-        fields.push(`${key} = ?`);
+        fields.push(`${ident(key)} = ?`);
         values.push(key === 'activo' ? (data[key] ? 1 : 0) : data[key]);
       }
     }

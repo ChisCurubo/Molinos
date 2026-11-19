@@ -2,8 +2,9 @@ import { IEmpleadoRepository, PrestamoEmpleadoRepositoryInterface } from '../../
 import { IEmpleadoSalarioRepository } from '../../ports/nomina/repository_port/empleado_salario.repository.interface';
 import { IBonoEmpleadoRepository } from '../../ports/nomina/repository_port/bono_empleado.repository.interface';
 import { INominaLiquidacionService } from '../../ports/nomina/service_port/nomina_liquidacion.service.interface';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 
 /**
  * Ficha 360 del empleado: agrega, sin tabla nueva, todo lo que ya existe en los módulos

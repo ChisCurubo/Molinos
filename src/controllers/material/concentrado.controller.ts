@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
-import { IConcentradoService } from '../../ports/material/service_port/concentrado.service.interface';
+import { IConcentradoService } from '../../ports/material/service_port/concentrado.service.interface';
+import { fail } from '../../errors/responder';
+import { AppError } from '../../errors/app-error';
 
 export class ConcentradoController {
     constructor(private concentradoService: IConcentradoService) {}
@@ -12,7 +14,7 @@ export class ConcentradoController {
             const data = await this.concentradoService.listarLotes(req.query);
             res.status(200).json({ success: true, data });
         } catch (error: any) {
-            res.status(error.status || 500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -22,7 +24,7 @@ export class ConcentradoController {
             const data = await this.concentradoService.resumenProcesamiento();
             res.status(200).json({ success: true, data });
         } catch (error: any) {
-            res.status(error.status || 500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -32,7 +34,7 @@ export class ConcentradoController {
             const data = await this.concentradoService.listarProcesamiento(req.query);
             res.status(200).json({ success: true, data });
         } catch (error: any) {
-            res.status(error.status || 500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -43,7 +45,7 @@ export class ConcentradoController {
             const data = await this.concentradoService.obtenerLoteDetalle(id);
             res.status(200).json({ success: true, data });
         } catch (error: any) {
-            res.status(error.status || 500).json({ success: false, error: error.message });
+            fail(res, error);
         }
     };
 
@@ -52,7 +54,7 @@ export class ConcentradoController {
             const id = await this.concentradoService.iniciarLote(req.body);
             res.status(201).json({ success: true, message: 'Lote iniciado', id });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 
@@ -62,18 +64,18 @@ export class ConcentradoController {
             const { id_entradas, toneladas_procesadas_seco } = req.body;
 
             if (!id_entradas || !Array.isArray(id_entradas) || id_entradas.length === 0) {
-                res.status(400).json({ success: false, message: 'Se requiere un arreglo de id_entradas' });
+                fail(res, AppError.http(400, 'Se requiere un arreglo de id_entradas'));
                 return;
             }
             if (!toneladas_procesadas_seco || toneladas_procesadas_seco <= 0) {
-                res.status(400).json({ success: false, message: 'Se requiere toneladas_procesadas_seco válido' });
+                fail(res, AppError.http(400, 'Se requiere toneladas_procesadas_seco válido'));
                 return;
             }
 
             const result = await this.concentradoService.procesarLote(idLote, id_entradas, toneladas_procesadas_seco);
             res.status(201).json({ success: true, message: 'Material procesado correctamente', data: result });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 
@@ -83,7 +85,7 @@ export class ConcentradoController {
             await this.concentradoService.cerrarLoteConcentradoTx(id, req.body);
             res.status(200).json({ success: true, message: 'Lote cerrado y enviado a canoa' });
         } catch (error: any) {
-            res.status(500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 
@@ -93,7 +95,7 @@ export class ConcentradoController {
             await this.concentradoService.corregirConcentradoTx(id, req.body);
             res.status(200).json({ success: true, message: 'Concentrado corregido' });
         } catch (error: any) {
-            res.status(error.status || 500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 
@@ -103,7 +105,7 @@ export class ConcentradoController {
             const data = await this.concentradoService.obtenerMerma(id);
             res.status(200).json({ success: true, data });
         } catch (error: any) {
-            res.status(error.status || 500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 
@@ -113,7 +115,7 @@ export class ConcentradoController {
             const data = await this.concentradoService.actualizarMerma(id, req.body);
             res.status(200).json({ success: true, message: 'Merma actualizada', data });
         } catch (error: any) {
-            res.status(error.status || 500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 
@@ -123,7 +125,7 @@ export class ConcentradoController {
             await this.concentradoService.editarLote(id, req.body);
             res.status(200).json({ success: true, message: 'Lote actualizado' });
         } catch (error: any) {
-            res.status(error.status || 500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 
@@ -134,7 +136,7 @@ export class ConcentradoController {
             await this.concentradoService.desvincularMaterialTx(idLote, idEntrada);
             res.status(200).json({ success: true, message: 'Material desvinculado (stock devuelto al inventario)' });
         } catch (error: any) {
-            res.status(error.status || 500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 
@@ -144,7 +146,7 @@ export class ConcentradoController {
             await this.concentradoService.eliminarLoteTx(id);
             res.status(200).json({ success: true, message: 'Lote eliminado (material devuelto al inventario)' });
         } catch (error: any) {
-            res.status(error.status || 500).json({ success: false, message: error.message });
+            fail(res, error);
         }
     };
 }

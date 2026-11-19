@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { factory } from '../../config/factory';
 
+import { upComprobante } from '../../helpers/upload.middleware';
+import { validarDinero } from '../../helpers/validar.middleware';
 const router = Router();
 const controller = factory.pagos.getIngresoTesoreriaController();
 
@@ -33,7 +35,7 @@ const controller = factory.pagos.getIngresoTesoreriaController();
  *     responses:
  *       201: { description: Ingreso registrado }
  */
-router.post('/', controller.registrar);
+router.post('/', upComprobante, validarDinero, controller.registrar);
 
 /**
  * @swagger
@@ -96,8 +98,8 @@ router.get('/:id', controller.obtenerPorId);
  *     responses:
  *       200: { description: Ingreso actualizado }
  */
-router.put('/:id', controller.actualizar);
-router.patch('/:id', controller.actualizar);
+router.put('/:id', upComprobante, validarDinero, controller.actualizar);
+router.patch('/:id', upComprobante, validarDinero, controller.actualizar);
 
 /**
  * @swagger

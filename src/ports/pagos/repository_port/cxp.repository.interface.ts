@@ -18,6 +18,7 @@ export interface CuentasPorPagarRepositoryInterface {
     listByEstado(estado: string): Promise<CuentaPorPagarSQL[]>;
     listarPaginado(filtros: FiltrosCxPPaginado): Promise<{ rows: any[]; total: number }>;
     update(id: number, cuenta: Partial<CuentaPorPagarSQL>): Promise<boolean>;
+    registrarAbono(idCxp: number, abono: any): Promise<{ id_abono: number; estado: string; saldo: number }>;
 }
 
 // --- Original: categoria_cxp ---

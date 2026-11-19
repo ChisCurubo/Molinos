@@ -2,6 +2,7 @@ import { Pool, PoolConnection } from 'mysql2/promise';
 import { IConcentradoRepository } from '../../ports/material/concentrado.interface';
 import { IConcentradoService } from '../../ports/material/service_port/concentrado.service.interface';
 import { TriggerLogicRepository } from '../../ports/db_triggers/trigger_logic.repository.interface';
+import { AppError } from '../../errors/app-error';
 
 export class ConcentradoService implements IConcentradoService {
     private repo: IConcentradoRepository;
@@ -23,7 +24,7 @@ export class ConcentradoService implements IConcentradoService {
     private mermaValida(v: any): number {
         if (v === undefined || v === null || v === '') return 0;
         const n = Number(v);
-        if (!Number.isFinite(n) || n < 0) throw new Error('La merma debe ser un número >= 0');
+        if (!Number.isFinite(n) || n < 0) throw AppError.validacion('La merma debe ser un número >= 0');
         return n;
     }
 
@@ -96,7 +97,7 @@ export class ConcentradoService implements IConcentradoService {
 
     async obtenerMerma(id: number): Promise<any> {
         const lote = await this.repo.obtenerLotePorId(id);
-        if (!lote) { const e: any = new Error('Lote no encontrado'); e.status = 404; throw e; }
+        if (!lote) { throw AppError.noEncontrado('Lote no encontrado'); }
         return {
             id: lote.id,
             codigo: lote.codigo,
@@ -107,11 +108,11 @@ export class ConcentradoService implements IConcentradoService {
 
     async actualizarMerma(id: number, data: any): Promise<any> {
         const lote = await this.repo.obtenerLotePorId(id);
-        if (!lote) { const e: any = new Error('Lote no encontrado'); e.status = 404; throw e; }
+        if (!lote) { throw AppError.noEncontrado('Lote no encontrado'); }
         const payload: any = {};
         if (data.merma_au !== undefined) payload.merma_au = this.mermaValida(data.merma_au);
         if (data.merma_ag !== undefined) payload.merma_ag = this.mermaValida(data.merma_ag);
-        if (Object.keys(payload).length === 0) throw new Error('Envía merma_au y/o merma_ag');
+        if (Object.keys(payload).length === 0) throw AppError.validacion('Envía merma_au y/o merma_ag');
         await this.repo.actualizarLote(id, payload);
         return await this.obtenerMerma(id);
     }
@@ -127,7 +128,7 @@ export class ConcentradoService implements IConcentradoService {
     // Detalle de un lote + materiales vinculados + análisis del concentrado.
     async obtenerLoteDetalle(id: number): Promise<any> {
         const lote = await this.repo.obtenerLotePorId(id);
-        if (!lote) { const e: any = new Error('Lote no encontrado'); e.status = 404; throw e; }
+        if (!lote) { throw AppError.noEncontrado('Lote no encontrado'); }
         const [materiales, analisis] = await Promise.all([
             this.repo.obtenerMaterialesDeLote(id),
             this.repo.obtenerAnalisisDeLote(id)
@@ -209,17 +210,16 @@ export class ConcentradoService implements IConcentradoService {
         try {
             // 0. Validar el lote y su estado (solo se agrega material a lotes en proceso).
             const lote = await this.repo.obtenerLotePorId(id_lote, conn);
-            if (!lote) { const e: any = new Error('Lote no encontrado'); e.status = 404; throw e; }
+            if (!lote) { throw AppError.noEncontrado('Lote no encontrado'); }
             if (lote.estado !== 'en_proceso') {
-                const e: any = new Error('Solo se puede agregar material a un lote en proceso');
-                e.status = 409; throw e;
+                throw AppError.http(409, 'Solo se puede agregar material a un lote en proceso');
             }
 
             // 1. Obtener datos reales de cada entrada
             const entradas = await this.repo.obtenerEntradasParaProcesamiento(id_entradas, conn);
 
             if (entradas.length === 0) {
-                throw new Error("No se encontraron entradas");
+                throw AppError.noEncontrado("No se encontraron entradas");
             }
 
             // 2. Calcular cuánto tiene disponible cada entrada
@@ -228,7 +228,7 @@ export class ConcentradoService implements IConcentradoService {
             );
 
             if (toneladas_procesadas_seco > disponible_total_seco) {
-                throw new Error(`Solo hay ${disponible_total_seco}t disponibles, se solicitaron ${toneladas_procesadas_seco}t`);
+                throw AppError.validacion(`Solo hay ${disponible_total_seco}t disponibles, se solicitaron ${toneladas_procesadas_seco}t`);
             }
 
             // 3. Distribuir proporcionalmente
@@ -316,7 +316,7 @@ export class ConcentradoService implements IConcentradoService {
         await conn.beginTransaction();
         try {
             const lote = await this.repo.obtenerLotePorId(id, conn);
-            if (!lote) { const e: any = new Error('Lote no encontrado'); e.status = 404; throw e; }
+            if (!lote) { throw AppError.noEncontrado('Lote no encontrado'); }
 
             // Campos editables directos (precio_maquila_por_ton se DERIVA, no se acepta manual).
             const permitidos = ['codigo', 'fecha_inicio', 'comentarios', 'ubicacion_canoa'];
@@ -326,7 +326,7 @@ export class ConcentradoService implements IConcentradoService {
             for (const k of permitidos) if (data[k] !== undefined) payload[k] = data[k];
             for (const k of flags) if (data[k] !== undefined) payload[k] = this.toFlag(data[k]);
 
-            if (Object.keys(payload).length === 0) throw new Error('No hay campos válidos para actualizar');
+            if (Object.keys(payload).length === 0) throw AppError.validacion('No hay campos válidos para actualizar');
 
             // 1. Persistir los cambios directos (incluye los procesos ya normalizados).
             await this.repo.actualizarLote(id, payload, conn);
@@ -359,13 +359,12 @@ export class ConcentradoService implements IConcentradoService {
         await conn.beginTransaction();
         try {
             const lote = await this.repo.obtenerLotePorId(idLote, conn);
-            if (!lote) { const e: any = new Error('Lote no encontrado'); e.status = 404; throw e; }
+            if (!lote) { throw AppError.noEncontrado('Lote no encontrado'); }
             if (lote.estado !== 'en_proceso') {
-                const e: any = new Error('Solo se puede desvincular material de un lote en proceso');
-                e.status = 409; throw e;
+                throw AppError.http(409, 'Solo se puede desvincular material de un lote en proceso');
             }
             const proc = await this.repo.obtenerProcesamientoPorLoteYEntrada(idLote, idEntrada, conn);
-            if (!proc) { const e: any = new Error('Ese material no está vinculado al lote'); e.status = 404; throw e; }
+            if (!proc) { throw AppError.noEncontrado('Ese material no está vinculado al lote'); }
 
             await this.repo.restaurarInventarioDeEntrada(idEntrada, Number(proc.toneladas_aportadas) || 0, idLote, conn);
             await this.repo.eliminarProcesamiento(proc.id, conn);
@@ -388,15 +387,13 @@ export class ConcentradoService implements IConcentradoService {
         await conn.beginTransaction();
         try {
             const lote = await this.repo.obtenerLotePorId(idLote, conn);
-            if (!lote) { const e: any = new Error('Lote no encontrado'); e.status = 404; throw e; }
+            if (!lote) { throw AppError.noEncontrado('Lote no encontrado'); }
             if (lote.estado !== 'en_proceso' && lote.estado !== 'en_canoa') {
-                const e: any = new Error('Solo se puede eliminar un lote en proceso o en canoa (no despachado en viajes)');
-                e.status = 409; throw e;
+                throw AppError.http(409, 'Solo se puede eliminar un lote en proceso o en canoa (no despachado en viajes)');
             }
             const enViajes = await this.repo.contarLineasViajeDeLote(idLote, conn);
             if (enViajes > 0) {
-                const e: any = new Error('El lote ya está incluido en viajes; no se puede eliminar');
-                e.status = 409; throw e;
+                throw AppError.http(409, 'El lote ya está incluido en viajes; no se puede eliminar');
             }
 
             const eraCerrado = lote.estado === 'en_canoa';
@@ -434,7 +431,7 @@ export class ConcentradoService implements IConcentradoService {
         await conn.beginTransaction();
         try {
             const oldRow = await this.repo.obtenerLotePorId(id, conn);
-            if (!oldRow) throw new Error('Lote no encontrado');
+            if (!oldRow) throw AppError.noEncontrado('Lote no encontrado');
 
             const { toneladas_humedo, fecha_fin, hizo_molienda, hizo_flotacion, hizo_relave, hizo_filtroprensa, ubicacion_canoa } = data;
 
@@ -528,14 +525,13 @@ export class ConcentradoService implements IConcentradoService {
         await conn.beginTransaction();
         try {
             const lote = await this.repo.obtenerLotePorId(id, conn);
-            if (!lote) { const e: any = new Error('Lote no encontrado'); e.status = 404; throw e; }
+            if (!lote) { throw AppError.noEncontrado('Lote no encontrado'); }
             if (lote.estado !== 'en_canoa') {
-                const e: any = new Error('Solo se puede corregir el concentrado de un lote en canoa (cerrado y sin despachar)');
-                e.status = 409; throw e;
+                throw AppError.http(409, 'Solo se puede corregir el concentrado de un lote en canoa (cerrado y sin despachar)');
             }
 
             const toneladas_humedo = Number(data.toneladas_humedo);
-            if (!(toneladas_humedo > 0)) throw new Error('toneladas_humedo debe ser mayor que 0');
+            if (!(toneladas_humedo > 0)) throw AppError.validacion('toneladas_humedo debe ser mayor que 0');
             const porcentaje_humedad = data.porcentaje_humedad !== undefined
                 ? Number(data.porcentaje_humedad) : (Number(lote.porcentaje_humedad) || 0);
             const toneladas_seco = Math.round(toneladas_humedo * (1 - porcentaje_humedad) * 10000) / 10000;

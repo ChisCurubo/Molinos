@@ -1,5 +1,6 @@
 import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { IGastoDirectoRepository, EditarGastoDirectoData } from '../../ports/pagos/repository_port/gasto_directo.repository.interface';
+import { aplicarImpuesto4x1000 } from './impuesto.repository';
 
 const CATEGORIA_SQL = `(SELECT id FROM Categorias_CxP WHERE nombre='Gasto Directo' LIMIT 1)`;
 
@@ -11,7 +12,7 @@ const CATEGORIA_SQL = `(SELECT id FROM Categorias_CxP WHERE nombre='Gasto Direct
 export class GastoDirectoRepository implements IGastoDirectoRepository {
     constructor(private db: Pool) {}
 
-    async crear(data: { concepto: string; monto: number; fecha: string; metodo_pago?: string; comprobante_url: string; observaciones?: string }): Promise<{ id_cuenta_pagar: number; id_abono: number }> {
+    async crear(data: { concepto: string; monto: number; fecha: string; metodo_pago?: string; comprobante_url: string; observaciones?: string; id_cuenta_bancaria?: number }): Promise<{ id_cuenta_pagar: number; id_abono: number }> {
         const conn = await this.db.getConnection();
         await conn.beginTransaction();
         try {
@@ -23,10 +24,13 @@ export class GastoDirectoRepository implements IGastoDirectoRepository {
             const idCxp = cxpResult.insertId;
 
             const [abonoResult] = await conn.execute<ResultSetHeader>(
-                `INSERT INTO Abonos_CxP (id_cuenta_pagar, fecha_abono, valor, metodo_pago, comprobante_url, observaciones)
-                 VALUES (?, ?, ?, ?, ?, ?)`,
-                [idCxp, data.fecha, data.monto, data.metodo_pago || 'efectivo', data.comprobante_url, data.observaciones ?? null]
+                `INSERT INTO Abonos_CxP (id_cuenta_pagar, fecha_abono, valor, metodo_pago, comprobante_url, observaciones, id_cuenta_bancaria)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [idCxp, data.fecha, data.monto, data.metodo_pago || 'efectivo', data.comprobante_url, data.observaciones ?? null, data.id_cuenta_bancaria ?? null]
             );
+            await aplicarImpuesto4x1000(conn, {
+                id_abono_cxp: abonoResult.insertId, id_cuenta_bancaria: data.id_cuenta_bancaria, valor_base: data.monto, fecha: data.fecha
+            });
 
             await conn.commit();
             return { id_cuenta_pagar: idCxp, id_abono: abonoResult.insertId };

@@ -4,11 +4,15 @@ import { PoolConnection } from 'mysql2/promise';
  * SQL del pago de un ALQUILER individual. A diferencia de Flete/Agua/Combustible,
  * v_estado_alquileres agrupa por cada alquiler (no por proveedor+mes): 1 Cuenta_Por_Pagar
  * por alquiler, creada perezosamente en el primer abono. Sin cascada entre registros.
+ * valor_total queda en BRUTO; la retención en la fuente de 'Arrendamiento muebles' (ver
+ * retencion.repository.ts) se calcula al crear la cuenta y cuenta como ya pagada desde el
+ * inicio — no aplica si el proveedor tiene exento_retencion=true.
  */
 export interface IPagoAlquilerRepository {
     obtenerAlquiler(idAlquiler: number, conn?: PoolConnection): Promise<any>;
     buscarCuentaDeAlquiler(idAlquiler: number, conn: PoolConnection): Promise<number | null>;
-    crearCuentaAlquiler(data: { id_alquiler: number; id_proveedor: number; concepto: string; valor_total: number; fecha_creacion: string }, conn: PoolConnection): Promise<number>;
+    resolverCategoriaAlquiler(conn?: PoolConnection): Promise<number>;
+    crearCuentaAlquiler(data: { id_alquiler: number; id_proveedor: number; concepto: string; valor_total: number; valor_iva: number; valor_retenido: number; fecha_creacion: string }, conn: PoolConnection): Promise<number>;
     crearRelacionAlquiler(idCxp: number, idAlquiler: number, monto: number, concepto: string, conn: PoolConnection): Promise<void>;
 
     obtenerCuenta(idCxp: number, conn?: PoolConnection): Promise<any>;

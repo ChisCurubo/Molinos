@@ -1,7 +1,8 @@
 import { IFlujoCajaRepository } from '../../ports/pagos/repository_port/flujo_caja.repository.interface';
 import { IFlujoCajaService, ResumenFlujoCaja, HistoricoFlujoCaja, FlujoCajaAnual, TransaccionLibroDTO } from '../../ports/pagos/service_port/flujo_caja.service.interface';
+import { AppError } from '../../errors/app-error';
 
-const err = (msg: string, status = 400): Error => { const e: any = new Error(msg); e.status = status; return e; };
+const err = (msg: string, status = 400, code?: string): AppError => AppError.http(status, msg, code ?? (status === 400 ? 'BUSINESS_RULE' : undefined));
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
@@ -80,10 +81,10 @@ export class FlujoCajaService implements IFlujoCajaService {
         };
     }
 
-    async libroGastos(mes: number, anio: number): Promise<TransaccionLibroDTO[]> {
+    async libroGastos(mes: number, anio: number, id_cuenta_bancaria?: number): Promise<TransaccionLibroDTO[]> {
         if (!Number.isInteger(mes) || mes < 1 || mes > 12) throw err('mes debe estar entre 1 y 12');
         if (!Number.isInteger(anio) || anio < 2000) throw err('anio inválido');
-        const rows = await this.repo.libroGastos(mes, anio);
+        const rows = await this.repo.libroGastos(mes, anio, id_cuenta_bancaria);
         return rows.map(r => ({ ...r, monto: r2(Number(r.monto)) }));
     }
 

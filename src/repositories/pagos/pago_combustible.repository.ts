@@ -1,5 +1,7 @@
 import { Pool, PoolConnection, ResultSetHeader } from 'mysql2/promise';
 import { IPagoCombustibleRepository, ConsumoCreditoGasolinera } from '../../ports/pagos/repository_port/pago_combustible.repository.interface';
+import { aplicarImpuesto4x1000 } from './impuesto.repository';
+import { AppError } from '../../errors/app-error';
 
 /**
  * Repositorio del pago de COMBUSTIBLE a la gasolinera (proveedor).
@@ -16,7 +18,7 @@ export class PagoCombustibleRepository implements IPagoCombustibleRepository {
         const [rows] = await this.conn(conn).execute<any[]>(
             `SELECT id FROM Categorias_CxP WHERE nombre = 'Combustible' LIMIT 1`
         );
-        if (!rows.length) throw new Error("No existe la categoría 'Combustible' en Categorias_CxP");
+        if (!rows.length) throw AppError.http(500, "No existe la categoría 'Combustible' en Categorias_CxP");
         return Number(rows[0].id);
     }
 
@@ -122,12 +124,15 @@ export class PagoCombustibleRepository implements IPagoCombustibleRepository {
     async insertarAbono(abono: any, conn: PoolConnection): Promise<number> {
         const [result] = await conn.execute<ResultSetHeader>(
             `INSERT INTO Abonos_CxP
-                (id_cuenta_pagar, fecha_abono, valor, metodo_pago, id_saldo_favor, comprobante_url, observaciones)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                (id_cuenta_pagar, fecha_abono, valor, metodo_pago, id_saldo_favor, comprobante_url, observaciones, id_cuenta_bancaria)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [abono.id_cuenta_pagar, abono.fecha_abono, abono.valor,
              abono.metodo_pago || 'transferencia', abono.id_saldo_favor ?? null,
-             abono.comprobante_url ?? null, abono.observaciones ?? null]
+             abono.comprobante_url ?? null, abono.observaciones ?? null, abono.id_cuenta_bancaria ?? null]
         );
+        await aplicarImpuesto4x1000(conn, {
+            id_abono_cxp: result.insertId, id_cuenta_bancaria: abono.id_cuenta_bancaria, valor_base: abono.valor, fecha: abono.fecha_abono
+        });
         return result.insertId;
     }
 

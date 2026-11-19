@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
-import { IExcedenteService } from '../../ports/material/excedente.interface';
+import { IExcedenteService } from '../../ports/material/excedente.interface';
+import { fail } from '../../errors/responder';
 
 const ok = (res: Response, data: any) => res.status(200).json({ success: true, data });
-const err = (res: Response, e: any) => res.status(e?.status || 500).json({ success: false, error: e.message || String(e), ...(e?.code && { code: e.code }) });
+const err = (res: Response, e: any) => fail(res, e);
 
 export class ExcedenteController {
     constructor(private service: IExcedenteService) {}

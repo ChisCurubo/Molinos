@@ -9,6 +9,7 @@ export interface MulaSQL {
     factura_num: string;
     foto_factura_url: string;
     valor: number;
+    retencion_fuente_manual?: number;
     comprobante_url: string;
     created_at: Date;
 }

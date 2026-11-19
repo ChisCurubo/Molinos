@@ -8,6 +8,9 @@ export interface AlquilerSQL {
     fecha_inicio: Date;
     concepto: string;
     valor: number;
+    valor_iva: number;
+    retencion_fuente_manual?: number;
+    reteiva_manual?: number;
     created_at: Date;
     deleted_at?: Date;
 }

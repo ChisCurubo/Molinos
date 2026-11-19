@@ -34,6 +34,7 @@ export class UsuarioRepository implements IUsuarioRepository {
         if (data.password_hash !== undefined) { updates.push('password_hash = ?'); values.push(data.password_hash); }
         if (data.id_rol !== undefined) { updates.push('id_rol = ?'); values.push(data.id_rol); }
         if (data.id_empleado !== undefined) { updates.push('id_empleado = ?'); values.push(data.id_empleado); }
+        if (data.debe_cambiar_password !== undefined) { updates.push('debe_cambiar_password = ?'); values.push(data.debe_cambiar_password); }
         if (data.activo !== undefined) { updates.push('activo = ?'); values.push(data.activo); }
 
         if (updates.length === 0) return false;

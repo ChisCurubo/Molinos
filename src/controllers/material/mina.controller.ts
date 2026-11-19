@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 
-import { IMinaService, IMineroService, IZonaService, ITarifaZonaService, IMinaPrecioMaterialService } from '../../ports/material/service_port/mina.service.interface';
+import { IMinaService, IMineroService, IZonaService, ITarifaZonaService, IMinaPrecioMaterialService } from '../../ports/material/service_port/mina.service.interface';
+import { fail } from '../../errors/responder';
+import { AppError } from '../../errors/app-error';
 
 const ok = (res: Response, data: any, meta?: any) =>
     res.status(200).json({ success: true, data, ...(meta && { meta }) });
 const err = (res: Response, error: any) =>
-    res.status(error?.status || 500).json({ success: false, error: error.message || String(error), ...(error?.code && { code: error.code }) });
+    fail(res, error);
 
 export class MinaController {
     constructor(
@@ -23,7 +25,7 @@ export class MinaController {
     getById = async (req: Request, res: Response) => {
         try {
             const data = await this.minaService.getById(Number(req.params.id));
-            if (!data) return res.status(404).json({ success: false, error: 'Mina no encontrada' });
+            if (!data) return fail(res, AppError.http(404, 'Mina no encontrada'));
             ok(res, data);
         } catch (e) { err(res, e); }
     };
@@ -87,7 +89,7 @@ export class MinaController {
     getTarifaZona = async (req: Request, res: Response) => {
         try {
             const data = await this.tarifaZonaService.getById(Number(req.params.id));
-            if (!data) return res.status(404).json({ success: false, error: 'Tarifa de zona no encontrada' });
+            if (!data) return fail(res, AppError.http(404, 'Tarifa de zona no encontrada'));
             ok(res, data);
         } catch (e) { err(res, e); }
     };
@@ -108,7 +110,7 @@ export class MinaController {
     getPrecioMaterial = async (req: Request, res: Response) => {
         try {
             const data = await this.precioMaterialService.getById(Number(req.params.id));
-            if (!data) return res.status(404).json({ success: false, error: 'Precio de material no encontrado' });
+            if (!data) return fail(res, AppError.http(404, 'Precio de material no encontrado'));
             ok(res, data);
         } catch (e) { err(res, e); }
     };
