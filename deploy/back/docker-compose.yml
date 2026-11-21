@@ -3,7 +3,7 @@
 name: molinos-back
 services:
   minio:
-    image: minio/minio:latest
+    image: pgsty/minio:latest   # fork comunitario: minio/minio ya no existe en Docker Hub
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
