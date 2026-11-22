@@ -5,6 +5,7 @@ dist/
 
 /graphify-out/
 /docs/
+/bd/
 # Export con datos reales de produccion: NO subir (repo publico)
 MolinosExport.sql
 

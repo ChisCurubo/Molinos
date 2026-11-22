@@ -1,0 +1,95 @@
+# Pipeline del backend: solo corre en cada push a main (o a mano desde la pestaña Actions).
+# 1) compila y prueba  2) si todo pasa, despliega en la VM molinos-back de Oracle  3) prueba producción.
+# No toca MySQL: ni importa, ni exporta, ni migra. Solo código del backend.
+name: Backend · probar y desplegar
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Un despliegue a la vez; si llegan dos pushes seguidos, el segundo espera (no se cancela).
+concurrency:
+  group: backend-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    name: Compilar y probar
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci --no-audit --no-fund
+
+      - name: Revisión de tipos (TypeScript)
+        run: npx tsc --noEmit
+
+      - name: Pruebas unitarias (detección de modo local/oracle)
+        run: npx --yes tsx scripts/probar-entorno.ts
+
+      - name: Compilar
+        run: npm run build
+
+      - name: Construir la imagen Docker del servidor
+        run: docker build -f deploy/back/Dockerfile -t molinos-api:ci .
+
+      - name: Validar el docker-compose del servidor
+        run: |
+          DB_HOST=x DB_USER=x DB_PASSWORD=x JWT_SECRET=x MINIO_ROOT_USER=x MINIO_ROOT_PASSWORD=x \
+            docker compose -f deploy/back/docker-compose.yml config -q
+
+      - name: Auditoría de dependencias (solo informa)
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=critical
+
+  desplegar:
+    name: Desplegar en Oracle (molinos-back)
+    needs: pruebas
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: produccion
+      url: ${{ vars.PUBLIC_URL }}
+    steps:
+      - name: Preparar llave SSH de despliegue
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      # La llave solo puede ejecutar "sudo /opt/molinos/update.sh" en la VM (forced command):
+      # git pull de main + docker compose up --build + espera a que /api/v1/health responda.
+      - name: Desplegar (git pull + build + reinicio en la VM)
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+        run: ssh -i ~/.ssh/id_deploy -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=30 "ubuntu@$DEPLOY_HOST" desplegar
+
+      - name: Prueba de humo en producción
+        env:
+          URL: ${{ vars.PUBLIC_URL }}
+        run: |
+          for i in $(seq 1 20); do
+            R=$(curl -fs --max-time 10 "$URL/api/v1/health" || true)
+            echo "$R" | grep -q '"db":"ok"' && echo "$R" | grep -q '"ok":true' && { echo "OK $R"; exit 0; }
+            sleep 6
+          done
+          echo "Producción no responde bien: $R"; exit 1
+
+      - name: Borrar la llave
+        if: always()
+        run: rm -f ~/.ssh/id_deploy
