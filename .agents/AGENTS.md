@@ -1,50 +1,32 @@
-# Arquitectura y Reglas de Diseño del Proyecto Molinos
+# Arquitectura y reglas del proyecto Molinos (para cualquier agente: Claude, Cursor, Cline, Antigravity…)
 
-Este documento establece la arquitectura completa, las reglas de diseño y las convenciones que deben seguir estrictamente todos los agentes (Antigravity, Claude, Cursor, Cline, etc.) al trabajar en el repositorio.
+Backend Node 22 + TypeScript + Express + MySQL (`mysql2`, SQL a mano). Las reglas completas y vigentes están en
+`.claude/CLAUDE.md`; este archivo resume la estructura de código.
 
-## 1. Arquitectura General y Módulos
+## 1. Capas (`src/`)
 
-El proyecto está diseñado bajo una arquitectura en capas, donde la lógica de negocio se distribuye en módulos funcionales transversales. La carpeta principal es `src/`.
+`routes → controllers → ports/service_port → services → ports/repository_port → repositories → MySQL`
 
-### Estructura de Capas
-- `config/`: Configuración global de la aplicación (base de datos, variables de entorno, etc.).
-- `controllers/`: Controladores que manejan las peticiones HTTP y envían las respuestas.
-- `helpers/`: Funciones auxiliares y utilidades compartidas.
-- `interfaces/`: Definiciones de tipos e interfaces de TypeScript.
-- `models/`: Definiciones de las estructuras de datos y entidades. Subdividido en:
-  - `app/`: Modelos para el uso interno de la aplicación.
-  - `sql/`: Modelos mapeados directamente a las tablas de la BD.
-  - `dto/`: Objetos de Transferencia de Datos (Data Transfer Objects).
-- `repositories/`: Capa de abstracción de datos para comunicarse de forma directa con la base de datos (consultas SQL).
-- `routes/`: Definición de los endpoints y enrutamiento de la API.
-- `services/`: Lógica de negocio de la aplicación.
+- `config/`: entorno (`entorno.ts` detecta modo `oracle`/`local`), `config.ts`, `cors.ts`, BD, Swagger y **`factories/`** (toda clase se crea e inyecta ahí).
+- `controllers/`, `routes/`, `services/`, `repositories/`, `ports/` (interfaces de servicios y repositorios).
+- `models/<módulo>/{app,dto,sql}`: `sql/` = tablas de la BD; `dto/` = transferencia; `app/` = uso interno.
+- `errors/` (contrato de errores), `middlewares/` (requestId, respuesta estándar, errores), `helpers/` (auth, rate limit, `sql.helper`, mailer, upload, validación).
 
-### Módulos Funcionales
-Dentro de las capas principales (`controllers`, `interfaces`, `models`, `repositories`, `routes`, `services`), el código SIEMPRE se subdivide en los siguientes **módulos por funcionalidad**:
-- `auth/`: Autenticación y autorización.
-- `material/`: Gestión de materiales (volquetas, plantas, análisis).
-- `nomina/`: Gestión de nómina, empleados y turnos.
-- `pagos/`: Gestión de pagos (cuentas por pagar).
+## 2. Módulos funcionales
 
-**REGLA:** Nunca se deben crear archivos sueltos en la raíz de una capa. Siempre ubica tu archivo dentro del módulo funcional correspondiente.
+`auth`, `material`, `nomina`, `pagos`, `archivos`, `inventario_productos`, `info`. En cada capa el código va **siempre dentro de su módulo**; nunca archivos sueltos en la raíz de una capa.
 
-## 2. Definición de la Base de Datos
+## 3. Reglas
 
-- **Archivo Maestro**: Toda la estructura, comentarios y definición del esquema de la base de datos se encuentra especificada en el archivo `@molinos_coments_v4` (`molinos_coments_v4.sql`) ubicado en la raíz del proyecto. 
-- Al crear nuevas entidades, modelos o repositorios, SIEMPRE lee y básate en `@molinos_coments_v4` para entender los tipos de datos, llaves foráneas y reglas de negocio reales de la base de datos.
+- 1 entidad de BD = 1 modelo + 1 repositorio (no agrupar entidades en un archivo).
+- Nombres `.tipo.ts`: `src/routes/nomina/turno.routes.ts`, `src/repositories/pagos/cxp.repository.ts`.
+- Cada método nuevo se declara en el puerto (service y repository) **antes** de implementarlo.
+- Rutas nuevas también en el `API_MAP` de `info.controller.ts`.
+- Errores según `ESTANDAR_ERRORES.md`.
+- Pruebas: `tests/<módulo>/*.endpoints.test.mjs` (servidor en `:3005`).
 
-## 3. Convención de Nombres de Archivos
+## 4. Base de datos
 
-- Se utiliza el estándar de nombramiento en formato `.tipo.ts` (también conocido como `.carpeta.ts`), alineado con la capa arquitectónica de la entidad.
-- **Ejemplos por capa:**
-  - Rutas: `src/routes/nomina/turno.routes.ts`
-  - Controladores: `src/controllers/material/aguaPlanta.controller.ts`
-  - Modelos SQL: `src/models/material/sql/analisis.sql.ts`
-  - Repositorios: `src/repositories/pagos/cxp.repository.ts`
-
-## 4. Diseño de Entidades (Models y Repositories)
-
-- **Regla Estricta (No escatimar en archivos)**: Por cada entidad en la base de datos, debes crear de forma independiente y aislada:
-  - **1 archivo en `models`** (dentro del módulo correspondiente).
-  - **1 archivo en `repositories`** (dentro del módulo correspondiente).
-- **Prohibido:** Agrupar múltiples entidades de base de datos en un solo archivo. Aunque los archivos queden pequeños, mantener la separación de responsabilidades 1:1 entre Entidad de BD y Archivo en código es la mejor práctica y la arquitectura deseada para este proyecto.
+- Fuente de verdad: `bd/molinos_coments_v4.sql` (y `bd/molinos_v4.sql`). La carpeta `bd/` está ignorada por git; ahí también están vistas, triggers, inserts y `bd/migraciones/`.
+- Las migraciones las aplica el usuario. El inventario y parte de la maquila siguen en triggers; no los dupliques en código sin confirmar.
+- Antes de crear una tabla nueva, pregunta: se prefiere una columna en una tabla existente.

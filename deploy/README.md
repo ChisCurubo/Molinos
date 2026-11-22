@@ -42,7 +42,7 @@ Variables completas: `.env.example`.
 - La app usa `molinos_app` (SELECT/INSERT/UPDATE/DELETE/EXECUTE). Su clave está en `/opt/molinos/db.env` de la VM back; **nunca** en el repo.
 - El administrador (`molinosadmin`) solo se usa desde Cloud Shell o por túnel SSH.
 - Túnel a MySQL desde tu PC: `ssh -i molinos_oracle_ed25519 -L 3307:10.0.1.30:3306 ubuntu@<ip-publica-back>` y conectar a `127.0.0.1:3307`.
-- Carga inicial de la BD: `deploy/back/db/load.sh` (esquema + vistas).
+- Carga inicial de la BD: `deploy/back/db/load.sh` (esquema + vistas, tomados de `bd/molinos_v4.sql` y `bd/vistas_v4.sql`; `bd/` no se versiona, hay que copiarlos a la VM).
 
 ## CORS
 
@@ -77,12 +77,32 @@ Carpetas permitidas: `comprobantes`, `soportes`, `fotos`. En modo `local` los ar
 
 Contrato único backend/frontend: `ESTANDAR_ERRORES.md` (raíz). Catálogo vivo: `GET /api/v1/info/errores`. Para depurar, buscar el `requestId` del error en el log.
 
+## Pipeline de despliegue automático (GitHub Actions)
+
+`.github/workflows/pipeline.yml`, solo en push a `main` (o a mano desde Actions):
+1. **Pruebas:** `npm ci` → `tsc --noEmit` → `scripts/probar-entorno.ts` → `npm run build` → `docker build` → `docker compose config -q` → `npm audit` (solo informa).
+2. **Desplegar** (entorno `produccion`): SSH como `ubuntu` con una llave cuyo *forced command* solo ejecuta `sudo /opt/molinos/update.sh` (git pull de la rama + `docker compose up --build` + espera al health).
+3. **Prueba de humo:** `GET $PUBLIC_URL/api/v1/health` debe dar `"ok":true` y `"db":"ok"`.
+
+Configuración en GitHub (Settings → Secrets and variables → Actions), nunca en el repo:
+
+| Tipo | Nombre | Contenido |
+|---|---|---|
+| Secret | `DEPLOY_SSH_KEY` | llave privada de despliegue |
+| Variable | `DEPLOY_HOST` | IP pública de `molinos-back` |
+| Variable | `DEPLOY_KNOWN_HOSTS` | salida de `ssh-keyscan -t ed25519,ecdsa,rsa <DEPLOY_HOST>` (3 líneas) |
+| Variable | `PUBLIC_URL` | URL pública del front (`https://<ip-con-guiones>.sslip.io`) |
+
+Variables de la API en la VM: las secretas (`DB_PASSWORD`, `JWT_SECRET`, `MINIO_ROOT_*`, `SMTP_USER`, `SMTP_PASS`) van en `/opt/molinos/*.env` y entran al compose como `${VAR}`; las no secretas van fijas en `deploy/back/docker-compose.yml`. Las `ORACLE_*` y `PILOTO_*` del `.env` local no se usan en servidor.
+
+> La rama que despliega la VM está en `/opt/molinos/branches.env`: debe ser `main` para que el pipeline despliegue lo que se acaba de probar.
+
 ## Actualizar el servidor
 
 ```bash
 ssh -i molinos_oracle_ed25519 ubuntu@<ip-vm> 'sudo /opt/molinos/update.sh'
 ```
-Hacerlo en `molinos-back` y luego en `molinos-front`. `update.sh` hace `git fetch/reset` de la rama configurada en `/opt/molinos/branches.env` (back: `feat/juliana-dev`) y llama a `setup-back.sh`, que arma `/opt/molinos/.env` (= `db.env` + `secrets.env` + `front_url.env`), reconstruye con `docker compose` y espera hasta 90 s el health.
+Hacerlo en `molinos-back` y luego en `molinos-front`. `update.sh` hace `git fetch/reset` de la rama configurada en `/opt/molinos/branches.env` (back: `main`) y llama a `setup-back.sh`, que arma `/opt/molinos/.env` (= `db.env` + `secrets.env` + `front_url.env`), reconstruye con `docker compose` y espera hasta 90 s el health.
 
 ## Poner la URL del front (una vez)
 
@@ -103,7 +123,7 @@ sudo docker compose -p molinos-back logs -f minio
 
 - Deben existir: `deploy/update.sh`, `deploy/back/setup-back.sh`, `deploy/back/docker-compose.yml` (con la palabra `HeatWave`) y `deploy/front/setup-front.sh` (wrapper que delega al repo del front).
 - `/opt/molinos/db.env` lo pone cloud-init; `secrets.env` y `front_url.env` los crea `setup-back.sh`.
-- El repo es público: cero secretos, cero `.env`, nunca `MolinosExport.sql`.
+- El repo es público: cero secretos, cero `.env`, nunca `MolinosExport.sql` ni la carpeta `bd/`.
 
 ## Probar el modo oracle en tu PC (Docker Desktop)
 

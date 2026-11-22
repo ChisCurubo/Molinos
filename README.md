@@ -1,149 +1,95 @@
-# 🌾 Molinos de Colombia S.A.S. - Sistema Backend
+# Molinos de Colombia S.A.S. — Backend del ERP
 
-Este es el repositorio del servidor backend desarrollado en **Node.js (TypeScript)** para **Molinos de Colombia S.A.S.** El objetivo principal de este sistema es centralizar y digitalizar todas las operaciones de la compañía, exponiendo una API REST robusta y escalable que se comunica con una base de datos **MySQL** y está documentada mediante **Swagger**.
+API REST en **Node 22 + TypeScript + Express** sobre **MySQL**, que digitaliza la operación de la planta: llegada y análisis de material, procesamiento y concentrado, pagos a terceros, nómina y tesorería.
 
----
+## Stack
 
-## 🚀 Propósito del Proyecto
+| Componente | Tecnología |
+|---|---|
+| Lenguaje / framework | TypeScript, Express 5 |
+| Base de datos | MySQL (`mysql2`, SQL a mano, transacciones nativas). En producción: MySQL HeatWave de Oracle |
+| Autenticación | JWT en cookie `httpOnly` (el token en el body solo en transición) |
+| Archivos | MinIO (`pgsty/minio`) en producción; disco local en desarrollo |
+| Seguridad | `helmet`, rate limit, CORS por lista, nombres de columna validados |
+| Documentación de API | Swagger en `/api-docs` (**solo fuera de producción**) y mapa vivo en `GET /api/v1/info` |
+| CI/CD | GitHub Actions → Oracle Cloud (ver `deploy/README.md`) |
 
-Molinos de Colombia S.A.S. requiere modernizar y unificar el flujo de sus datos y procesos operativos. Este backend servirá como el núcleo lógico del negocio, gestionando de forma centralizada:
-* El control de llegada de materias primas (volquetas, material de mina).
-* El registro de análisis de laboratorio y cálculo dinámico de precios y costos (fases del negocio).
-* La gestión de servicios externos (Agua para la planta, liquidaciones).
-* Autenticación, gestión de empleados y roles.
+## Arquitectura
 
----
+Capas con puertos y adaptadores; toda la inyección de dependencias está en `src/config/factories/`.
 
-## 🛠️ Stack Tecnológico
-
-El backend se construye bajo estándares modernos de la industria para garantizar rendimiento y mantenibilidad:
-
-| Componente | Tecnología | Descripción |
-| :--- | :--- | :--- |
-| **Lenguaje** | Node.js con TypeScript | Elegido por su ecosistema robusto y tipado estático que evita errores en tiempo de ejecución. |
-| **Framework Web** | [Express.js](https://expressjs.com/) | Framework minimalista y de alto rendimiento para APIs REST. |
-| **Base de Datos** | MySQL | Motor relacional robusto. Toda la lógica del negocio está respaldada por esquemas estrictos. |
-| **Acceso a Datos** | `mysql2` | Driver de MySQL para consultas raw. Implementamos queries transaccionales nativos. |
-| **Autenticación** | JWT (JSON Web Tokens) | Protocolo seguro y sin estado para la autenticación de usuarios. |
-| **Documentación** | Swagger UI (`swagger-ui-express`) | Documentación gráfica e interactiva para facilitar la integración con el frontend. |
-
----
-
-## 📐 Arquitectura del Software (Clean Architecture)
-
-Para asegurar la separación de responsabilidades, un alto acoplamiento lógico y permitir la mantenibilidad a largo plazo, utilizamos **Clean Architecture** estructurada por capas y **Puertos / Adaptadores**:
-
-```mermaid
-graph TD
-    SubGraph1[Controladores / Rutas (Express)] --> SubGraph2[Puertos (Interfaces de Inyección)]
-    SubGraph2 --> SubGraph3[Servicios (Casos de Uso / Lógica de Negocio)]
-    SubGraph3 --> SubGraph4[Repositorios (Consultas SQL MySQL)]
-    
-    style SubGraph2 fill:#f9f,stroke:#333,stroke-width:2px
 ```
-
-### Inyección de Dependencias y Factories
-
-Hemos adoptado un modelo estricto de **Inyección de Dependencias (DI)**. 
-- Los **Controladores** solo reciben **Servicios** a través de su constructor.
-- Los **Servicios** solo reciben **Repositorios** u otros servicios a través de su constructor.
-- La instanciación de todas las clases y la inyección de dependencias está centralizada en los archivos `src/config/factories/` y `src/config/factory.ts`.
-
-### Estructura de Directorios
+routes → controllers → ports/service_port → services → ports/repository_port → repositories → MySQL
+```
 
 ```text
-├── src/
-│   ├── config/             # Carga y gestión global (Database, variables, Swagger)
-│   ├── controllers/        # Controladores HTTP (Req, Res) por módulo funcional
-│   ├── helpers/            # Funciones utilitarias (fechas, parseos)
-│   ├── models/             # Modelos (SQL DTOs, Entidades TypeScript)
-│   ├── ports/              # Clean Architecture: Interfaces para inyección de dependencias
-│   │   ├── repository_port/  # Interfaces de los repositorios
-│   │   └── service_port/     # Interfaces de los servicios
-│   ├── repositories/       # Abstracción directa hacia la BD (Queries SQL y Transacciones)
-│   ├── routes/             # Enrutadores principales de la API (Endpoints)
-│   ├── services/           # Reglas del negocio y orquestación
-│   └── app.ts              # Inicialización de la aplicación de Express
-├── @molinos_coments_v4.sql # Esquema maestro y reglas nativas de la base de datos
-├── .clinerules             # Reglas para agentes de IA que asisten en el desarrollo
-└── package.json            # Dependencias del proyecto
+src/
+├── config/        entorno (modo oracle/local), config, cors, BD, swagger, factories/
+├── controllers/   HTTP por módulo
+├── errors/        contrato único de errores
+├── helpers/       auth, rate limit, sql.helper, mailer, upload, validación
+├── middlewares/   requestId, respuesta estándar, manejo de errores
+├── models/        <módulo>/{app,dto,sql}
+├── ports/         interfaces de servicios y repositorios
+├── repositories/  SQL y transacciones
+├── routes/        /api/v1/*
+├── services/      reglas de negocio
+└── app.ts
 ```
 
----
+Otras carpetas: `tests/` (pruebas de endpoints), `scripts/` (Postman, mapa de endpoints, prueba de entorno), `deploy/` (Docker, scripts de la VM), `.github/workflows/` (pipeline), `.claude/` y `.agents/` (reglas para agentes de IA).
 
-## 📌 Módulos Principales del Sistema
+## Módulos
 
-1. **Gestión de Autenticación (`auth/`)**
-   * Registro, login, emisión de tokens JWT.
-2. **Gestión de Materiales y Costos (`material/`)**
-   * Registro de llegada de volquetas a la planta (Fase 1).
-   * Ingreso de Análisis de Laboratorio y detonación de la lógica de negocio (Fases 2 a 5).
-   * Consultas al sistema de Precios Activos por minero/zona.
-   * Gestión del Agua Planta (registro de viajes, consolidación por dueño de volqueta).
-3. **Módulo de Nómina (`nomina/`)**
-   * Empleados y control de turnos.
-4. **Cuentas por Pagar (`pagos/`)**
-   * Gestión de proveedores y flujo de cuentas.
+| Módulo | Qué cubre |
+|---|---|
+| `auth` | Login, usuarios, roles, recuperación de contraseña |
+| `material` | Minas y zonas, tarifas, volquetas, entradas, análisis, lotes de concentrado, viajes, agua, inventario, maquila, excedente |
+| `pagos` | Material, flete, agua, combustible/ACPM, mulas, alquiler, proveedores, gasto directo, anticipos, CxP/CxC, préstamos financieros, tesorería y flujo de caja, impuestos (4x1000), retenciones |
+| `nomina` | Empleados, turnos y calendario, nómina quincenal, bonos, prestaciones, seguridad social, jornada nocturna legal, recargo dominical/festivo, préstamos a empleados |
+| `inventario_productos` | Insumos con costo promedio ponderado |
+| `archivos` | Subida, descarga y borrado de comprobantes |
+| `info` | Mapa de endpoints y catálogo de errores |
 
----
+Estado detallado y pendientes: `docs/estado/ESTADO_MODULOS.md` y `docs/pendiente/PENDIENTE.md` (carpeta `docs/` local, no versionada).
 
-## 📋 Documentación de la API (Swagger)
+## Base de datos
 
-Toda la documentación detallada de cada endpoint, sus parámetros, tipos y respuestas está autogenerada en una interfaz gráfica. 
+- Esquema con comentarios (fuente de verdad): `bd/molinos_coments_v4.sql`; esquema limpio: `bd/molinos_v4.sql`.
+- Vistas, triggers, inserts y migraciones con fecha: `bd/`, `bd/migraciones/`. La carpeta `bd/` **no se versiona**.
+- El inventario y parte de la maquila siguen en triggers; el resto de la lógica vive en los services.
+- Las migraciones las aplica una persona a mano.
 
-Una vez iniciado el servidor, dirígete a:
-**`http://localhost:3000/api-docs`**
+## Correr en local
 
-Allí encontrarás todo el detalle de rutas como:
-* `/api/v1/material/entrada`
-* `/api/v1/material/analisis`
-* `/api/v1/material/agua`
-* Y podrás ejecutar peticiones de prueba directo desde el navegador.
+Requisitos: Node 22, MySQL con la BD `molinos_erp_v4` cargada.
 
----
+```bash
+npm ci
+cp .env.example .env     # completar DB_PASSWORD y JWT_SECRET
+npm run dev              # http://localhost:3005, recarga al editar
+```
 
-## 🛠️ Configuración y Ejecución Local
+Comprobaciones (las mismas del pipeline):
 
-### Prerrequisitos
-* **Node.js** (Versión 18 o superior recomendada)
-* **MySQL** (Con la base de datos `molinos` creada)
-* Un cliente HTTP o simplemente el navegador usando Swagger.
+```bash
+npx tsc --noEmit
+npx tsx scripts/probar-entorno.ts
+npm run build
+```
 
-### Pasos para iniciar
+Pruebas de endpoints (servidor levantado en `:3005`, usan la BD real con datos aislados):
 
-1. **Clonar el repositorio e instalar dependencias:**
-   ```bash
-   git clone <URL_DEL_REPOSITORIO>
-   cd MolinosBack/Molinos
-   npm install
-   ```
+```bash
+node tests/pagos/pago_flete.endpoints.test.mjs
+```
 
-2. **Configuración de Entorno:**
-   Duplicar el archivo `.env.example` y renombrarlo a `.env`.
-   Asegúrate de llenar las credenciales de la BD MySQL:
-   ```env
-   PORT=3000
-   DB_HOST=localhost
-   DB_USER=root
-   DB_PASSWORD=tu_password
-   DB_NAME=molinos
-   JWT_SECRET=tu_secreto_seguro
-   ```
+## Despliegue
 
-3. **Ejecutar el servidor en modo desarrollo:**
-   ```bash
-   npm run dev
-   ```
-   *El servidor iniciará por defecto en el puerto configurado (ej. 3000) y aplicará 'watch' para recargar los cambios.*
+Push a `main` → `.github/workflows/pipeline.yml`: tipos, prueba de entorno, build, imagen Docker, validación del compose, despliegue por SSH a la VM `molinos-back` y prueba de humo en `/api/v1/health`. No toca la base de datos. Operación completa (VMs, MinIO, CORS, logs, actualización manual): `deploy/README.md`.
 
-4. **Compilación a Producción:**
-   ```bash
-   npm run build
-   npm run start
-   ```
+## Convenciones
 
----
-
-## 🤖 Reglas para Agentes de IA (`.clinerules`)
-
-El desarrollo de este proyecto se apoya en agentes de IA. Cualquier contribuyente o agente (Cursor, Cline, Antigravity) debe referirse estrictamente al archivo `.clinerules` presente en la raíz antes de agregar, modificar o renombrar directorios y lógicas. El principio máximo es la **separación por funcionalidades (Módulos)** y el respeto por el patrón de **Ports and Adapters**.
+- Errores: `ESTANDAR_ERRORES.md` (cuerpo, códigos, 4xx vs 5xx, cómo depurar con `requestId`).
+- Reglas de código y de trabajo con agentes: `.claude/CLAUDE.md` y `.agents/AGENTS.md`.
+- Nunca subir secretos: `.env`, llaves, `MolinosExport.sql` y la carpeta `bd/` están ignorados.
